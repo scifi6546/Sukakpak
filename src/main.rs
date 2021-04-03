@@ -76,6 +76,7 @@ fn main() {
         .application_info(&app_info)
         .enabled_layer_names(&layer_names_raw)
         .enabled_extension_names(&extension_names_raw);
+
     let instance =
         unsafe { entry.create_instance(&create_info, None) }.expect("failed to create instance");
     let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
@@ -121,7 +122,7 @@ fn main() {
     .next()
     .expect("could not get physical device");
     let queue_family_index = queue_family_index as u32;
-    let device_extension_name = [Swapchain::name().as_ptr()];
+    let device_extension_names_raw = [Swapchain::name().as_ptr()];
     let features = vk::PhysicalDeviceFeatures {
         shader_clip_distance: 1,
         ..Default::default()
@@ -133,10 +134,10 @@ fn main() {
         .build()];
     let device_create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_info)
-        .enabled_extension_names(&extension_names_raw)
+        .enabled_extension_names(&device_extension_names_raw)
         .enabled_features(&features);
     let device = unsafe { instance.create_device(pdevice, &device_create_info, None) }
-        .expect("failed ot create device");
+        .expect("failed to create device");
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
