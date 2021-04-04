@@ -371,6 +371,13 @@ fn main() {
             }
         })
         .collect();
+    let command_pool_create_info =
+        vk::CommandPoolCreateInfo::builder().queue_family_index(queue_family_index);
+    let pool = unsafe {
+        device
+            .create_command_pool(&command_pool_create_info, None)
+            .expect("failed to create command pool")
+    };
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -379,5 +386,4 @@ fn main() {
         } => *control_flow = ControlFlow::Exit,
         _ => (),
     });
-    println!("Hello, world!");
 }
