@@ -206,7 +206,7 @@ fn main() {
     let swap_chain =
         unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap();
     let present_images = unsafe { swapchain_loader.get_swapchain_images(swap_chain) }.unwrap();
-    let present_iamge_views: Vec<vk::ImageView> = present_images
+    let present_image_views: Vec<vk::ImageView> = present_images
         .iter()
         .map(|&image| {
             let create_image_view_info = vk::ImageViewCreateInfo::builder()
@@ -354,6 +354,23 @@ fn main() {
     let graphics_pipeline = unsafe {
         device.create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
     };
+    let framebuffers: Vec<vk::Framebuffer> = present_image_views
+        .iter()
+        .map(|image_view| {
+            let attachments = [*image_view];
+            let create_info = vk::FramebufferCreateInfo::builder()
+                .render_pass(renderpass)
+                .attachments(&attachments)
+                .width(surface_resolution.width)
+                .height(surface_resolution.height)
+                .layers(1);
+            unsafe {
+                device
+                    .create_framebuffer(&create_info, None)
+                    .expect("failed to create_framebuffer")
+            }
+        })
+        .collect();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
