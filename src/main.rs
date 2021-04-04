@@ -387,6 +387,12 @@ fn main() {
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("failed to allocate command buffer")
     }[0];
+    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
+    unsafe {
+        device
+            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+            .expect("failed to create command buffer")
+    };
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
