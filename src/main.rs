@@ -253,23 +253,21 @@ fn main() {
             .expect("failed to createlayout")
     };
     let shader_entry_name = CString::new("main").unwrap();
-    let shader_stage_create_infos = unsafe {
-        [
-            vk::PipelineShaderStageCreateInfo {
-                module: vert_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::FRAGMENT,
-                ..Default::default()
-            },
-            vk::PipelineShaderStageCreateInfo {
-                s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
-                module: frag_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::FRAGMENT,
-                ..Default::default()
-            },
-        ]
-    };
+    let shader_stage_create_infos = [
+        vk::PipelineShaderStageCreateInfo {
+            module: vert_shader_module,
+            p_name: shader_entry_name.as_ptr(),
+            stage: vk::ShaderStageFlags::VERTEX,
+            ..Default::default()
+        },
+        vk::PipelineShaderStageCreateInfo {
+            s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
+            module: frag_shader_module,
+            p_name: shader_entry_name.as_ptr(),
+            stage: vk::ShaderStageFlags::FRAGMENT,
+            ..Default::default()
+        },
+    ];
     let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo {
         vertex_attribute_description_count: 0,
         vertex_binding_description_count: 0,
@@ -298,7 +296,8 @@ fn main() {
         .line_width(1.0)
         .polygon_mode(vk::PolygonMode::FILL)
         .cull_mode(vk::CullModeFlags::BACK)
-        .depth_bias_enable(false);
+        .depth_bias_enable(false)
+        .build();
     let multi_sample_state_info = vk::PipelineMultisampleStateCreateInfo {
         rasterization_samples: vk::SampleCountFlags::TYPE_1,
         ..Default::default()
@@ -339,6 +338,21 @@ fn main() {
         device
             .create_render_pass(&render_pass_create_info, None)
             .expect("failed to create renderpass")
+    };
+    let graphics_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+        .stages(&shader_stage_create_infos)
+        .vertex_input_state(&vertex_input_state_info)
+        .input_assembly_state(&input_assembly)
+        .viewport_state(&viewport_state_info)
+        .rasterization_state(&rasterization_info)
+        .multisample_state(&multi_sample_state_info)
+        .color_blend_state(&color_blend_state)
+        .dynamic_state(&dynamic_state_info)
+        .layout(pipeline_layout)
+        .render_pass(renderpass)
+        .build();
+    let graphics_pipeline = unsafe {
+        device.create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
     };
 
     event_loop.run(move |event, _, control_flow| match event {
