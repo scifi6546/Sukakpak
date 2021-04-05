@@ -379,21 +379,40 @@ fn main() {
             .expect("failed to create command pool")
     };
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-        .command_buffer_count(1)
+        .command_buffer_count(framebuffers.len() as u32)
         .command_pool(pool)
         .level(vk::CommandBufferLevel::PRIMARY);
-    let command_buffer = unsafe {
+    let command_buffers = unsafe {
         device
             .allocate_command_buffers(&command_buffer_allocate_info)
             .expect("failed to allocate command buffer")
-    }[0];
-    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
-    unsafe {
-        device
-            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-            .expect("failed to create command buffer")
     };
 
+    for (command_buffer, framebuffer) in command_buffers.iter().zip(framebuffers.iter()) {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
+        unsafe {
+            device
+                .begin_command_buffer(*command_buffer, &command_buffer_begin_info)
+                .expect("failed to create command buffer");
+            let renderpass_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(renderpass)
+                .framebuffer(*framebuffer)
+                .render_area(vk::Rect2D {
+                    extent: surface_resolution,
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                })
+                .clear_values(&[vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.1, 0.1, 0.1, 1.0],
+                    },
+                }]);
+            device.cmd_begin_render_pass(
+                *command_buffer,
+                &renderpass_info,
+                vk::SubpassContents::INLINE,
+            );
+        };
+    }
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             event: WindowEvent::CloseRequested,
