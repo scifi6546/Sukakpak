@@ -432,6 +432,18 @@ fn main() {
                 .expect("failed to create command buffer");
         };
     }
+    let fences: Vec<vk::Fence> = command_buffers
+        .iter()
+        .map(|_| {
+            let fence_create_info =
+                vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+            unsafe {
+                device
+                    .create_fence(&fence_create_info, None)
+                    .expect("failed to create fence")
+            }
+        })
+        .collect();
     let semaphore_create_info = vk::SemaphoreCreateInfo::builder().build();
     let image_available_semaphore =
         unsafe { device.create_semaphore(&semaphore_create_info, None) }
@@ -439,6 +451,7 @@ fn main() {
     let render_finished_semaphore =
         unsafe { device.create_semaphore(&semaphore_create_info, None) }
             .expect("failed to create semaphore");
+
     event_loop.run(move |event, _, control_flow| {
         unsafe {
             let (image_index, _) = swapchain_loader
@@ -449,6 +462,12 @@ fn main() {
                     vk::Fence::null(),
                 )
                 .expect("failed to aquire image");
+            device
+                .wait_for_fences(&[fences[image_index as usize]], true, u64::MAX)
+                .expect("failed to wait for fence");
+            device
+                .reset_fences(&[fences[image_index as usize]])
+                .expect("failed to reset fence");
 
             let signal_semaphores = [render_finished_semaphore];
             let submit_info = vk::SubmitInfo::builder()
@@ -458,7 +477,7 @@ fn main() {
                 .signal_semaphores(&signal_semaphores)
                 .build();
             device
-                .queue_submit(present_queue, &[submit_info], vk::Fence::null())
+                .queue_submit(present_queue, &[submit_info], fences[image_index as usize])
                 .expect("failed to submit queue");
             let wait_semaphores = [swap_chain];
             let image_indices = [image_index];
@@ -466,7 +485,9 @@ fn main() {
                 .wait_semaphores(&signal_semaphores)
                 .swapchains(&wait_semaphores)
                 .image_indices(&image_indices);
-            swapchain_loader.queue_present(present_queue, &present_info);
+            swapchain_loader
+                .queue_present(present_queue, &present_info)
+                .expect("failed to present queue");
         }
         match event {
             Event::WindowEvent {
