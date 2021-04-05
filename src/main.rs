@@ -1,5 +1,6 @@
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 
+mod graphics;
 use ash::{
     extensions::{
         ext::DebugUtils,
@@ -8,6 +9,7 @@ use ash::{
     util::*,
     vk, Entry,
 };
+use graphics::Context;
 use std::{
     borrow::Cow,
     ffi::{CStr, CString},
@@ -59,6 +61,9 @@ fn main() {
         .with_inner_size(winit::dpi::LogicalSize::new(1000, 1000))
         .build(&event_loop)
         .unwrap();
+    {
+        let _context = Context::new(&window);
+    }
     // Creating Vulkan context
     //
     let entry = unsafe { Entry::new() }.unwrap();
@@ -88,8 +93,7 @@ fn main() {
     let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
         .message_severity(
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
         )
         .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
         .pfn_user_callback(Some(vulkan_debug_callback));
@@ -309,7 +313,6 @@ fn main() {
     let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
         .logic_op(vk::LogicOp::CLEAR)
         .attachments(&color_blend_attachment_states);
-    let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
 
     let color_attachment = [vk::AttachmentDescription::builder()
         .format(surface_format.format)
@@ -493,7 +496,10 @@ fn main() {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *control_flow = ControlFlow::Exit,
+            } => {
+                unsafe { device.device_wait_idle().expect("failed to wait idle") };
+                *control_flow = ControlFlow::Exit
+            }
             _ => (),
         }
     });
