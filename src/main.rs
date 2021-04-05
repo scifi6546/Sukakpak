@@ -329,9 +329,19 @@ fn main() {
         .color_attachments(&color_attachment_refs)
         .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
         .build()];
+
+    let subpass_dependencies = [vk::SubpassDependency::builder()
+        .src_subpass(vk::SUBPASS_EXTERNAL)
+        .dst_subpass(0)
+        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+        .src_access_mask(vk::AccessFlags::empty())
+        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+        .build()];
     let render_pass_create_info = vk::RenderPassCreateInfo::builder()
         .attachments(&color_attachment)
-        .subpasses(&subpasses);
+        .subpasses(&subpasses)
+        .dependencies(&subpass_dependencies);
     let renderpass = unsafe {
         device
             .create_render_pass(&render_pass_create_info, None)
@@ -422,11 +432,48 @@ fn main() {
                 .expect("failed to create command buffer");
         };
     }
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => *control_flow = ControlFlow::Exit,
-        _ => (),
+    let semaphore_create_info = vk::SemaphoreCreateInfo::builder().build();
+    let image_available_semaphore =
+        unsafe { device.create_semaphore(&semaphore_create_info, None) }
+            .expect("failed to create semaphore");
+    let render_finished_semaphore =
+        unsafe { device.create_semaphore(&semaphore_create_info, None) }
+            .expect("failed to create semaphore");
+    event_loop.run(move |event, _, control_flow| {
+        unsafe {
+            let (image_index, _) = swapchain_loader
+                .acquire_next_image(
+                    swap_chain,
+                    u64::MAX,
+                    image_available_semaphore,
+                    vk::Fence::null(),
+                )
+                .expect("failed to aquire image");
+
+            let signal_semaphores = [render_finished_semaphore];
+            let submit_info = vk::SubmitInfo::builder()
+                .wait_semaphores(&[image_available_semaphore])
+                .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+                .command_buffers(&[command_buffers[image_index as usize]])
+                .signal_semaphores(&signal_semaphores)
+                .build();
+            device
+                .queue_submit(present_queue, &[submit_info], vk::Fence::null())
+                .expect("failed to submit queue");
+            let wait_semaphores = [swap_chain];
+            let image_indices = [image_index];
+            let present_info = vk::PresentInfoKHR::builder()
+                .wait_semaphores(&signal_semaphores)
+                .swapchains(&wait_semaphores)
+                .image_indices(&image_indices);
+            swapchain_loader.queue_present(present_queue, &present_info);
+        }
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => (),
+        }
     });
 }
