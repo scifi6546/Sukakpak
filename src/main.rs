@@ -310,8 +310,6 @@ fn main() {
         .logic_op(vk::LogicOp::CLEAR)
         .attachments(&color_blend_attachment_states);
     let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-    let dynamic_state_info =
-        vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
 
     let color_attachment = [vk::AttachmentDescription::builder()
         .format(surface_format.format)
@@ -347,12 +345,13 @@ fn main() {
         .rasterization_state(&rasterization_info)
         .multisample_state(&multi_sample_state_info)
         .color_blend_state(&color_blend_state)
-        .dynamic_state(&dynamic_state_info)
         .layout(pipeline_layout)
         .render_pass(renderpass)
         .build();
     let graphics_pipeline = unsafe {
-        device.create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
+        device
+            .create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
+            .expect("failed to create pipeline")[0]
     };
     let framebuffers: Vec<vk::Framebuffer> = present_image_views
         .iter()
@@ -411,6 +410,16 @@ fn main() {
                 &renderpass_info,
                 vk::SubpassContents::INLINE,
             );
+            device.cmd_bind_pipeline(
+                *command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                graphics_pipeline,
+            );
+            device.cmd_draw(*command_buffer, 3, 1, 0, 0);
+            device.cmd_end_render_pass(*command_buffer);
+            device
+                .end_command_buffer(*command_buffer)
+                .expect("failed to create command buffer");
         };
     }
     event_loop.run(move |event, _, control_flow| match event {
