@@ -223,9 +223,8 @@ impl Device {
             entry,
         }
     }
-}
-impl Drop for Device {
-    fn drop(&mut self) {
+    /// clears resources, warning once called object is in invalid state
+    pub fn free(&mut self) {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait");
             self.device.destroy_device(None);
@@ -233,5 +232,10 @@ impl Drop for Device {
                 .destroy_debug_utils_messenger(self.debug_callback, None);
             self.instance.destroy_instance(None);
         }
+    }
+}
+impl Drop for Device {
+    fn drop(&mut self) {
+        self.free();
     }
 }

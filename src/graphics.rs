@@ -16,3 +16,9 @@ impl Context {
         }
     }
 }
+impl Drop for Context {
+    fn drop(&mut self) {
+        self.present_images.free(&mut self.device);
+        self.device.free();
+    }
+}

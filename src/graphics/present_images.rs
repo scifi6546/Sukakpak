@@ -46,4 +46,15 @@ impl PresentImage {
             present_image_views,
         }
     }
+    /// clears resources, warning once called object is in invalid state
+    pub fn free(&mut self, device: &mut Device) {
+        unsafe {
+            for view in self.present_image_views.iter() {
+                device.device.destroy_image_view(*view, None);
+            }
+            for image in self.present_images.iter() {
+                device.device.destroy_image(*image, None);
+            }
+        }
+    }
 }
