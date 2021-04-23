@@ -51,9 +51,12 @@ pub struct Device {
     pub swapchain_loader: Swapchain,
     pub surface_format: vk::SurfaceFormatKHR,
     pub present_queue: vk::Queue,
+    surface: vk::SurfaceKHR,
+    surface_loader: Surface,
     entry: Entry,
     priorities: [f32; 1],
     layer_names: [CString; 1],
+    previously_destroyed: bool,
 }
 impl Device {
     pub fn new(window: &winit::window::Window, fallback_width: u32, fallback_height: u32) -> Self {
@@ -221,21 +224,25 @@ impl Device {
             priorities,
             layer_names,
             entry,
+            surface,
+            previously_destroyed: false,
+            surface_loader,
         }
     }
+
     /// clears resources, warning once called object is in invalid state
     pub fn free(&mut self) {
+        assert!(!self.previously_destroyed);
         unsafe {
             self.device.device_wait_idle().expect("failed to wait");
+            self.swapchain_loader
+                .destroy_swapchain(self.swapchain, None);
+            self.surface_loader.destroy_surface(self.surface, None);
             self.device.destroy_device(None);
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_callback, None);
             self.instance.destroy_instance(None);
         }
-    }
-}
-impl Drop for Device {
-    fn drop(&mut self) {
-        self.free();
+        self.previously_destroyed = true;
     }
 }

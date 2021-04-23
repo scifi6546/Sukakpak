@@ -49,11 +49,9 @@ impl PresentImage {
     /// clears resources, warning once called object is in invalid state
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
+            device.device.device_wait_idle().expect("failed to wait");
             for view in self.present_image_views.iter() {
                 device.device.destroy_image_view(*view, None);
-            }
-            for image in self.present_images.iter() {
-                device.device.destroy_image(*image, None);
             }
         }
     }
