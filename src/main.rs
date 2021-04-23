@@ -61,9 +61,10 @@ fn main() {
         .with_inner_size(winit::dpi::LogicalSize::new(1000, 1000))
         .build(&event_loop)
         .unwrap();
-    {
-        let _context = Context::new(&window);
-    }
+    println!("building context");
+    let _context = Context::new(&window, 1000, 1000);
+    println!("done building context");
+    println!("left context");
     // Creating Vulkan context
     //
     let entry = unsafe { Entry::new() }.unwrap();
