@@ -62,7 +62,10 @@ fn main() {
         .build(&event_loop)
         .unwrap();
     println!("building context");
-    let _context = Context::new(&window, 1000, 1000);
+    {
+        let _context = Context::new(&window, 1000, 1000);
+    }
+
     println!("done building context");
     println!("left context");
     // Creating Vulkan context

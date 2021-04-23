@@ -51,6 +51,9 @@ pub struct Device {
     pub swapchain_loader: Swapchain,
     pub surface_format: vk::SurfaceFormatKHR,
     pub present_queue: vk::Queue,
+    entry: Entry,
+    priorities: [f32; 1],
+    layer_names: [CString; 1],
 }
 impl Device {
     pub fn new(window: &winit::window::Window, fallback_width: u32, fallback_height: u32) -> Self {
@@ -215,6 +218,9 @@ impl Device {
             swapchain_loader,
             surface_format,
             present_queue,
+            priorities,
+            layer_names,
+            entry,
         }
     }
 }
