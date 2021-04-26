@@ -51,6 +51,7 @@ pub struct Device {
     pub swapchain_loader: Swapchain,
     pub surface_format: vk::SurfaceFormatKHR,
     pub present_queue: vk::Queue,
+    pub queue_family_index: u32,
     surface: vk::SurfaceKHR,
     surface_loader: Surface,
     entry: Entry,
@@ -212,6 +213,7 @@ impl Device {
             unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap();
 
         Self {
+            queue_family_index,
             device,
             physical_device,
             instance,
