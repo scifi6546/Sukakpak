@@ -63,7 +63,7 @@ fn main() {
         .unwrap();
     println!("building context");
     {
-        let _context = Context::new("Hello Context", 1000, 1000);
+        let _context = Context::new("Hello Context", &event_loop, 1000, 1000);
     }
 
     println!("done building context");

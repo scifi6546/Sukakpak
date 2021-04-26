@@ -16,13 +16,12 @@ pub struct Context {
     command_queue: CommandQueue,
     width: u32,
     height: u32,
-    event_loop: &'static winit::event_loop::EventLoop<()>,
     window: winit::window::Window,
 }
 impl Context {
     pub fn new(
         title: &str,
-        event_loop: &'static winit::event_loop::EventLoop<()>,
+        event_loop: &winit::event_loop::EventLoop<()>,
         width: u32,
         height: u32,
     ) -> Self {
@@ -56,7 +55,6 @@ impl Context {
             command_queue,
             width,
             height,
-            event_loop,
             window,
         }
     }
