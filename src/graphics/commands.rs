@@ -150,6 +150,14 @@ impl CommandQueue {
         unsafe {
             device
                 .device
+                .wait_for_fences(&self.fences, true, 10000000)
+                .expect("failed to wait for fence");
+            device
+                .device
+                .device_wait_idle()
+                .expect("failed to wait idle");
+            device
+                .device
                 .destroy_semaphore(self.render_finished_semaphore, None);
             device
                 .device

@@ -58,7 +58,11 @@ impl Context {
             window,
         }
     }
-    pub fn start_event_loop(&mut self) {}
+    pub fn render_frame(&mut self) {
+        unsafe {
+            self.command_queue.render_frame(&mut self.device);
+        }
+    }
 }
 impl Drop for Context {
     fn drop(&mut self) {
