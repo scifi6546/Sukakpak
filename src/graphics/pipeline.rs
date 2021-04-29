@@ -1,4 +1,4 @@
-use super::Device;
+use super::{Device, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
@@ -10,7 +10,12 @@ pub struct GraphicsPipeline {
     pub renderpass: vk::RenderPass,
 }
 impl GraphicsPipeline {
-    pub fn new(device: &mut Device, screen_width: u32, screen_height: u32) -> Self {
+    pub fn new(
+        device: &mut Device,
+        vertex_buffer: &VertexBuffer,
+        screen_width: u32,
+        screen_height: u32,
+    ) -> Self {
         let frag_shader_data =
             read_spv(&mut Cursor::new(include_bytes!("../shaders/main.frag.spv")))
                 .expect("failed to create shader");
@@ -48,11 +53,9 @@ impl GraphicsPipeline {
                 ..Default::default()
             },
         ];
-        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo {
-            vertex_attribute_description_count: 0,
-            vertex_binding_description_count: 0,
-            ..Default::default()
-        };
+        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_binding_descriptions(&vertex_buffer.binding_description)
+            .vertex_attribute_descriptions(&vertex_buffer.attributes);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);

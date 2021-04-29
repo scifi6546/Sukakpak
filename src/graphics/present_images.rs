@@ -1,5 +1,5 @@
 use super::Device;
-use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
+use ash::version::DeviceV1_0;
 use ash::vk;
 pub struct PresentImage {
     pub present_images: Vec<vk::Image>,

@@ -52,10 +52,15 @@ pub struct Device {
     pub surface_format: vk::SurfaceFormatKHR,
     pub present_queue: vk::Queue,
     pub queue_family_index: u32,
+    pub memory_properties: vk::PhysicalDeviceMemoryProperties,
     surface: vk::SurfaceKHR,
     surface_loader: Surface,
+    //presered to hold onto refrence
+    #[allow(dead_code)]
     entry: Entry,
+    #[allow(dead_code)]
     priorities: [f32; 1],
+    #[allow(dead_code)]
     layer_names: [CString; 1],
     previously_destroyed: bool,
 }
@@ -131,7 +136,7 @@ impl Device {
         .filter_map(|v| v)
         .next()
         .expect("could not get physical device");
-
+        let memory_properties = instance.get_physical_device_memory_properties(physical_device);
         let queue_family_index = queue_family_index as u32;
         let device_extension_names_raw = [Swapchain::name().as_ptr()];
         let features = vk::PhysicalDeviceFeatures {
@@ -215,6 +220,7 @@ impl Device {
         Self {
             queue_family_index,
             device,
+            memory_properties,
             physical_device,
             instance,
             debug_callback,

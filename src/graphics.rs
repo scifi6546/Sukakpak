@@ -1,19 +1,22 @@
 mod commands;
 mod device;
 mod framebuffer;
+mod pipeline;
 mod present_images;
-mod shaders;
+mod vertex_buffer;
 use commands::CommandQueue;
 pub use device::Device;
 use framebuffer::Framebuffer;
+use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
-use shaders::GraphicsPipeline;
+pub use vertex_buffer::VertexBuffer;
 pub struct Context {
     device: Device,
     present_images: PresentImage,
     graphics_pipeline: GraphicsPipeline,
     framebuffer: Framebuffer,
     command_queue: CommandQueue,
+    vertex_buffer: VertexBuffer,
     width: u32,
     height: u32,
     window: winit::window::Window,
@@ -32,7 +35,9 @@ impl Context {
             .unwrap();
         let mut device = Device::new(&window, width, height);
         let mut present_images = PresentImage::new(&mut device);
-        let mut graphics_pipeline = GraphicsPipeline::new(&mut device, width, height);
+        let vertex_buffer = VertexBuffer::new(&mut device, vec![]);
+        let mut graphics_pipeline =
+            GraphicsPipeline::new(&mut device, &vertex_buffer, width, height);
         let mut framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,
@@ -56,6 +61,7 @@ impl Context {
             width,
             height,
             window,
+            vertex_buffer,
         }
     }
     pub fn render_frame(&mut self) {
@@ -69,6 +75,7 @@ impl Drop for Context {
         self.command_queue.free(&mut self.device);
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);
+        self.vertex_buffer.free(&mut self.device);
         self.present_images.free(&mut self.device);
         self.device.free();
     }
