@@ -136,7 +136,8 @@ impl Device {
         .filter_map(|v| v)
         .next()
         .expect("could not get physical device");
-        let memory_properties = instance.get_physical_device_memory_properties(physical_device);
+        let memory_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
         let queue_family_index = queue_family_index as u32;
         let device_extension_names_raw = [Swapchain::name().as_ptr()];
         let features = vk::PhysicalDeviceFeatures {

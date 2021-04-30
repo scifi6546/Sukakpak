@@ -20,6 +20,7 @@ pub struct VertexBuffer {
     pub binding_description: [vk::VertexInputBindingDescription; 1],
     pub attributes: Vec<vk::VertexInputAttributeDescription>,
     buffer: vk::Buffer,
+    buffer_memory: vk::DeviceMemory,
 }
 
 impl VertexBuffer {
@@ -47,21 +48,56 @@ impl VertexBuffer {
         };
         let buffer_memory_requirements =
             unsafe { device.device.get_buffer_memory_requirements(buffer) };
-        let buffer_memory_index = find_memorytype_index(
-            &buffer_memory_requirements,
-            &device.memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        );
-        let alloc_info = vk::MemoryAllocateInfo::builder();
+        let alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(buffer_memory_requirements.size)
+            .memory_type_index(
+                find_memorytype_index(
+                    &buffer_memory_requirements,
+                    &device.memory_properties,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                )
+                .expect("failed to find memory type"),
+            );
+        let buffer_memory = unsafe {
+            device
+                .device
+                .allocate_memory(&alloc_info, None)
+                .expect("failed to allocate buffer memory")
+        };
+        unsafe {
+            device
+                .device
+                .bind_buffer_memory(buffer, buffer_memory, 0)
+                .expect("failed to bind buffer");
+        }
+        unsafe {
+            let memory = device
+                .device
+                .map_memory(
+                    buffer_memory,
+                    0,
+                    buffer_create_info.size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("failed to map memory");
+            std::ptr::copy_nonoverlapping(
+                verticies.as_ptr() as *mut std::ffi::c_void,
+                memory,
+                verticies.len() * std::mem::size_of::<Vector3<f32>>(),
+            );
+            device.device.unmap_memory(buffer_memory);
+        }
         Self {
             binding_description,
             attributes: vec![attribute_description],
             buffer,
+            buffer_memory,
         }
     }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
             device.device.destroy_buffer(self.buffer, None);
+            device.device.free_memory(self.buffer_memory, None);
         }
     }
 }
