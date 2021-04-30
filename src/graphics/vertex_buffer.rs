@@ -19,12 +19,13 @@ pub fn find_memorytype_index(
 pub struct VertexBuffer {
     pub binding_description: [vk::VertexInputBindingDescription; 1],
     pub attributes: Vec<vk::VertexInputAttributeDescription>,
-    buffer: vk::Buffer,
+    pub buffer: vk::Buffer,
     buffer_memory: vk::DeviceMemory,
 }
 
 impl VertexBuffer {
     pub fn new(device: &mut Device, verticies: Vec<Vector3<f32>>) -> Self {
+        assert!(verticies.len() > 0);
         let binding_description = [vk::VertexInputBindingDescription::builder()
             .binding(0)
             .stride(std::mem::size_of::<Vector3<f32>>() as u32)

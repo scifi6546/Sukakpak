@@ -7,6 +7,7 @@ mod vertex_buffer;
 use commands::CommandQueue;
 pub use device::Device;
 use framebuffer::Framebuffer;
+use nalgebra::Vector3;
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
 pub use vertex_buffer::VertexBuffer;
@@ -35,7 +36,14 @@ impl Context {
             .unwrap();
         let mut device = Device::new(&window, width, height);
         let mut present_images = PresentImage::new(&mut device);
-        let vertex_buffer = VertexBuffer::new(&mut device, vec![]);
+        let vertex_buffer = VertexBuffer::new(
+            &mut device,
+            vec![
+                Vector3::new(-0.5, -0.5, 0.0),
+                Vector3::new(0.5, -0.5, 0.0),
+                Vector3::new(0.0, 0.5, 0.0),
+            ],
+        );
         let mut graphics_pipeline =
             GraphicsPipeline::new(&mut device, &vertex_buffer, width, height);
         let mut framebuffer = Framebuffer::new(
@@ -49,6 +57,7 @@ impl Context {
             &mut device,
             &mut graphics_pipeline,
             &mut framebuffer,
+            &vertex_buffer,
             width,
             height,
         );

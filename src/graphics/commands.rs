@@ -1,4 +1,4 @@
-use super::{Device, Framebuffer, GraphicsPipeline};
+use super::{Device, Framebuffer, GraphicsPipeline, VertexBuffer};
 use ash::{version::DeviceV1_0, vk};
 pub struct CommandQueue {
     command_pool: vk::CommandPool,
@@ -12,6 +12,7 @@ impl CommandQueue {
         device: &mut Device,
         graphics_pipeline: &mut GraphicsPipeline,
         framebuffers: &mut Framebuffer,
+        vertex_buffers: &VertexBuffer,
         width: u32,
         height: u32,
     ) -> Self {
@@ -64,6 +65,12 @@ impl CommandQueue {
                     *command_buffer,
                     vk::PipelineBindPoint::GRAPHICS,
                     graphics_pipeline.graphics_pipeline,
+                );
+                device.device.cmd_bind_vertex_buffers(
+                    *command_buffer,
+                    0,
+                    &[vertex_buffers.buffer],
+                    &[0],
                 );
                 device.device.cmd_draw(*command_buffer, 3, 1, 0, 0);
                 device.device.cmd_end_render_pass(*command_buffer);
