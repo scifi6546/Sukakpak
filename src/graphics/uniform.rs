@@ -23,7 +23,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(SIZE as u64)
             .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
-            .sharing_mode(vk::SharingMode::CONCURRENT);
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
         let buffer = unsafe {
             device
                 .device
