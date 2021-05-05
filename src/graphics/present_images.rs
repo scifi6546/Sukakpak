@@ -6,6 +6,10 @@ pub struct PresentImage {
     pub present_image_views: Vec<vk::ImageView>,
 }
 impl PresentImage {
+    /// Gets Number of swapchain images in present images
+    pub fn num_swapchain_images(&self) -> usize {
+        self.present_images.len()
+    }
     pub fn new(device: &mut Device) -> Self {
         let present_images = unsafe {
             device

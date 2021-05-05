@@ -1,3 +1,4 @@
+use super::find_memorytype_index;
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::{
     extensions::{
@@ -238,7 +239,44 @@ impl Device {
             surface_loader,
         }
     }
-
+    pub fn create_buffer(
+        &mut self,
+        size: u64,
+        usage: vk::BufferUsageFlags,
+    ) -> (vk::Buffer, vk::DeviceMemory) {
+        let buffer_create_info = vk::BufferCreateInfo::builder()
+            .size(size)
+            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let buffer = unsafe {
+            self.device
+                .create_buffer(&buffer_create_info, None)
+                .expect("failed to create buffer")
+        };
+        let buffer_memory_requirements =
+            unsafe { self.device.get_buffer_memory_requirements(buffer) };
+        let alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(buffer_memory_requirements.size)
+            .memory_type_index(
+                find_memorytype_index(
+                    &buffer_memory_requirements,
+                    &self.memory_properties,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                )
+                .expect("failed to find memory type"),
+            );
+        let buffer_memory = unsafe {
+            self.device
+                .allocate_memory(&alloc_info, None)
+                .expect("failed to allocate buffer memory")
+        };
+        unsafe {
+            self.device
+                .bind_buffer_memory(buffer, buffer_memory, 0)
+                .expect("failed to bind buffer");
+        };
+        (buffer, buffer_memory)
+    }
     /// clears resources, warning once called object is in invalid state
     pub fn free(&mut self) {
         assert!(!self.previously_destroyed);

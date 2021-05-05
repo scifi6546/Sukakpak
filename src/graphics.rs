@@ -49,7 +49,7 @@ impl Context {
                 Vector3::new(0.0, 0.5, 0.0),
             ],
         );
-        let uniform_buffer = UniformBuffer::new(&mut device);
+        let uniform_buffer = UniformBuffer::new(&mut device, &present_images);
         let mut graphics_pipeline =
             GraphicsPipeline::new(&mut device, &vertex_buffer, &uniform_buffer, width, height);
         let mut framebuffer = Framebuffer::new(
@@ -64,6 +64,7 @@ impl Context {
             &mut graphics_pipeline,
             &mut framebuffer,
             &vertex_buffer,
+            &uniform_buffer,
             width,
             height,
         );

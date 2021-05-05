@@ -1,5 +1,6 @@
-use super::{Device, Framebuffer, GraphicsPipeline, VertexBuffer};
+use super::{Device, Framebuffer, GraphicsPipeline, UniformBuffer, VertexBuffer};
 use ash::{version::DeviceV1_0, vk};
+use nalgebra::Matrix4;
 pub struct CommandQueue {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
@@ -13,6 +14,7 @@ impl CommandQueue {
         graphics_pipeline: &mut GraphicsPipeline,
         framebuffers: &mut Framebuffer,
         vertex_buffers: &VertexBuffer,
+        uniform: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
         width: u32,
         height: u32,
     ) -> Self {
@@ -35,8 +37,10 @@ impl CommandQueue {
                 .expect("failed to allocate command buffer")
         };
 
-        for (command_buffer, framebuffer) in
-            command_buffers.iter().zip(framebuffers.framebuffers.iter())
+        for (i, (command_buffer, framebuffer)) in command_buffers
+            .iter()
+            .zip(framebuffers.framebuffers.iter())
+            .enumerate()
         {
             let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
             unsafe {
@@ -71,6 +75,14 @@ impl CommandQueue {
                     0,
                     &[vertex_buffers.buffer],
                     &[0],
+                );
+                device.device.cmd_bind_descriptor_sets(
+                    *command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    graphics_pipeline.pipeline_layout,
+                    0,
+                    &[uniform.buffers[i].2],
+                    &[],
                 );
                 device.device.cmd_draw(*command_buffer, 3, 1, 0, 0);
                 device.device.cmd_end_render_pass(*command_buffer);

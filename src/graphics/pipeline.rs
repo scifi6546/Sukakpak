@@ -5,7 +5,7 @@ use std::{ffi::CString, io::Cursor};
 pub struct GraphicsPipeline {
     fragment_shader: vk::ShaderModule,
     vertex_shader: vk::ShaderModule,
-    pipeline_layout: vk::PipelineLayout,
+    pub pipeline_layout: vk::PipelineLayout,
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
 }
