@@ -1,10 +1,10 @@
-use super::{find_memorytype_index, Device, PresentImage};
+use super::{find_memorytype_index, Device, FreeChecker, PresentImage};
 use ash::{version::DeviceV1_0, vk};
 /// For now only uniform buffer should be allocated at a time
 pub struct UniformBuffer<const SIZE: usize> {
     pub layout: Vec<vk::DescriptorSetLayout>,
     pub buffers: Vec<(vk::Buffer, vk::DeviceMemory, vk::DescriptorSet)>,
-
+    free_checker: FreeChecker,
     descriptor_pool: vk::DescriptorPool,
 }
 impl<const SIZE: usize> UniformBuffer<SIZE> {
@@ -98,10 +98,12 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
         Self {
             layout,
             buffers,
+            free_checker: FreeChecker::default(),
             descriptor_pool,
         }
     }
     pub fn free(&mut self, device: &mut Device) {
+        self.free_checker.free();
         unsafe {
             let mut sets = vec![];
             sets.reserve(self.buffers.len());
@@ -114,12 +116,13 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 .device
                 .free_descriptor_sets(self.descriptor_pool, &sets)
                 .expect("failed to free descriptor set");
-            for layout in self.layout.iter() {
-                device.device.destroy_descriptor_set_layout(*layout, None);
-            }
+
             device
                 .device
                 .destroy_descriptor_pool(self.descriptor_pool, None);
+            device
+                .device
+                .destroy_descriptor_set_layout(self.layout[0], None)
         }
     }
 }

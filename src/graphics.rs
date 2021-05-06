@@ -117,3 +117,20 @@ pub fn find_memorytype_index(
         })
         .map(|(index, _memory_type)| index as _)
 }
+pub struct FreeChecker {
+    freed: bool,
+}
+impl FreeChecker {
+    pub fn free(&mut self) {
+        if self.freed == true {
+            panic!("already freed")
+        } else {
+            self.freed = true;
+        }
+    }
+}
+impl Default for FreeChecker {
+    fn default() -> Self {
+        Self { freed: false }
+    }
+}
