@@ -49,7 +49,12 @@ impl Context {
                 Vector3::new(0.0, 0.5, 0.0),
             ],
         );
-        let uniform_buffer = UniformBuffer::new(&mut device, &present_images);
+        let mat: Matrix4<f32> = Matrix4::identity();
+        let uniform_buffer = UniformBuffer::new(
+            &mut device,
+            &present_images,
+            mat.as_ptr() as *const std::ffi::c_void,
+        );
         let mut graphics_pipeline =
             GraphicsPipeline::new(&mut device, &vertex_buffer, &uniform_buffer, width, height);
         let mut framebuffer = Framebuffer::new(

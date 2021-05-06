@@ -8,7 +8,11 @@ pub struct UniformBuffer<const SIZE: usize> {
     descriptor_pool: vk::DescriptorPool,
 }
 impl<const SIZE: usize> UniformBuffer<SIZE> {
-    pub fn new(device: &mut Device, present_image: &PresentImage) -> Self {
+    pub fn new(
+        device: &mut Device,
+        present_image: &PresentImage,
+        data: *const std::ffi::c_void,
+    ) -> Self {
         let layout_binding = [vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -76,7 +80,16 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 device.device.update_descriptor_sets(&write, &[]);
             }
         }
-
+        for (_buffer, memory) in buffers_memory.iter() {
+            unsafe {
+                let ptr = device
+                    .device
+                    .map_memory(*memory, 0, SIZE as u64, vk::MemoryMapFlags::empty())
+                    .expect("failed to map memory");
+                std::ptr::copy_nonoverlapping(data, ptr, SIZE);
+                device.device.unmap_memory(*memory);
+            }
+        }
         let buffers = buffers_memory
             .iter()
             .zip(descriptor_sets)
@@ -101,12 +114,12 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 .device
                 .free_descriptor_sets(self.descriptor_pool, &sets)
                 .expect("failed to free descriptor set");
-            device
-                .device
-                .destroy_descriptor_pool(self.descriptor_pool, None);
             for layout in self.layout.iter() {
                 device.device.destroy_descriptor_set_layout(*layout, None);
             }
+            device
+                .device
+                .destroy_descriptor_pool(self.descriptor_pool, None);
         }
     }
 }
