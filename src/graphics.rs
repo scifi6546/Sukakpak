@@ -3,6 +3,7 @@ mod device;
 mod framebuffer;
 mod pipeline;
 mod present_images;
+mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::vk;
@@ -13,6 +14,7 @@ use nalgebra::Matrix4;
 use nalgebra::Vector3;
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
+use texture::Texture;
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::VertexBuffer;
 pub struct Context {
@@ -26,6 +28,7 @@ pub struct Context {
     height: u32,
     window: winit::window::Window,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+    texture: Texture,
 }
 impl Context {
     pub fn new(
@@ -64,7 +67,7 @@ impl Context {
             width,
             height,
         );
-        let command_queue = CommandQueue::new(
+        let mut command_queue = CommandQueue::new(
             &mut device,
             &mut graphics_pipeline,
             &mut framebuffer,
@@ -73,6 +76,7 @@ impl Context {
             width,
             height,
         );
+        let texture = Texture::new(&mut device, &mut command_queue);
         Self {
             device,
             present_images,
@@ -84,6 +88,7 @@ impl Context {
             window,
             vertex_buffer,
             uniform_buffer,
+            texture,
         }
     }
     pub fn render_frame(&mut self) {
@@ -94,6 +99,7 @@ impl Context {
 }
 impl Drop for Context {
     fn drop(&mut self) {
+        self.texture.free(&mut self.device);
         self.command_queue.free(&mut self.device);
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);

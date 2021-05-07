@@ -1,6 +1,37 @@
 use super::{Device, Framebuffer, GraphicsPipeline, UniformBuffer, VertexBuffer};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
+pub struct OneTimeCommandBuffer<'a> {
+    device: &'a Device,
+    pub command_buffer: [vk::CommandBuffer; 1],
+    command_queue: &'a CommandQueue,
+}
+impl<'a> Drop for OneTimeCommandBuffer<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            self.device
+                .device
+                .end_command_buffer(self.command_buffer[0])
+                .expect("failed to end command buer");
+            let submit_info = vk::SubmitInfo::builder().command_buffers(&self.command_buffer);
+            self.device
+                .device
+                .queue_submit(
+                    self.device.present_queue,
+                    &[*submit_info],
+                    vk::Fence::null(),
+                )
+                .expect("failed to submit queue");
+            self.device
+                .device
+                .queue_wait_idle(self.device.present_queue)
+                .expect("failed to wait idle");
+            self.device
+                .device
+                .free_command_buffers(self.command_queue.command_pool, &self.command_buffer);
+        }
+    }
+}
 pub struct CommandQueue {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
@@ -118,6 +149,30 @@ impl CommandQueue {
             fences,
             image_available_semaphore,
             render_finished_semaphore,
+        }
+    }
+    pub unsafe fn create_onetime_buffer<'a>(
+        &'a mut self,
+        device: &'a mut Device,
+    ) -> OneTimeCommandBuffer<'a> {
+        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_pool(self.command_pool)
+            .command_buffer_count(1);
+        let command_buffer = [device
+            .device
+            .allocate_command_buffers(&command_buffer_allocate_info)
+            .expect("failed to allocate command buffer")[0]];
+        let begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        device
+            .device
+            .begin_command_buffer(command_buffer[0], &begin_info)
+            .expect("failed to begin command buffer");
+        OneTimeCommandBuffer {
+            command_buffer,
+            device,
+            command_queue: self,
         }
     }
     pub unsafe fn render_frame(&mut self, device: &mut Device) {

@@ -243,11 +243,12 @@ impl Device {
         &mut self,
         size: u64,
         usage: vk::BufferUsageFlags,
+        sharing_mode: vk::SharingMode,
     ) -> (vk::Buffer, vk::DeviceMemory) {
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(size)
-            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+            .usage(usage)
+            .sharing_mode(sharing_mode);
         let buffer = unsafe {
             self.device
                 .create_buffer(&buffer_create_info, None)

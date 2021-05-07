@@ -47,7 +47,13 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
         };
         let buffers_memory: Vec<(vk::Buffer, vk::DeviceMemory)> = (0..present_image
             .num_swapchain_images())
-            .map(|_| device.create_buffer(SIZE as u64, vk::BufferUsageFlags::UNIFORM_BUFFER))
+            .map(|_| {
+                device.create_buffer(
+                    SIZE as u64,
+                    vk::BufferUsageFlags::UNIFORM_BUFFER,
+                    vk::SharingMode::EXCLUSIVE,
+                )
+            })
             .collect();
         let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(descriptor_pool)
