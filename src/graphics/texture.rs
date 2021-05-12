@@ -157,6 +157,13 @@ impl Texture {
             image_memory,
         }
     }
+    pub fn bind_image(&mut self) {
+        let sampler_layout_binding = vk::DescriptorSetLayoutBinding::builder()
+            .binding(1)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT);
+    }
     fn transition_image_layout(
         device: &mut Device,
         command_queue: &mut CommandQueue,

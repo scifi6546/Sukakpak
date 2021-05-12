@@ -1,4 +1,4 @@
-use super::{find_memorytype_index, Device, FreeChecker, PresentImage};
+use super::{DescriptorSets, Device, FreeChecker, PresentImage};
 use ash::{version::DeviceV1_0, vk};
 /// For now only uniform buffer should be allocated at a time
 pub struct UniformBuffer<const SIZE: usize> {
@@ -131,5 +131,10 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 .device
                 .destroy_descriptor_set_layout(self.layout[0], None)
         }
+    }
+}
+impl<const SIZE: usize> DescriptorSets for UniformBuffer<SIZE> {
+    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout> {
+        &self.layout
     }
 }

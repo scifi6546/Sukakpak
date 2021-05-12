@@ -58,8 +58,13 @@ impl Context {
             &present_images,
             mat.as_ptr() as *const std::ffi::c_void,
         );
-        let mut graphics_pipeline =
-            GraphicsPipeline::new(&mut device, &vertex_buffer, &uniform_buffer, width, height);
+        let mut graphics_pipeline = GraphicsPipeline::new(
+            &mut device,
+            &vertex_buffer,
+            vec![&uniform_buffer as &dyn DescriptorSets],
+            width,
+            height,
+        );
         let mut framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,
@@ -76,7 +81,8 @@ impl Context {
             width,
             height,
         );
-        let texture = Texture::new(&mut device, &mut command_queue);
+        let mut texture = Texture::new(&mut device, &mut command_queue);
+        texture.bind_image();
         Self {
             device,
             present_images,
@@ -139,4 +145,7 @@ impl Default for FreeChecker {
     fn default() -> Self {
         Self { freed: false }
     }
+}
+pub trait DescriptorSets {
+    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout>;
 }

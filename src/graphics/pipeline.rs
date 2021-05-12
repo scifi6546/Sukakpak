@@ -1,4 +1,4 @@
-use super::{Device, UniformBuffer, VertexBuffer};
+use super::{DescriptorSets, Device, UniformBuffer, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
@@ -14,7 +14,7 @@ impl GraphicsPipeline {
     pub fn new(
         device: &mut Device,
         vertex_buffer: &VertexBuffer,
-        uniform_buffer: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        buffers: Vec<&dyn DescriptorSets>,
         screen_width: u32,
         screen_height: u32,
     ) -> Self {
@@ -135,9 +135,13 @@ impl GraphicsPipeline {
                 .create_render_pass(&render_pass_create_info, None)
                 .expect("failed to create renderpass")
         };
-
-        let layout_create_info =
-            vk::PipelineLayoutCreateInfo::builder().set_layouts(&uniform_buffer.layout);
+        let mut layouts = vec![];
+        for buffer in buffers.iter() {
+            for layout in buffer.get_layouts() {
+                layouts.push(*layout);
+            }
+        }
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
         let pipeline_layout = unsafe {
             device
                 .device
