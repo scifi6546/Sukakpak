@@ -123,7 +123,11 @@ impl Device {
                                         index as u32,
                                         surface,
                                     )
-                                    .unwrap();
+                                    .unwrap()
+                                && instance
+                                    .get_physical_device_features(*pdevice)
+                                    .sampler_anisotropy
+                                    >= 1;
                         if supports_graphic_and_surface {
                             println!("supports?");
                             Some((*pdevice, index))
@@ -141,10 +145,9 @@ impl Device {
             unsafe { instance.get_physical_device_memory_properties(physical_device) };
         let queue_family_index = queue_family_index as u32;
         let device_extension_names_raw = [Swapchain::name().as_ptr()];
-        let features = vk::PhysicalDeviceFeatures {
-            shader_clip_distance: 1,
-            ..Default::default()
-        };
+        let features = vk::PhysicalDeviceFeatures::builder()
+            .shader_clip_distance(true)
+            .sampler_anisotropy(true);
         let priorities = [1.0];
         let queue_info = [vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_family_index)

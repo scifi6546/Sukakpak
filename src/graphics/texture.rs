@@ -1,8 +1,12 @@
 use super::{find_memorytype_index, CommandQueue, Device};
-use ash::{version::DeviceV1_0, vk};
+use ash::{
+    version::{DeviceV1_0, InstanceV1_0},
+    vk,
+};
 use image::io::Reader as ImageReader;
 pub struct Texture {
     image_data: image::RgbaImage,
+    sampler: vk::Sampler,
     image_view: vk::ImageView,
     transfer_memory: vk::DeviceMemory,
     buffer: vk::Buffer,
@@ -116,8 +120,36 @@ impl Texture {
             );
         let image_view = unsafe { device.device.create_image_view(&view_info, None) }
             .expect("failed to create view");
+        let sampler_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .anisotropy_enable(true)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false)
+            .compare_enable(false)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .mip_lod_bias(0.0)
+            .min_lod(0.0)
+            .max_lod(0.0)
+            .max_anisotropy(
+                unsafe {
+                    device
+                        .instance
+                        .get_physical_device_properties(device.physical_device)
+                }
+                .limits
+                .max_sampler_anisotropy,
+            );
+        let sampler = unsafe { device.device.create_sampler(&sampler_info, None) }
+            .expect("failed to create sampler");
+
         Self {
             image,
+            sampler,
             image_data,
             image_view,
             buffer,
@@ -219,6 +251,7 @@ impl Texture {
     }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
+            device.device.destroy_sampler(self.sampler, None);
             device.device.destroy_image_view(self.image_view, None);
             device.device.free_memory(self.image_memory, None);
             device.device.destroy_image(self.image, None);
