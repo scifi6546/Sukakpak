@@ -52,6 +52,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                     SIZE as u64,
                     vk::BufferUsageFlags::UNIFORM_BUFFER,
                     vk::SharingMode::EXCLUSIVE,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
                 )
             })
             .collect();

@@ -3,6 +3,7 @@ use ash::{version::DeviceV1_0, vk};
 use image::io::Reader as ImageReader;
 pub struct Texture {
     image_data: image::RgbaImage,
+    image_view: vk::ImageView,
     transfer_memory: vk::DeviceMemory,
     buffer: vk::Buffer,
     image: vk::Image,
@@ -20,6 +21,7 @@ impl Texture {
             image_data.as_raw().len() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::SharingMode::EXCLUSIVE,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
         unsafe {
             let memory_ptr = device
@@ -77,17 +79,147 @@ impl Texture {
                 .bind_image_memory(image, image_memory, 0)
                 .expect("failed to bind memory");
         }
-        let command_buffer = unsafe { command_queue.create_onetime_buffer(device) };
+
+        Self::transition_image_layout(
+            device,
+            command_queue,
+            &image,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        );
+        Self::copy_buffer_image(
+            device,
+            command_queue,
+            image,
+            buffer,
+            image_data.width(),
+            image_data.height(),
+        );
+        Self::transition_image_layout(
+            device,
+            command_queue,
+            &image,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        );
+        let view_info = vk::ImageViewCreateInfo::builder()
+            .image(image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .subresource_range(
+                *vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .base_mip_level(0)
+                    .level_count(1)
+                    .base_array_layer(0)
+                    .layer_count(1),
+            );
+        let image_view = unsafe { device.device.create_image_view(&view_info, None) }
+            .expect("failed to create view");
         Self {
             image,
             image_data,
+            image_view,
             buffer,
             transfer_memory,
             image_memory,
         }
     }
+    fn transition_image_layout(
+        device: &mut Device,
+        command_queue: &mut CommandQueue,
+        image: &vk::Image,
+        old_layout: vk::ImageLayout,
+        new_layout: vk::ImageLayout,
+    ) {
+        let mut barrier = vk::ImageMemoryBarrier::builder()
+            .old_layout(old_layout)
+            .new_layout(new_layout)
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .image(*image)
+            .subresource_range(
+                vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .base_mip_level(0)
+                    .level_count(1)
+                    .base_array_layer(0)
+                    .layer_count(1)
+                    .build(),
+            );
+        let (source_stage, dest_stage) = if old_layout == vk::ImageLayout::UNDEFINED
+            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+        {
+            barrier.dst_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            (
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TRANSFER,
+            )
+        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+        {
+            barrier.src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
+            (
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+            )
+        } else {
+            panic!("unsupported layout transition")
+        };
+        unsafe {
+            let buffer = command_queue.create_onetime_buffer(device);
+            buffer.device.device.cmd_pipeline_barrier(
+                buffer.command_buffer[0],
+                source_stage,
+                dest_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier.build()],
+            );
+        }
+    }
+    fn copy_buffer_image(
+        device: &mut Device,
+        command_queue: &mut CommandQueue,
+        image: vk::Image,
+        buffer: vk::Buffer,
+        width: u32,
+        height: u32,
+    ) {
+        let region = vk::BufferImageCopy::builder()
+            .buffer_offset(0)
+            .buffer_row_length(0)
+            .buffer_image_height(0)
+            .image_subresource(
+                *vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .mip_level(0)
+                    .base_array_layer(0)
+                    .layer_count(1),
+            )
+            .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+            .image_extent(vk::Extent3D {
+                height,
+                width,
+                depth: 1,
+            })
+            .build();
+        unsafe {
+            let command_buffer = command_queue.create_onetime_buffer(device);
+            command_buffer.device.device.cmd_copy_buffer_to_image(
+                command_buffer.command_buffer[0],
+                buffer,
+                image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[region],
+            );
+        }
+    }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
+            device.device.destroy_image_view(self.image_view, None);
             device.device.free_memory(self.image_memory, None);
             device.device.destroy_image(self.image, None);
             device.device.free_memory(self.transfer_memory, None);

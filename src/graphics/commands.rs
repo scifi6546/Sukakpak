@@ -2,10 +2,11 @@ use super::{Device, Framebuffer, GraphicsPipeline, UniformBuffer, VertexBuffer};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
 pub struct OneTimeCommandBuffer<'a> {
-    device: &'a Device,
+    pub device: &'a Device,
     pub command_buffer: [vk::CommandBuffer; 1],
     command_queue: &'a CommandQueue,
 }
+
 impl<'a> Drop for OneTimeCommandBuffer<'a> {
     fn drop(&mut self) {
         unsafe {

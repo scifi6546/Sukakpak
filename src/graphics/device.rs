@@ -244,6 +244,7 @@ impl Device {
         size: u64,
         usage: vk::BufferUsageFlags,
         sharing_mode: vk::SharingMode,
+        memory_properties: vk::MemoryPropertyFlags,
     ) -> (vk::Buffer, vk::DeviceMemory) {
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(size)
@@ -262,7 +263,7 @@ impl Device {
                 find_memorytype_index(
                     &buffer_memory_requirements,
                     &self.memory_properties,
-                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                    memory_properties,
                 )
                 .expect("failed to find memory type"),
             );
