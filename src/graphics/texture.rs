@@ -1,4 +1,4 @@
-use super::{find_memorytype_index, CommandQueue, Device};
+use super::{find_memorytype_index, CommandQueue, DescriptorSets, Device};
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
@@ -265,5 +265,10 @@ impl Texture {
             device.device.free_memory(self.transfer_memory, None);
             device.device.destroy_buffer(self.buffer, None);
         }
+    }
+}
+impl DescriptorSets for Texture {
+    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout> {
+        todo!()
     }
 }

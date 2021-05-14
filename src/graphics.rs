@@ -149,3 +149,8 @@ impl Default for FreeChecker {
 pub trait DescriptorSets {
     fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout>;
 }
+trait DescriptorSetsT {
+    type CtorArguments;
+    fn get_layout_info() -> Vec<vk::DescriptorSetLayoutCreateInfo>;
+    fn new(layouts: &[vk::DescriptorSetLayout], arguments: Self::CtorArguments) -> Self;
+}
