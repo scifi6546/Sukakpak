@@ -1,31 +1,42 @@
 use super::{find_memorytype_index, Device};
 use ash::{version::DeviceV1_0, vk};
-use nalgebra::Vector3;
-struct Attribute {}
+use nalgebra::{Vector2, Vector3};
 
 pub struct VertexBuffer {
     pub binding_description: [vk::VertexInputBindingDescription; 1],
-    pub attributes: Vec<vk::VertexInputAttributeDescription>,
+    pub attributes: [vk::VertexInputAttributeDescription; 2],
     pub buffer: vk::Buffer,
     buffer_memory: vk::DeviceMemory,
 }
-
+#[repr(C)]
+pub struct Vertex {
+    pub position: Vector3<f32>,
+    pub uv: Vector2<f32>,
+}
 impl VertexBuffer {
-    pub fn new(device: &mut Device, verticies: Vec<Vector3<f32>>) -> Self {
+    pub fn new(device: &mut Device, verticies: Vec<Vertex>) -> Self {
         assert!(verticies.len() > 0);
         let binding_description = [vk::VertexInputBindingDescription::builder()
             .binding(0)
-            .stride(std::mem::size_of::<Vector3<f32>>() as u32)
+            .stride(std::mem::size_of::<Vertex>() as u32)
             .input_rate(vk::VertexInputRate::VERTEX)
             .build()];
-        let attribute_description = vk::VertexInputAttributeDescription::builder()
-            .binding(0)
-            .location(0)
-            .format(vk::Format::R32G32B32_SFLOAT)
-            .offset(0)
-            .build();
+        let attributes = [
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(0)
+                .format(vk::Format::R32G32B32_SFLOAT)
+                .offset(0)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(1)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(std::mem::size_of::<Vector3<f32>>() as u32)
+                .build(),
+        ];
         let buffer_create_info = vk::BufferCreateInfo::builder()
-            .size((verticies.len() * std::mem::size_of::<Vector3<f32>>()) as u64)
+            .size((verticies.len() * std::mem::size_of::<Vertex>()) as u64)
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
         let buffer = unsafe {
@@ -77,7 +88,7 @@ impl VertexBuffer {
         }
         Self {
             binding_description,
-            attributes: vec![attribute_description],
+            attributes,
             buffer,
             buffer_memory,
         }

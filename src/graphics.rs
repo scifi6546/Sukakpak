@@ -10,13 +10,13 @@ use ash::vk;
 use commands::{CommandPool, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
-use nalgebra::Matrix4;
-use nalgebra::Vector3;
+
+use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
-pub use vertex_buffer::VertexBuffer;
+pub use vertex_buffer::{Vertex, VertexBuffer};
 pub struct Context {
     device: Device,
     present_images: PresentImage,
@@ -50,9 +50,18 @@ impl Context {
         let vertex_buffer = VertexBuffer::new(
             &mut device,
             vec![
-                Vector3::new(-0.5, -0.5, 0.0),
-                Vector3::new(0.5, -0.5, 0.0),
-                Vector3::new(0.0, 0.5, 0.0),
+                Vertex {
+                    position: Vector3::new(-0.5, -0.5, 0.0),
+                    uv: Vector2::new(0.0, 0.0),
+                },
+                Vertex {
+                    position: Vector3::new(0.5, -0.5, 0.0),
+                    uv: Vector2::new(1.0, 0.0),
+                },
+                Vertex {
+                    position: Vector3::new(0.0, 0.5, 0.0),
+                    uv: Vector2::new(0.5, 1.0),
+                },
             ],
         );
         let mat: Matrix4<f32> = Matrix4::identity();
