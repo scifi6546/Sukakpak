@@ -4,7 +4,7 @@ use nalgebra::Matrix4;
 pub struct OneTimeCommandBuffer<'a> {
     pub device: &'a Device,
     pub command_buffer: [vk::CommandBuffer; 1],
-    command_queue: &'a CommandQueue,
+    command_queue: &'a CommandPool,
 }
 
 impl<'a> Drop for OneTimeCommandBuffer<'a> {
@@ -33,14 +33,14 @@ impl<'a> Drop for OneTimeCommandBuffer<'a> {
         }
     }
 }
-pub struct CommandQueue {
+pub struct CommandPool {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
     fences: Vec<vk::Fence>,
     render_finished_semaphore: vk::Semaphore,
     image_available_semaphore: vk::Semaphore,
 }
-impl CommandQueue {
+impl CommandPool {
     pub fn new(
         device: &mut Device,
         graphics_pipeline: &mut GraphicsPipeline,
@@ -243,5 +243,11 @@ impl CommandQueue {
             // as Vulkan spec all command pools are freed
             device.device.destroy_command_pool(self.command_pool, None);
         }
+    }
+}
+pub struct RenderPass {}
+impl RenderPass {
+    pub fn new() -> Self {
+        Self {}
     }
 }

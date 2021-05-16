@@ -7,7 +7,7 @@ mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::vk;
-use commands::CommandQueue;
+use commands::CommandPool;
 pub use device::Device;
 use framebuffer::Framebuffer;
 use nalgebra::Matrix4;
@@ -22,7 +22,7 @@ pub struct Context {
     present_images: PresentImage,
     graphics_pipeline: GraphicsPipeline,
     framebuffer: Framebuffer,
-    command_queue: CommandQueue,
+    command_queue: CommandPool,
     vertex_buffer: VertexBuffer,
     width: u32,
     height: u32,
@@ -72,7 +72,7 @@ impl Context {
             width,
             height,
         );
-        let mut command_queue = CommandQueue::new(
+        let mut command_queue = CommandPool::new(
             &mut device,
             &mut graphics_pipeline,
             &mut framebuffer,
