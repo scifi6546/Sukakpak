@@ -12,9 +12,15 @@ pub struct Texture {
     buffer: vk::Buffer,
     image: vk::Image,
     image_memory: vk::DeviceMemory,
+    descriptor_set: vk::DescriptorSet,
 }
 impl Texture {
-    fn new(device: &mut Device, command_queue: &mut CommandPool) -> Self {
+    fn new(
+        device: &mut Device,
+        command_queue: &mut CommandPool,
+        texture_pool: &TexturePool,
+        texture_creator: &TextureCreator,
+    ) -> Self {
         let image_data = ImageReader::open("screenshot.png")
             .expect("failed to load image")
             .decode()
@@ -146,7 +152,29 @@ impl Texture {
             );
         let sampler = unsafe { device.device.create_sampler(&sampler_info, None) }
             .expect("failed to create sampler");
-
+        let layouts = [texture_creator.layout];
+        let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(texture_pool.descriptor_pool)
+            .set_layouts(&layouts);
+        let descriptor_set = unsafe {
+            device
+                .device
+                .allocate_descriptor_sets(&descriptor_set_alloc_info)
+        }
+        .expect("failed to allocate descriptor set")[0];
+        let image_descriptor_info = [*vk::DescriptorImageInfo::builder()
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image_view(image_view)
+            .sampler(sampler)];
+        let write = [*vk::WriteDescriptorSet::builder()
+            .dst_set(descriptor_set)
+            .dst_binding(1)
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&image_descriptor_info)];
+        unsafe {
+            device.device.update_descriptor_sets(&write, &[]);
+        }
         Self {
             image,
             sampler,
@@ -155,6 +183,7 @@ impl Texture {
             buffer,
             transfer_memory,
             image_memory,
+            descriptor_set,
         }
     }
     pub fn bind_image(&mut self) {
@@ -256,8 +285,12 @@ impl Texture {
             );
         }
     }
-    pub fn free(&mut self, device: &mut Device) {
+    pub fn free(&mut self, device: &mut Device, texture_pool: &TexturePool) {
         unsafe {
+            device
+                .device
+                .free_descriptor_sets(texture_pool.descriptor_pool, &[self.descriptor_set])
+                .expect("failed to free");
             device.device.destroy_sampler(self.sampler, None);
             device.device.destroy_image_view(self.image_view, None);
             device.device.free_memory(self.image_memory, None);
@@ -272,10 +305,10 @@ impl DescriptorSets for Texture {
         todo!()
     }
 }
-pub struct TextureCreater {
+pub struct TextureCreator {
     layout: vk::DescriptorSetLayout,
 }
-impl TextureCreater {
+impl TextureCreator {
     pub fn new(device: &mut Device) -> Self {
         let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
             .binding(1)
@@ -307,7 +340,7 @@ impl TexturePool {
     pub fn new(
         device: &mut Device,
         command_pool: &mut CommandPool,
-        textures: &Vec<TextureCreater>,
+        textures: &Vec<TextureCreator>,
         swapchain: &PresentImage,
     ) -> (Self, Vec<Texture>) {
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
@@ -315,18 +348,20 @@ impl TexturePool {
             .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets((swapchain.num_swapchain_images() * textures.len()) as u32);
+            .max_sets((swapchain.num_swapchain_images() * textures.len()) as u32)
+            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool = unsafe {
             device
                 .device
                 .create_descriptor_pool(&pool_create_info, None)
                 .expect("failed to create pool")
         };
+        let texture_pool = Self { descriptor_pool };
         let texture_array = textures
             .iter()
-            .map(|_| Texture::new(device, command_pool))
+            .map(|creator| Texture::new(device, command_pool, &texture_pool, creator))
             .collect();
-        (Self { descriptor_pool }, texture_array)
+        (texture_pool, texture_array)
     }
     pub fn free(&self, device: &mut Device) {
         unsafe {

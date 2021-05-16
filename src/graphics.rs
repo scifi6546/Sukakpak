@@ -14,7 +14,7 @@ use nalgebra::Matrix4;
 use nalgebra::Vector3;
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
-use texture::{Texture, TextureCreater, TexturePool};
+use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::VertexBuffer;
 pub struct Context {
@@ -25,7 +25,7 @@ pub struct Context {
     command_pool: CommandPool,
     render_pass: RenderPass,
     vertex_buffer: VertexBuffer,
-    texture_creators: Vec<TextureCreater>,
+    texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
     width: u32,
     height: u32,
@@ -86,7 +86,7 @@ impl Context {
             width,
             height,
         );
-        let texture_creators = vec![TextureCreater::new(&mut device)];
+        let texture_creators = vec![TextureCreator::new(&mut device)];
         let (texture_pool, mut textures) = TexturePool::new(
             &mut device,
             &mut command_pool,
@@ -121,7 +121,7 @@ impl Context {
 impl Drop for Context {
     fn drop(&mut self) {
         for texture in self.textures.iter_mut() {
-            texture.free(&mut self.device);
+            texture.free(&mut self.device, &self.texture_pool);
         }
         self.texture_pool.free(&mut self.device);
         for creator in self.texture_creators.iter() {
