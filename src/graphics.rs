@@ -72,7 +72,13 @@ impl Context {
         );
         let mut layouts = vec![];
         for layout in uniform_buffer.get_layouts() {
-            layouts.push(*layout);
+            layouts.push(layout);
+        }
+        let texture_creators = vec![TextureCreator::new(&mut device)];
+        for creator in texture_creators.iter() {
+            for layout in creator.get_layouts() {
+                layouts.push(layout);
+            }
         }
 
         let mut graphics_pipeline =
@@ -95,7 +101,7 @@ impl Context {
             width,
             height,
         );
-        let texture_creators = vec![TextureCreator::new(&mut device)];
+
         let (texture_pool, mut textures) = TexturePool::new(
             &mut device,
             &mut command_pool,
@@ -178,7 +184,7 @@ impl Default for FreeChecker {
     }
 }
 pub trait DescriptorSets {
-    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout>;
+    fn get_layouts(&self) -> Vec<vk::DescriptorSetLayout>;
 }
 trait DescriptorSetsT {
     type CtorArguments;

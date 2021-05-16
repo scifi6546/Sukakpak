@@ -134,7 +134,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
     }
 }
 impl<const SIZE: usize> DescriptorSets for UniformBuffer<SIZE> {
-    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout> {
-        &self.layout
+    fn get_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
+        self.layout.iter().copied().collect()
     }
 }

@@ -300,11 +300,7 @@ impl Texture {
         }
     }
 }
-impl DescriptorSets for Texture {
-    fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout> {
-        todo!()
-    }
-}
+
 pub struct TextureCreator {
     layout: vk::DescriptorSetLayout,
 }
@@ -331,6 +327,11 @@ impl TextureCreator {
                 .device
                 .destroy_descriptor_set_layout(self.layout, None);
         }
+    }
+}
+impl DescriptorSets for TextureCreator {
+    fn get_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
+        vec![self.layout]
     }
 }
 pub struct TexturePool {
