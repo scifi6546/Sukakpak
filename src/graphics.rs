@@ -7,7 +7,7 @@ mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::vk;
-use commands::CommandPool;
+use commands::{CommandPool, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 use nalgebra::Matrix4;
@@ -23,6 +23,7 @@ pub struct Context {
     graphics_pipeline: GraphicsPipeline,
     framebuffer: Framebuffer,
     command_queue: CommandPool,
+    render_pass: RenderPass,
     vertex_buffer: VertexBuffer,
     width: u32,
     height: u32,
@@ -72,10 +73,12 @@ impl Context {
             width,
             height,
         );
-        let mut command_queue = CommandPool::new(
+        let mut command_queue = CommandPool::new(&mut device);
+        let render_pass = RenderPass::new(
             &mut device,
+            &command_queue,
             &mut graphics_pipeline,
-            &mut framebuffer,
+            &framebuffer,
             &vertex_buffer,
             &uniform_buffer,
             width,
@@ -95,17 +98,19 @@ impl Context {
             vertex_buffer,
             uniform_buffer,
             texture,
+            render_pass,
         }
     }
     pub fn render_frame(&mut self) {
         unsafe {
-            self.command_queue.render_frame(&mut self.device);
+            self.render_pass.render_frame(&mut self.device);
         }
     }
 }
 impl Drop for Context {
     fn drop(&mut self) {
         self.texture.free(&mut self.device);
+        self.render_pass.free(&mut self.device);
         self.command_queue.free(&mut self.device);
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);

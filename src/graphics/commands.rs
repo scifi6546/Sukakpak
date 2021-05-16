@@ -35,21 +35,9 @@ impl<'a> Drop for OneTimeCommandBuffer<'a> {
 }
 pub struct CommandPool {
     command_pool: vk::CommandPool,
-    command_buffers: Vec<vk::CommandBuffer>,
-    fences: Vec<vk::Fence>,
-    render_finished_semaphore: vk::Semaphore,
-    image_available_semaphore: vk::Semaphore,
 }
 impl CommandPool {
-    pub fn new(
-        device: &mut Device,
-        graphics_pipeline: &mut GraphicsPipeline,
-        framebuffers: &mut Framebuffer,
-        vertex_buffers: &VertexBuffer,
-        uniform: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
-        width: u32,
-        height: u32,
-    ) -> Self {
+    pub fn new(device: &mut Device) -> Self {
         let command_pool_create_info =
             vk::CommandPoolCreateInfo::builder().queue_family_index(device.queue_family_index);
         let command_pool = unsafe {
@@ -58,9 +46,59 @@ impl CommandPool {
                 .create_command_pool(&command_pool_create_info, None)
                 .expect("failed to create command pool")
         };
+        Self { command_pool }
+    }
+    pub unsafe fn create_onetime_buffer<'a>(
+        &'a mut self,
+        device: &'a mut Device,
+    ) -> OneTimeCommandBuffer<'a> {
+        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_pool(self.command_pool)
+            .command_buffer_count(1);
+        let command_buffer = [device
+            .device
+            .allocate_command_buffers(&command_buffer_allocate_info)
+            .expect("failed to allocate command buffer")[0]];
+        let begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        device
+            .device
+            .begin_command_buffer(command_buffer[0], &begin_info)
+            .expect("failed to begin command buffer");
+        OneTimeCommandBuffer {
+            command_buffer,
+            device,
+            command_queue: self,
+        }
+    }
+    pub fn free(&mut self, device: &mut Device) {
+        unsafe {
+            // as Vulkan spec all command pools are freed
+            device.device.destroy_command_pool(self.command_pool, None);
+        }
+    }
+}
+pub struct RenderPass {
+    command_buffers: Vec<vk::CommandBuffer>,
+    fences: Vec<vk::Fence>,
+    render_finished_semaphore: vk::Semaphore,
+    image_available_semaphore: vk::Semaphore,
+}
+impl RenderPass {
+    pub fn new(
+        device: &mut Device,
+        command_queue: &CommandPool,
+        graphics_pipeline: &mut GraphicsPipeline,
+        framebuffers: &Framebuffer,
+        vertex_buffers: &VertexBuffer,
+        uniform: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        width: u32,
+        height: u32,
+    ) -> Self {
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_buffer_count(framebuffers.framebuffers.len() as u32)
-            .command_pool(command_pool)
+            .command_pool(command_queue.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY);
         let command_buffers = unsafe {
             device
@@ -145,35 +183,10 @@ impl CommandPool {
             unsafe { device.device.create_semaphore(&semaphore_create_info, None) }
                 .expect("failed to create semaphore");
         Self {
-            command_pool,
             command_buffers,
             fences,
             image_available_semaphore,
             render_finished_semaphore,
-        }
-    }
-    pub unsafe fn create_onetime_buffer<'a>(
-        &'a mut self,
-        device: &'a mut Device,
-    ) -> OneTimeCommandBuffer<'a> {
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_pool(self.command_pool)
-            .command_buffer_count(1);
-        let command_buffer = [device
-            .device
-            .allocate_command_buffers(&command_buffer_allocate_info)
-            .expect("failed to allocate command buffer")[0]];
-        let begin_info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-        device
-            .device
-            .begin_command_buffer(command_buffer[0], &begin_info)
-            .expect("failed to begin command buffer");
-        OneTimeCommandBuffer {
-            command_buffer,
-            device,
-            command_queue: self,
         }
     }
     pub unsafe fn render_frame(&mut self, device: &mut Device) {
@@ -240,14 +253,6 @@ impl CommandPool {
             for fence in self.fences.iter() {
                 device.device.destroy_fence(*fence, None);
             }
-            // as Vulkan spec all command pools are freed
-            device.device.destroy_command_pool(self.command_pool, None);
         }
-    }
-}
-pub struct RenderPass {}
-impl RenderPass {
-    pub fn new() -> Self {
-        Self {}
     }
 }

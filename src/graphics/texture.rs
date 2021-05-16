@@ -1,4 +1,4 @@
-use super::{find_memorytype_index, CommandQueue, DescriptorSets, Device, PresentImage};
+use super::{find_memorytype_index, CommandPool, DescriptorSets, Device, PresentImage};
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
@@ -14,7 +14,7 @@ pub struct Texture {
     image_memory: vk::DeviceMemory,
 }
 impl Texture {
-    pub fn new(device: &mut Device, command_queue: &mut CommandQueue) -> Self {
+    pub fn new(device: &mut Device, command_queue: &mut CommandPool) -> Self {
         let image_data = ImageReader::open("screenshot.png")
             .expect("failed to load image")
             .decode()
@@ -166,7 +166,7 @@ impl Texture {
     }
     fn transition_image_layout(
         device: &mut Device,
-        command_queue: &mut CommandQueue,
+        command_queue: &mut CommandPool,
         image: &vk::Image,
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
@@ -221,7 +221,7 @@ impl Texture {
     }
     fn copy_buffer_image(
         device: &mut Device,
-        command_queue: &mut CommandQueue,
+        command_queue: &mut CommandPool,
         image: vk::Image,
         buffer: vk::Buffer,
         width: u32,
