@@ -1,4 +1,4 @@
-use super::{find_memorytype_index, CommandQueue, DescriptorSets, Device};
+use super::{find_memorytype_index, CommandQueue, DescriptorSets, Device, PresentImage};
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
@@ -270,5 +270,50 @@ impl Texture {
 impl DescriptorSets for Texture {
     fn get_layouts(&self) -> &Vec<vk::DescriptorSetLayout> {
         todo!()
+    }
+}
+pub struct TextureCreater {
+    layout: vk::DescriptorSetLayout,
+}
+impl TextureCreater {
+    pub fn new(device: &mut Device) -> Self {
+        let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
+            .binding(1)
+            .descriptor_count(1)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)];
+        let layout_create_info =
+            vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
+        let layout = unsafe {
+            device
+                .device
+                .create_descriptor_set_layout(&layout_create_info, None)
+        }
+        .expect("failed to create layout");
+        Self { layout }
+    }
+}
+struct TexturePool {
+    descriptor_pool: vk::DescriptorPool,
+}
+impl TexturePool {
+    pub fn new<const SIZE: usize>(
+        device: &Device,
+        textures: [TextureCreater; SIZE],
+        swapchain: &PresentImage,
+    ) -> (Self, [Texture; SIZE]) {
+        let pool_sizes = [*vk::DescriptorPoolSize::builder()
+            .descriptor_count((swapchain.num_swapchain_images() * SIZE) as u32)
+            .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)];
+        let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&pool_sizes)
+            .max_sets((swapchain.num_swapchain_images() * SIZE) as u32);
+        let descriptor_pool = unsafe {
+            device
+                .device
+                .create_descriptor_pool(&pool_create_info, None)
+                .expect("failed to create pool")
+        };
+        (Self { descriptor_pool }, todo!())
     }
 }

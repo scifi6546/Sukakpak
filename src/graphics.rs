@@ -58,13 +58,13 @@ impl Context {
             &present_images,
             mat.as_ptr() as *const std::ffi::c_void,
         );
-        let mut graphics_pipeline = GraphicsPipeline::new(
-            &mut device,
-            &vertex_buffer,
-            vec![&uniform_buffer as &dyn DescriptorSets],
-            width,
-            height,
-        );
+        let mut layouts = vec![];
+        for layout in uniform_buffer.get_layouts() {
+            layouts.push(*layout);
+        }
+
+        let mut graphics_pipeline =
+            GraphicsPipeline::new(&mut device, &vertex_buffer, layouts, width, height);
         let mut framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,

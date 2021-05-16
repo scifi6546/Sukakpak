@@ -14,7 +14,7 @@ impl GraphicsPipeline {
     pub fn new(
         device: &mut Device,
         vertex_buffer: &VertexBuffer,
-        buffers: Vec<&dyn DescriptorSets>,
+        layouts: Vec<vk::DescriptorSetLayout>,
         screen_width: u32,
         screen_height: u32,
     ) -> Self {
@@ -135,12 +135,6 @@ impl GraphicsPipeline {
                 .create_render_pass(&render_pass_create_info, None)
                 .expect("failed to create renderpass")
         };
-        let mut layouts = vec![];
-        for buffer in buffers.iter() {
-            for layout in buffer.get_layouts() {
-                layouts.push(*layout);
-            }
-        }
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
         let pipeline_layout = unsafe {
             device
