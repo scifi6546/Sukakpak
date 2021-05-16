@@ -14,7 +14,7 @@ use nalgebra::Matrix4;
 use nalgebra::Vector3;
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
-use texture::Texture;
+use texture::{Texture, TextureCreater, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::VertexBuffer;
 pub struct Context {
@@ -22,14 +22,16 @@ pub struct Context {
     present_images: PresentImage,
     graphics_pipeline: GraphicsPipeline,
     framebuffer: Framebuffer,
-    command_queue: CommandPool,
+    command_pool: CommandPool,
     render_pass: RenderPass,
     vertex_buffer: VertexBuffer,
+    texture_creators: Vec<TextureCreater>,
+    texture_pool: TexturePool,
     width: u32,
     height: u32,
     window: winit::window::Window,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
-    texture: Texture,
+    textures: Vec<Texture>,
 }
 impl Context {
     pub fn new(
@@ -73,10 +75,10 @@ impl Context {
             width,
             height,
         );
-        let mut command_queue = CommandPool::new(&mut device);
+        let mut command_pool = CommandPool::new(&mut device);
         let render_pass = RenderPass::new(
             &mut device,
-            &command_queue,
+            &command_pool,
             &mut graphics_pipeline,
             &framebuffer,
             &vertex_buffer,
@@ -84,21 +86,30 @@ impl Context {
             width,
             height,
         );
-        let mut texture = Texture::new(&mut device, &mut command_queue);
-        texture.bind_image();
+        let texture_creators = vec![TextureCreater::new(&mut device)];
+        let (texture_pool, mut textures) = TexturePool::new(
+            &mut device,
+            &mut command_pool,
+            &texture_creators,
+            &present_images,
+        );
+
+        textures[0].bind_image();
         Self {
             device,
             present_images,
             graphics_pipeline,
             framebuffer,
-            command_queue,
+            command_pool,
             width,
             height,
             window,
             vertex_buffer,
             uniform_buffer,
-            texture,
+            textures,
             render_pass,
+            texture_pool,
+            texture_creators,
         }
     }
     pub fn render_frame(&mut self) {
@@ -109,9 +120,15 @@ impl Context {
 }
 impl Drop for Context {
     fn drop(&mut self) {
-        self.texture.free(&mut self.device);
+        for texture in self.textures.iter_mut() {
+            texture.free(&mut self.device);
+        }
+        self.texture_pool.free(&mut self.device);
+        for creator in self.texture_creators.iter() {
+            creator.free(&mut self.device);
+        }
         self.render_pass.free(&mut self.device);
-        self.command_queue.free(&mut self.device);
+        self.command_pool.free(&mut self.device);
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);
         self.uniform_buffer.free(&mut self.device);
