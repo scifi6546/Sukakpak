@@ -7,6 +7,7 @@ use ash::{
     },
     vk, Entry,
 };
+use backtrace::Backtrace;
 use std::{
     borrow::Cow,
     ffi::{CStr, CString},
@@ -39,7 +40,7 @@ unsafe extern "system" fn vulkan_debug_callback(
         &message_id_number.to_string(),
         message,
     );
-
+    println!("{:?}", Backtrace::new());
     vk::FALSE
 }
 pub struct Device {
