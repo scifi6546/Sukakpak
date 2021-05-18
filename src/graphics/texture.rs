@@ -11,7 +11,7 @@ pub struct Texture {
     buffer: vk::Buffer,
     image: vk::Image,
     image_memory: vk::DeviceMemory,
-    descriptor_set: vk::DescriptorSet,
+    pub descriptor_set: vk::DescriptorSet,
 }
 impl Texture {
     fn new(

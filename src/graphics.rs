@@ -84,6 +84,12 @@ impl Context {
             height,
         );
         let mut command_pool = CommandPool::new(&mut device);
+        let (texture_pool, textures) = TexturePool::new(
+            &mut device,
+            &mut command_pool,
+            &texture_creators,
+            &present_images,
+        );
         let render_pass = RenderPass::new(
             &mut device,
             &command_pool,
@@ -91,16 +97,11 @@ impl Context {
             &framebuffer,
             &vertex_buffer,
             &uniform_buffer,
+            &textures[0],
             width,
             height,
         );
 
-        let (texture_pool, textures) = TexturePool::new(
-            &mut device,
-            &mut command_pool,
-            &texture_creators,
-            &present_images,
-        );
         Self {
             device,
             present_images,

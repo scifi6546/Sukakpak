@@ -1,4 +1,4 @@
-use super::{Device, Framebuffer, GraphicsPipeline, UniformBuffer, VertexBuffer};
+use super::{Device, Framebuffer, GraphicsPipeline, Texture, UniformBuffer, VertexBuffer};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
 pub struct OneTimeCommandBuffer<'a> {
@@ -93,6 +93,7 @@ impl RenderPass {
         framebuffers: &Framebuffer,
         vertex_buffers: &VertexBuffer,
         uniform: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        texture: &Texture,
         width: u32,
         height: u32,
     ) -> Self {
@@ -151,7 +152,7 @@ impl RenderPass {
                     vk::PipelineBindPoint::GRAPHICS,
                     graphics_pipeline.pipeline_layout,
                     0,
-                    &[uniform.buffers[i].2],
+                    &[uniform.buffers[i].2, texture.descriptor_set],
                     &[],
                 );
                 device.device.cmd_draw(*command_buffer, 3, 1, 0, 0);
