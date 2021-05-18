@@ -5,7 +5,6 @@ use ash::{
 };
 use image::io::Reader as ImageReader;
 pub struct Texture {
-    image_data: image::RgbaImage,
     sampler: vk::Sampler,
     image_view: vk::ImageView,
     transfer_memory: vk::DeviceMemory,
@@ -178,7 +177,6 @@ impl Texture {
         Self {
             image,
             sampler,
-            image_data,
             image_view,
             buffer,
             transfer_memory,
@@ -186,13 +184,7 @@ impl Texture {
             descriptor_set,
         }
     }
-    pub fn bind_image(&mut self) {
-        let sampler_layout_binding = vk::DescriptorSetLayoutBinding::builder()
-            .binding(1)
-            .descriptor_count(1)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT);
-    }
+
     fn transition_image_layout(
         device: &mut Device,
         command_queue: &mut CommandPool,
@@ -330,8 +322,8 @@ impl TextureCreator {
     }
 }
 impl DescriptorSets for TextureCreator {
-    fn get_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
-        vec![self.layout]
+    fn get_layout(&self) -> vk::DescriptorSetLayout {
+        self.layout
     }
 }
 pub struct TexturePool {

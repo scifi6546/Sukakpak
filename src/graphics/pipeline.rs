@@ -1,4 +1,4 @@
-use super::{DescriptorSets, Device, UniformBuffer, VertexBuffer};
+use super::{Device, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
@@ -9,7 +9,6 @@ pub struct GraphicsPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
 }
-use nalgebra::Matrix4;
 impl GraphicsPipeline {
     pub fn new(
         device: &mut Device,

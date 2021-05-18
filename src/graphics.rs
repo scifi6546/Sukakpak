@@ -27,9 +27,6 @@ pub struct Context {
     vertex_buffer: VertexBuffer,
     texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
-    width: u32,
-    height: u32,
-    window: winit::window::Window,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
 }
@@ -70,20 +67,16 @@ impl Context {
             &present_images,
             mat.as_ptr() as *const std::ffi::c_void,
         );
-        let mut layouts = vec![];
-        for layout in uniform_buffer.get_layouts() {
-            layouts.push(layout);
-        }
+        let mut layouts = vec![uniform_buffer.get_layout()];
+
         let texture_creators = vec![TextureCreator::new(&mut device)];
         for creator in texture_creators.iter() {
-            for layout in creator.get_layouts() {
-                layouts.push(layout);
-            }
+            layouts.push(creator.get_layout());
         }
 
         let mut graphics_pipeline =
             GraphicsPipeline::new(&mut device, &vertex_buffer, layouts, width, height);
-        let mut framebuffer = Framebuffer::new(
+        let framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,
             &mut graphics_pipeline,
@@ -102,23 +95,18 @@ impl Context {
             height,
         );
 
-        let (texture_pool, mut textures) = TexturePool::new(
+        let (texture_pool, textures) = TexturePool::new(
             &mut device,
             &mut command_pool,
             &texture_creators,
             &present_images,
         );
-
-        textures[0].bind_image();
         Self {
             device,
             present_images,
             graphics_pipeline,
             framebuffer,
             command_pool,
-            width,
-            height,
-            window,
             vertex_buffer,
             uniform_buffer,
             textures,
@@ -184,7 +172,7 @@ impl Default for FreeChecker {
     }
 }
 pub trait DescriptorSets {
-    fn get_layouts(&self) -> Vec<vk::DescriptorSetLayout>;
+    fn get_layout(&self) -> vk::DescriptorSetLayout;
 }
 trait DescriptorSetsT {
     type CtorArguments;
