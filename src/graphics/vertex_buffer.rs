@@ -82,7 +82,7 @@ impl VertexBuffer {
             std::ptr::copy_nonoverlapping(
                 verticies.as_ptr() as *mut std::ffi::c_void,
                 memory,
-                verticies.len() * std::mem::size_of::<Vector3<f32>>(),
+                verticies.len() * std::mem::size_of::<Vertex>(),
             );
             device.device.unmap_memory(buffer_memory);
         }
