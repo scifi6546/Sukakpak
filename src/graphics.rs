@@ -29,6 +29,8 @@ pub struct Context {
     texture_pool: TexturePool,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
+    #[allow(dead_code)]
+    window: winit::window::Window,
 }
 impl Context {
     pub fn new(
@@ -114,6 +116,7 @@ impl Context {
             render_pass,
             texture_pool,
             texture_creators,
+            window,
         }
     }
     pub fn render_frame(&mut self) {
@@ -124,6 +127,7 @@ impl Context {
 }
 impl Drop for Context {
     fn drop(&mut self) {
+        self.render_pass.wait_idle(&mut self.device);
         for texture in self.textures.iter_mut() {
             texture.free(&mut self.device, &self.texture_pool);
         }

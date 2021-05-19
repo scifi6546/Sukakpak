@@ -235,6 +235,18 @@ impl RenderPass {
             .queue_present(device.present_queue, &present_info)
             .expect("failed to present queue");
     }
+    pub fn wait_idle(&mut self, device: &mut Device) {
+        unsafe {
+            device
+                .device
+                .wait_for_fences(&self.fences, true, 10000000)
+                .expect("failed to wait for fence");
+            device
+                .device
+                .device_wait_idle()
+                .expect("failed to wait idle");
+        }
+    }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
             device
