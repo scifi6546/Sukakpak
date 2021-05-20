@@ -1,16 +1,18 @@
 mod commands;
 mod device;
 mod framebuffer;
+mod index_buffer;
 mod pipeline;
 mod present_images;
 mod texture;
 mod uniform;
 mod vertex_buffer;
-use ash::vk;
+use ash::{version::DeviceV1_0, vk};
 use commands::{CommandPool, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 
+use index_buffer::IndexBuffer;
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
@@ -29,6 +31,7 @@ pub struct Context {
     texture_pool: TexturePool,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
+    index_buffer: IndexBuffer,
     #[allow(dead_code)]
     window: winit::window::Window,
 }
@@ -78,6 +81,7 @@ impl Context {
 
         let mut graphics_pipeline =
             GraphicsPipeline::new(&mut device, &vertex_buffer, layouts, width, height);
+
         let framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,
@@ -86,6 +90,7 @@ impl Context {
             height,
         );
         let mut command_pool = CommandPool::new(&mut device);
+        let index_buffer = IndexBuffer::new(&mut device, &mut command_pool, vec![0, 1, 2]);
         let (texture_pool, textures) = TexturePool::new(
             &mut device,
             &mut command_pool,
@@ -98,6 +103,7 @@ impl Context {
             &mut graphics_pipeline,
             &framebuffer,
             &vertex_buffer,
+            &index_buffer,
             &uniform_buffer,
             &textures[0],
             width,
@@ -117,6 +123,7 @@ impl Context {
             texture_pool,
             texture_creators,
             window,
+            index_buffer,
         }
     }
     pub fn render_frame(&mut self) {
@@ -158,6 +165,27 @@ pub fn find_memorytype_index(
                 && memory_type.property_flags & flags == flags
         })
         .map(|(index, _memory_type)| index as _)
+}
+pub fn copy_buffer(
+    device: &mut Device,
+    command_pool: &mut CommandPool,
+    src_buffer: &vk::Buffer,
+    dst_buffer: &vk::Buffer,
+    buffer_size: u64,
+) {
+    unsafe {
+        let copy_command = command_pool.create_onetime_buffer(device);
+        let copy_region = [*vk::BufferCopy::builder()
+            .src_offset(0)
+            .dst_offset(0)
+            .size(buffer_size)];
+        copy_command.device.device.cmd_copy_buffer(
+            copy_command.command_buffer[0],
+            *src_buffer,
+            *dst_buffer,
+            &copy_region,
+        );
+    }
 }
 pub struct FreeChecker {
     freed: bool,

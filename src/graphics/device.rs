@@ -1,4 +1,4 @@
-use super::find_memorytype_index;
+use super::{find_memorytype_index, CommandPool};
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::{
     extensions::{
@@ -283,6 +283,7 @@ impl Device {
         };
         (buffer, buffer_memory)
     }
+
     /// clears resources, warning once called object is in invalid state
     pub fn free(&mut self) {
         assert!(!self.previously_destroyed);
