@@ -147,6 +147,7 @@ impl Drop for Context {
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);
         self.uniform_buffer.free(&mut self.device);
+        self.index_buffer.free(&mut self.device);
         self.vertex_buffer.free(&mut self.device);
         self.present_images.free(&mut self.device);
         self.device.free();

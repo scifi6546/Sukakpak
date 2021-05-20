@@ -6,8 +6,11 @@ pub struct IndexBuffer {
     pub buffer_size: u64,
 }
 impl IndexBuffer {
+    pub fn get_num_indicies(&self) -> usize {
+        self.buffer_size as usize / std::mem::size_of::<u32>()
+    }
     pub fn new(device: &mut Device, command_pool: &mut CommandPool, indicies: Vec<u32>) -> Self {
-        let buffer_size = indicies.len() * std::mem::size_of::<f32>();
+        let buffer_size = indicies.len() * std::mem::size_of::<u32>();
         let (staging_buffer, staging_memory) = device.create_buffer(
             buffer_size as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
@@ -52,6 +55,12 @@ impl IndexBuffer {
             buffer,
             buffer_memory,
             buffer_size: buffer_size as u64,
+        }
+    }
+    pub fn free(&mut self, device: &mut Device) {
+        unsafe {
+            device.device.destroy_buffer(self.buffer, None);
+            device.device.free_memory(self.buffer_memory, None);
         }
     }
 }

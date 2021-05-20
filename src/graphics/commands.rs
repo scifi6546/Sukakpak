@@ -166,7 +166,7 @@ impl RenderPass {
                 );
                 device.device.cmd_draw_indexed(
                     *command_buffer,
-                    index_buffer.buffer_size as u32,
+                    index_buffer.get_num_indicies() as u32,
                     1,
                     0,
                     0,
