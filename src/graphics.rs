@@ -1,24 +1,30 @@
-mod commands;
+mod command_pool;
 mod device;
 mod framebuffer;
 mod index_buffer;
+mod mesh;
 mod pipeline;
 mod present_images;
 mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::{version::DeviceV1_0, vk};
-use commands::{CommandPool, RenderPass};
+use command_pool::{CommandPool, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
+use generational_arena::{Arena, Index as ArenaIndex};
 
 use index_buffer::IndexBuffer;
+use mesh::Mesh;
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::{Vertex, VertexBuffer};
+struct MeshID {
+    index: ArenaIndex,
+}
 pub struct Context {
     device: Device,
     present_images: PresentImage,
@@ -32,6 +38,7 @@ pub struct Context {
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
     index_buffer: IndexBuffer,
+    arena: Arena<Mesh>,
     #[allow(dead_code)]
     window: winit::window::Window,
 }
@@ -124,11 +131,17 @@ impl Context {
             texture_creators,
             window,
             index_buffer,
+            arena: Arena::new(),
         }
     }
     pub fn render_frame(&mut self) {
         unsafe {
             self.render_pass.render_frame(&mut self.device);
+        }
+    }
+    pub fn new_mesh(&mut self, verticies: Vec<Vertex>) -> MeshID {
+        MeshID {
+            index: self.arena.insert(Mesh::new(&mut self.device, verticies)),
         }
     }
 }
@@ -205,11 +218,6 @@ impl Default for FreeChecker {
         Self { freed: false }
     }
 }
-pub trait DescriptorSets {
+trait DescriptorSets {
     fn get_layout(&self) -> vk::DescriptorSetLayout;
-}
-trait DescriptorSetsT {
-    type CtorArguments;
-    fn get_layout_info() -> Vec<vk::DescriptorSetLayoutCreateInfo>;
-    fn new(layouts: &[vk::DescriptorSetLayout], arguments: Self::CtorArguments) -> Self;
 }
