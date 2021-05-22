@@ -132,6 +132,24 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 .destroy_descriptor_set_layout(self.layout[0], None)
         }
     }
+    pub unsafe fn update_uniform(
+        &mut self,
+        device: &mut Device,
+        image_index: usize,
+        data: *const std::ffi::c_void,
+    ) {
+        let ptr = device
+            .device
+            .map_memory(
+                self.buffers[image_index].1,
+                0,
+                SIZE as u64,
+                vk::MemoryMapFlags::empty(),
+            )
+            .expect("failed to map memory");
+        std::ptr::copy_nonoverlapping(data, ptr, SIZE);
+        device.device.unmap_memory(self.buffers[image_index].1);
+    }
 }
 impl<const SIZE: usize> DescriptorSets for UniformBuffer<SIZE> {
     fn get_layout(&self) -> vk::DescriptorSetLayout {

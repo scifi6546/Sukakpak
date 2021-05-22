@@ -5,7 +5,7 @@ use super::{
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
 pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
-    pub uniform_buffer: &'a UniformBuffer<UNIFORM_SIZE>,
+    pub uniform_buffer: &'a mut UniformBuffer<UNIFORM_SIZE>,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
     pub texture: &'a Texture,
@@ -160,7 +160,8 @@ impl RenderPass {
         graphics_pipeline: &GraphicsPipeline,
         width: u32,
         height: u32,
-        mesh: &RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_data: *const std::ffi::c_void,
+        mesh: &mut RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>,
     ) {
         let (image_index, _) = device
             .swapchain_loader
@@ -171,6 +172,8 @@ impl RenderPass {
                 vk::Fence::null(),
             )
             .expect("failed to aquire image");
+        mesh.uniform_buffer
+            .update_uniform(device, image_index as usize, uniform_data);
         self.build_renderpass(
             device,
             &framebuffer.framebuffers[image_index as usize],

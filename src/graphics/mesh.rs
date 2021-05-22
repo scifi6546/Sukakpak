@@ -29,7 +29,7 @@ impl Mesh {
     }
     pub fn to_render_mesh<'a>(
         &'a self,
-        uniform_buffer: &'a UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffer: &'a mut UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
         texture_arena: &'a Arena<Texture>,
     ) -> RenderMesh<'a, { std::mem::size_of::<Matrix4<f32>>() }> {
         RenderMesh {

@@ -3,7 +3,7 @@ pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 mod graphics;
 
 use graphics::{Context, Vertex};
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Matrix4, Vector2, Vector3};
 
 use winit::{
     event::{Event, WindowEvent},
@@ -40,7 +40,8 @@ fn main() {
     );
 
     event_loop.run(move |event, _, control_flow| {
-        context.render_frame(&mesh);
+        let data: Matrix4<f32> = Matrix4::identity();
+        context.render_frame(&mesh, data.as_ptr() as *const std::ffi::c_void);
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

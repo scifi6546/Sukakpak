@@ -148,9 +148,9 @@ impl Context {
             texture_ids,
         )
     }
-    pub fn render_frame(&mut self, mesh: &MeshID) {
+    pub fn render_frame(&mut self, mesh: &MeshID, uniform_data: *const std::ffi::c_void) {
         let mesh = self.mesh_arena.get(mesh.index).expect("invalid mesh id");
-        let render_mesh = mesh.to_render_mesh(&self.uniform_buffer, &self.texture_arena);
+        let mut render_mesh = mesh.to_render_mesh(&mut self.uniform_buffer, &self.texture_arena);
         unsafe {
             self.render_pass.render_frame(
                 &mut self.device,
@@ -158,7 +158,8 @@ impl Context {
                 &self.graphics_pipeline,
                 self.width,
                 self.height,
-                &render_mesh,
+                uniform_data,
+                &mut render_mesh,
             );
         }
     }
@@ -182,6 +183,9 @@ impl Context {
 impl Drop for Context {
     fn drop(&mut self) {
         self.render_pass.wait_idle(&mut self.device);
+        for (_idx, texture) in self.texture_arena.iter_mut() {
+            texture.free(&mut self.device, &self.texture_pool);
+        }
         for texture in self.textures.iter_mut() {
             texture.free(&mut self.device, &self.texture_pool);
         }
