@@ -1,5 +1,5 @@
 use super::{
-    CommandPool, Device, Framebuffer, GraphicsPipeline, IndexBuffer, Texture, UniformBuffer,
+    CommandPool, Device, Framebuffer, GraphicsPipeline, IndexBuffer, Mesh, Texture, UniformBuffer,
     VertexBuffer,
 };
 use ash::{version::DeviceV1_0, vk};
@@ -129,7 +129,7 @@ impl RenderPass {
             render_finished_semaphore,
         }
     }
-    // Builds renderpass using selected uniforms.
+    // Builds renderpass using selected uniforms. Waits for selected Fence
     unsafe fn build_renderpass(
         &mut self,
         device: &mut Device,
@@ -218,7 +218,7 @@ impl RenderPass {
             .end_command_buffer(self.command_buffers[image_index])
             .expect("failed to create command buffer");
     }
-    pub unsafe fn render_frame(&mut self, device: &mut Device) {
+    pub unsafe fn render_frame(&mut self, device: &mut Device, mesh: &Mesh) {
         let (image_index, _) = device
             .swapchain_loader
             .acquire_next_image(

@@ -15,14 +15,17 @@ use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 
 use index_buffer::IndexBuffer;
-use mesh::Mesh;
+pub use mesh::Mesh;
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::{Vertex, VertexBuffer};
-struct MeshID {
+pub struct MeshID {
+    index: ArenaIndex,
+}
+pub struct TextureID {
     index: ArenaIndex,
 }
 pub struct Context {
@@ -38,7 +41,8 @@ pub struct Context {
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
     index_buffer: IndexBuffer,
-    arena: Arena<Mesh>,
+    mesh_arena: Arena<Mesh>,
+    texture_arena: Arena<Mesh>,
     #[allow(dead_code)]
     window: winit::window::Window,
 }
@@ -131,18 +135,25 @@ impl Context {
             texture_creators,
             window,
             index_buffer,
-            arena: Arena::new(),
+            mesh_arena: Arena::new(),
+            texture_arena: Arena::new(),
         }
     }
-    pub fn render_frame(&mut self) {
+    pub fn render_frame(&mut self, mesh: &MeshID) {
+        let mesh = self.mesh_arena.get(mesh.index).unwrap();
         unsafe {
-            self.render_pass.render_frame(&mut self.device);
+            self.render_pass.render_frame(&mut self.device, mesh);
         }
     }
-    pub fn new_mesh(&mut self, verticies: Vec<Vertex>) -> MeshID {
+    pub fn new_mesh(&mut self, texture: TextureID, verticies: Vec<Vertex>) -> MeshID {
         MeshID {
-            index: self.arena.insert(Mesh::new(&mut self.device, verticies)),
+            index: self
+                .mesh_arena
+                .insert(Mesh::new(&mut self.device, texture, verticies)),
         }
+    }
+    pub fn new_texture(&mut self, image: image::RgbaImage) -> TextureID {
+        todo!()
     }
 }
 impl Drop for Context {
