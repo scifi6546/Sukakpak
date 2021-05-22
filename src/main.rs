@@ -38,10 +38,15 @@ fn main() {
         ],
         vec![0, 1, 2],
     );
+    let mut counter = 0;
 
     event_loop.run(move |event, _, control_flow| {
-        let data: Matrix4<f32> = Matrix4::identity();
+        counter += 1;
+        let rotation = (counter as f32) / 1000.0;
+
+        let data: Matrix4<f32> = Matrix4::from_euler_angles(rotation, 0.0, 0.0);
         context.render_frame(&mesh, data.as_ptr() as *const std::ffi::c_void);
+
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
