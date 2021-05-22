@@ -13,11 +13,15 @@ use winit::{
 fn main() {
     let event_loop = winit::event_loop::EventLoop::new();
     println!("building context");
-    let mut context = Context::new("Hello Context", &event_loop, 1000, 1000);
-    let image = image::open("./texture.jpeg").unwrap().into_rgba8();
-    let texture = context.new_texture(image);
+    let (mut context, textures) = Context::new(
+        "Hello Context",
+        &event_loop,
+        1000,
+        1000,
+        &[image::open("./texture.jpeg").unwrap().into_rgba8()],
+    );
     let mesh = context.new_mesh(
-        texture,
+        textures[0],
         vec![
             Vertex {
                 position: Vector3::new(-0.5, -0.5, 0.0),
@@ -32,6 +36,7 @@ fn main() {
                 uv: Vector2::new(0.5, 1.0),
             },
         ],
+        vec![0, 1, 2],
     );
 
     event_loop.run(move |event, _, control_flow| {

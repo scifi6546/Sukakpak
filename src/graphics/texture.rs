@@ -3,7 +3,6 @@ use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
 };
-use image::io::Reader as ImageReader;
 pub struct Texture {
     sampler: vk::Sampler,
     image_view: vk::ImageView,
@@ -19,13 +18,8 @@ impl Texture {
         command_queue: &mut CommandPool,
         texture_pool: &TexturePool,
         texture_creator: &TextureCreator,
+        image_data: &image::RgbaImage,
     ) -> Self {
-        let image_data = ImageReader::open("screenshot.png")
-            .expect("failed to load image")
-            .decode()
-            .expect("failed to decode image")
-            .to_rgba8();
-
         let (buffer, transfer_memory) = device.create_buffer(
             image_data.as_raw().len() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
@@ -333,7 +327,7 @@ impl TexturePool {
     pub fn new(
         device: &mut Device,
         command_pool: &mut CommandPool,
-        textures: &Vec<TextureCreator>,
+        textures: &Vec<(TextureCreator, &image::RgbaImage)>,
         swapchain: &PresentImage,
     ) -> (Self, Vec<Texture>) {
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
@@ -352,7 +346,9 @@ impl TexturePool {
         let texture_pool = Self { descriptor_pool };
         let texture_array = textures
             .iter()
-            .map(|creator| Texture::new(device, command_pool, &texture_pool, creator))
+            .map(|(creator, rgba_image)| {
+                Texture::new(device, command_pool, &texture_pool, creator, rgba_image)
+            })
             .collect();
         (texture_pool, texture_array)
     }

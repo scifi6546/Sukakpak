@@ -9,7 +9,7 @@ mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::{version::DeviceV1_0, vk};
-use command_pool::{CommandPool, RenderPass};
+use command_pool::{CommandPool, RenderMesh, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
@@ -22,9 +22,11 @@ use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::{Vertex, VertexBuffer};
+#[derive(Clone, Copy)]
 pub struct MeshID {
     index: ArenaIndex,
 }
+#[derive(Clone, Copy)]
 pub struct TextureID {
     index: ArenaIndex,
 }
@@ -40,9 +42,10 @@ pub struct Context {
     texture_pool: TexturePool,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
     textures: Vec<Texture>,
-    index_buffer: IndexBuffer,
     mesh_arena: Arena<Mesh>,
-    texture_arena: Arena<Mesh>,
+    texture_arena: Arena<Texture>,
+    width: u32,
+    height: u32,
     #[allow(dead_code)]
     window: winit::window::Window,
 }
@@ -52,7 +55,8 @@ impl Context {
         event_loop: &winit::event_loop::EventLoop<()>,
         width: u32,
         height: u32,
-    ) -> Self {
+        textures: &[image::RgbaImage],
+    ) -> (Self, Vec<TextureID>) {
         let window = winit::window::WindowBuilder::new()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(width, height))
@@ -84,9 +88,11 @@ impl Context {
             mat.as_ptr() as *const std::ffi::c_void,
         );
         let mut layouts = vec![uniform_buffer.get_layout()];
-
-        let texture_creators = vec![TextureCreator::new(&mut device)];
-        for creator in texture_creators.iter() {
+        let mut texture_creators = textures
+            .iter()
+            .map(|tex| (TextureCreator::new(&mut device), tex))
+            .collect::<Vec<_>>();
+        for (creator, _tex) in texture_creators.iter() {
             layouts.push(creator.get_layout());
         }
 
@@ -101,59 +107,76 @@ impl Context {
             height,
         );
         let mut command_pool = CommandPool::new(&mut device);
-        let index_buffer = IndexBuffer::new(&mut device, &mut command_pool, vec![0, 1, 2]);
-        let (texture_pool, textures) = TexturePool::new(
+        let (texture_pool, mut textures) = TexturePool::new(
             &mut device,
             &mut command_pool,
             &texture_creators,
             &present_images,
         );
-        let render_pass = RenderPass::new(
-            &mut device,
-            &command_pool,
-            &mut graphics_pipeline,
-            &framebuffer,
-            &vertex_buffer,
-            &index_buffer,
-            &uniform_buffer,
-            &textures[0],
-            width,
-            height,
-        );
+        println!("textures len: {}", textures.len());
+        let render_pass = RenderPass::new(&mut device, &command_pool, &framebuffer);
+        let mut texture_arena = Arena::new();
+        let texture_ids = textures
+            .drain(..)
+            .map(|tex| TextureID {
+                index: texture_arena.insert(tex),
+            })
+            .collect();
 
-        Self {
-            device,
-            present_images,
-            graphics_pipeline,
-            framebuffer,
-            command_pool,
-            vertex_buffer,
-            uniform_buffer,
-            textures,
-            render_pass,
-            texture_pool,
-            texture_creators,
-            window,
-            index_buffer,
-            mesh_arena: Arena::new(),
-            texture_arena: Arena::new(),
-        }
+        (
+            Self {
+                device,
+                present_images,
+                graphics_pipeline,
+                framebuffer,
+                command_pool,
+                vertex_buffer,
+                uniform_buffer,
+                textures,
+                render_pass,
+                texture_pool,
+                texture_creators: texture_creators
+                    .drain(..)
+                    .map(|(creator, _tex)| creator)
+                    .collect(),
+                window,
+                width,
+                height,
+                mesh_arena: Arena::new(),
+                texture_arena,
+            },
+            texture_ids,
+        )
     }
     pub fn render_frame(&mut self, mesh: &MeshID) {
-        let mesh = self.mesh_arena.get(mesh.index).unwrap();
+        let mesh = self.mesh_arena.get(mesh.index).expect("invalid mesh id");
+        let render_mesh = mesh.to_render_mesh(&self.uniform_buffer, &self.texture_arena);
         unsafe {
-            self.render_pass.render_frame(&mut self.device, mesh);
+            self.render_pass.render_frame(
+                &mut self.device,
+                &self.framebuffer,
+                &self.graphics_pipeline,
+                self.width,
+                self.height,
+                &render_mesh,
+            );
         }
     }
-    pub fn new_mesh(&mut self, texture: TextureID, verticies: Vec<Vertex>) -> MeshID {
+    pub fn new_mesh(
+        &mut self,
+        texture: TextureID,
+        verticies: Vec<Vertex>,
+        indicies: Vec<u32>,
+    ) -> MeshID {
         MeshID {
-            index: self
-                .mesh_arena
-                .insert(Mesh::new(&mut self.device, texture, verticies)),
+            index: self.mesh_arena.insert(Mesh::new(
+                &mut self.device,
+                &mut self.command_pool,
+                texture,
+                verticies,
+                indicies,
+            )),
         }
-    }
-    pub fn new_texture(&mut self, image: image::RgbaImage) -> TextureID {
-        todo!()
     }
 }
 impl Drop for Context {
@@ -162,6 +185,7 @@ impl Drop for Context {
         for texture in self.textures.iter_mut() {
             texture.free(&mut self.device, &self.texture_pool);
         }
+
         self.texture_pool.free(&mut self.device);
         for creator in self.texture_creators.iter() {
             creator.free(&mut self.device);
@@ -171,8 +195,10 @@ impl Drop for Context {
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);
         self.uniform_buffer.free(&mut self.device);
-        self.index_buffer.free(&mut self.device);
         self.vertex_buffer.free(&mut self.device);
+        for (_idx, mesh) in self.mesh_arena.iter_mut() {
+            mesh.free(&mut self.device);
+        }
         self.present_images.free(&mut self.device);
         self.device.free();
     }

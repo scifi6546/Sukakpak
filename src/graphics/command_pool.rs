@@ -1,9 +1,9 @@
 use super::{
-    Device, Framebuffer, GraphicsPipeline, IndexBuffer, Mesh, Texture, UniformBuffer, VertexBuffer,
+    Device, Framebuffer, GraphicsPipeline, IndexBuffer, Texture, UniformBuffer, VertexBuffer,
 };
 mod render_pass;
 use ash::{version::DeviceV1_0, vk};
-pub use render_pass::RenderPass;
+pub use render_pass::{RenderMesh, RenderPass};
 pub struct OneTimeCommandBuffer<'a> {
     pub device: &'a Device,
     pub command_buffer: [vk::CommandBuffer; 1],
@@ -41,8 +41,9 @@ pub struct CommandPool {
 }
 impl CommandPool {
     pub fn new(device: &mut Device) -> Self {
-        let command_pool_create_info =
-            vk::CommandPoolCreateInfo::builder().queue_family_index(device.queue_family_index);
+        let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
+            .queue_family_index(device.queue_family_index)
+            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         let command_pool = unsafe {
             device
                 .device
