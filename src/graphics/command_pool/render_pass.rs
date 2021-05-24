@@ -173,7 +173,8 @@ impl RenderPass {
             )
             .expect("failed to aquire image");
         let signal_semaphores = [self.render_finished_semaphore];
-        for mesh in meshes.iter_mut() {
+        let meshes_len = meshes.len();
+        for (idx, mesh) in meshes.iter_mut().enumerate() {
             uniform_buffer.update_uniform(device, image_index as usize, mesh.uniform_data);
             self.build_renderpass(
                 device,
@@ -187,16 +188,6 @@ impl RenderPass {
                 mesh.index_buffer,
                 mesh.vertex_buffer,
             );
-            /*
-                    device
-                        .device
-                        .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
-                        .expect("failed to wait for fence");
-                    device
-                        .device
-                        .reset_fences(&[self.fences[image_index as usize]])
-                        .expect("failed to reset fence");
-            */
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&[self.image_available_semaphore])
                 .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
@@ -211,6 +202,16 @@ impl RenderPass {
                     self.fences[image_index as usize],
                 )
                 .expect("failed to submit queue");
+            if idx != meshes_len - 1 {
+                device
+                    .device
+                    .wait_for_fences(&[self.fences[image_index as usize]], true, 10)
+                    .expect("failed to wait for fence");
+            }
+            device
+                .device
+                .reset_fences(&[self.fences[image_index as usize]])
+                .expect("failed to reset");
         }
         let wait_semaphores = [device.swapchain];
         let image_indices = [image_index];
