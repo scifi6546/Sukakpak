@@ -160,7 +160,7 @@ impl RenderPass {
         graphics_pipeline: &GraphicsPipeline,
         width: u32,
         height: u32,
-        uniform_buffer: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffer: &mut UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
         meshes: &mut [RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>],
     ) {
         let (image_index, _) = device

@@ -149,13 +149,12 @@ impl Context {
         )
     }
     pub fn render_frame(&mut self, mesh: &[(MeshID, *const std::ffi::c_void)]) {
-        let render_meshes = mesh
-            .iter()
-            .map(|(id, uniform_data)| {
-                let mesh = self.mesh_arena.get(id.index).expect("invalid mesh id");
-                mesh.to_render_mesh(*uniform_data, &mut self.uniform_buffer, &self.texture_arena)
-            })
-            .collect::<Vec<_>>();
+        let mut render_meshes = vec![];
+        render_meshes.reserve(mesh.len());
+        for (id, uniform_data) in mesh.iter() {
+            let mesh = self.mesh_arena.get(id.index).expect("invalid mesh id");
+            render_meshes.push(mesh.to_render_mesh(*uniform_data, &self.texture_arena));
+        }
         unsafe {
             self.render_pass.render_frame(
                 &mut self.device,
@@ -163,6 +162,7 @@ impl Context {
                 &self.graphics_pipeline,
                 self.width,
                 self.height,
+                &mut self.uniform_buffer,
                 &mut render_meshes,
             );
         }
