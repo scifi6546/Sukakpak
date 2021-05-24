@@ -45,7 +45,7 @@ fn main() {
         let rotation = (counter as f32) / 1000.0;
 
         let data: Matrix4<f32> = Matrix4::from_euler_angles(rotation, 0.0, 0.0);
-        context.render_frame(&mesh, data.as_ptr() as *const std::ffi::c_void);
+        context.render_frame(&[(mesh, data.as_ptr() as *const std::ffi::c_void)]);
 
         match event {
             Event::WindowEvent {

@@ -29,6 +29,7 @@ impl Mesh {
     }
     pub fn to_render_mesh<'a>(
         &'a self,
+        uniform_data: *const std::ffi::c_void,
         uniform_buffer: &'a mut UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
         texture_arena: &'a Arena<Texture>,
     ) -> RenderMesh<'a, { std::mem::size_of::<Matrix4<f32>>() }> {
@@ -36,6 +37,7 @@ impl Mesh {
             uniform_buffer,
             vertex_buffer: &self.vertex_buffer,
             index_buffer: &self.index_buffer,
+            uniform_data,
             texture: texture_arena
                 .get(self.texture.index)
                 .expect("failed to get texture"),

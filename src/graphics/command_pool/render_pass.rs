@@ -5,7 +5,7 @@ use super::{
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
 pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
-    pub uniform_buffer: &'a mut UniformBuffer<UNIFORM_SIZE>,
+    pub uniform_data: *const std::ffi::c_void,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
     pub texture: &'a Texture,
@@ -160,8 +160,8 @@ impl RenderPass {
         graphics_pipeline: &GraphicsPipeline,
         width: u32,
         height: u32,
-        uniform_data: *const std::ffi::c_void,
-        mesh: &mut RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffer: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        meshes: &mut [RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>],
     ) {
         let (image_index, _) = device
             .swapchain_loader
@@ -172,45 +172,46 @@ impl RenderPass {
                 vk::Fence::null(),
             )
             .expect("failed to aquire image");
-        mesh.uniform_buffer
-            .update_uniform(device, image_index as usize, uniform_data);
-        self.build_renderpass(
-            device,
-            &framebuffer.framebuffers[image_index as usize],
-            graphics_pipeline,
-            width,
-            height,
-            image_index as usize,
-            mesh.uniform_buffer,
-            mesh.texture,
-            mesh.index_buffer,
-            mesh.vertex_buffer,
-        );
-        /*
-                device
-                    .device
-                    .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
-                    .expect("failed to wait for fence");
-                device
-                    .device
-                    .reset_fences(&[self.fences[image_index as usize]])
-                    .expect("failed to reset fence");
-        */
         let signal_semaphores = [self.render_finished_semaphore];
-        let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(&[self.image_available_semaphore])
-            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-            .command_buffers(&[self.command_buffers[image_index as usize]])
-            .signal_semaphores(&signal_semaphores)
-            .build();
-        device
-            .device
-            .queue_submit(
-                device.present_queue,
-                &[submit_info],
-                self.fences[image_index as usize],
-            )
-            .expect("failed to submit queue");
+        for mesh in meshes.iter_mut() {
+            uniform_buffer.update_uniform(device, image_index as usize, mesh.uniform_data);
+            self.build_renderpass(
+                device,
+                &framebuffer.framebuffers[image_index as usize],
+                graphics_pipeline,
+                width,
+                height,
+                image_index as usize,
+                uniform_buffer,
+                mesh.texture,
+                mesh.index_buffer,
+                mesh.vertex_buffer,
+            );
+            /*
+                    device
+                        .device
+                        .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
+                        .expect("failed to wait for fence");
+                    device
+                        .device
+                        .reset_fences(&[self.fences[image_index as usize]])
+                        .expect("failed to reset fence");
+            */
+            let submit_info = vk::SubmitInfo::builder()
+                .wait_semaphores(&[self.image_available_semaphore])
+                .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+                .command_buffers(&[self.command_buffers[image_index as usize]])
+                .signal_semaphores(&signal_semaphores)
+                .build();
+            device
+                .device
+                .queue_submit(
+                    device.present_queue,
+                    &[submit_info],
+                    self.fences[image_index as usize],
+                )
+                .expect("failed to submit queue");
+        }
         let wait_semaphores = [device.swapchain];
         let image_indices = [image_index];
         let present_info = vk::PresentInfoKHR::builder()
