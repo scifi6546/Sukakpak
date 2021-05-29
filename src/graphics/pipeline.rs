@@ -184,7 +184,7 @@ impl GraphicsPipeline {
             .initial_layout(if load_op == vk::AttachmentLoadOp::CLEAR {
                 vk::ImageLayout::UNDEFINED
             } else {
-                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+                vk::ImageLayout::PRESENT_SRC_KHR
             })
             .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
             .build()];

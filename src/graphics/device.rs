@@ -11,6 +11,8 @@ use std::{
     borrow::Cow,
     ffi::{CStr, CString},
 };
+const DO_BACKTRACE: bool = false;
+const PANIC: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -39,7 +41,13 @@ unsafe extern "system" fn vulkan_debug_callback(
         &message_id_number.to_string(),
         message,
     );
-    //println!("{:?}", backtrace::Backtrace::new());
+    if DO_BACKTRACE {
+        println!("{:?}", backtrace::Backtrace::new());
+    }
+    if PANIC {
+        panic!();
+    }
+
     vk::FALSE
 }
 pub struct Device {
