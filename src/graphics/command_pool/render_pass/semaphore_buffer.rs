@@ -41,6 +41,21 @@ impl SemaphoreBuffer {
     pub fn render_finished_semaphore(&self) -> vk::Semaphore {
         self.render_finished_semaphore
     }
+    pub fn free(&mut self, device: &mut Device) {
+        for (i, semaphore) in self.semaphores.iter().enumerate() {
+            //skipping first element
+            if i != 0 {
+                unsafe {
+                    device.device.destroy_semaphore(*semaphore, None);
+                }
+            }
+        }
+        //unsafe {
+        //    device
+        //        .device
+        //        .destroy_semaphore(self.render_finished_semaphore, None);
+        //}
+    }
 }
 pub struct SemaphoreGetter {
     pub start_semaphore: vk::Semaphore,

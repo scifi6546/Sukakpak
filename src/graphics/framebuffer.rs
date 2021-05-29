@@ -17,7 +17,7 @@ impl Framebuffer {
             .map(|image_view| {
                 let attachments = [*image_view];
                 let create_info = vk::FramebufferCreateInfo::builder()
-                    .render_pass(pipeline.renderpass)
+                    .render_pass(pipeline.clear_pipeline.renderpass)
                     .attachments(&attachments)
                     .width(width)
                     .height(height)

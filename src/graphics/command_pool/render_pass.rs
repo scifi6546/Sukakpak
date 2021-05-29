@@ -87,7 +87,7 @@ impl RenderPass {
             .expect("failed to build command buffer");
 
         let renderpass_info = vk::RenderPassBeginInfo::builder()
-            .render_pass(graphics_pipeline.renderpass)
+            .render_pass(graphics_pipeline.clear_pipeline.renderpass)
             .framebuffer(*framebuffer)
             .render_area(vk::Rect2D {
                 extent: vk::Extent2D { width, height },
@@ -106,7 +106,7 @@ impl RenderPass {
         device.device.cmd_bind_pipeline(
             self.command_buffers[image_index],
             vk::PipelineBindPoint::GRAPHICS,
-            graphics_pipeline.graphics_pipeline,
+            graphics_pipeline.clear_pipeline.graphics_pipeline,
         );
         device.device.cmd_bind_vertex_buffers(
             self.command_buffers[image_index],
@@ -171,7 +171,7 @@ impl RenderPass {
             )
             .expect("failed to aquire image");
         let semaphores = self.semaphore_buffer.get_semaphores(device, meshes.len());
-        for (idx, (mesh, semaphore)) in meshes.iter_mut().zip(semaphores).enumerate() {
+        for (_idx, (mesh, semaphore)) in meshes.iter_mut().zip(semaphores).enumerate() {
             device
                 .device
                 .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
@@ -249,6 +249,7 @@ impl RenderPass {
             device
                 .device
                 .destroy_semaphore(self.image_available_semaphore, None);
+            self.semaphore_buffer.free(device);
             for fence in self.fences.iter() {
                 device.device.destroy_fence(*fence, None);
             }

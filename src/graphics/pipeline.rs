@@ -2,12 +2,18 @@ use super::{Device, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
+pub struct RenderPipeline {
+    pub graphics_pipeline: vk::Pipeline,
+    pub renderpass: vk::RenderPass,
+}
 pub struct GraphicsPipeline {
     fragment_shader: vk::ShaderModule,
     vertex_shader: vk::ShaderModule,
     pub pipeline_layout: vk::PipelineLayout,
-    pub graphics_pipeline: vk::Pipeline,
-    pub renderpass: vk::RenderPass,
+    //clears render pipeline on draw
+    pub clear_pipeline: RenderPipeline,
+    // does not clear color bit on draw
+    pub load_pipeline: RenderPipeline,
 }
 impl GraphicsPipeline {
     pub fn new(
@@ -57,6 +63,51 @@ impl GraphicsPipeline {
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(&vertex_buffer.binding_description)
             .vertex_attribute_descriptions(&vertex_buffer.attributes);
+
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
+        let pipeline_layout = unsafe {
+            device
+                .device
+                .create_pipeline_layout(&layout_create_info, None)
+                .expect("failed to createlayout")
+        };
+
+        let clear_pipeline = Self::build_render_pipeline(
+            device,
+            &shader_stage_create_infos,
+            *vertex_input_state_info,
+            pipeline_layout,
+            screen_width,
+            screen_height,
+            vk::AttachmentLoadOp::CLEAR,
+        );
+        let load_pipeline = Self::build_render_pipeline(
+            device,
+            &shader_stage_create_infos,
+            *vertex_input_state_info,
+            pipeline_layout,
+            screen_width,
+            screen_height,
+            vk::AttachmentLoadOp::LOAD,
+        );
+        GraphicsPipeline {
+            fragment_shader,
+            vertex_shader,
+            pipeline_layout,
+            clear_pipeline,
+            load_pipeline,
+        }
+    }
+    fn build_render_pipeline(
+        device: &mut Device,
+        shader_stage_create_infos: &[vk::PipelineShaderStageCreateInfo],
+        vertex_input_state_info: vk::PipelineVertexInputStateCreateInfo,
+        pipeline_layout: vk::PipelineLayout,
+        screen_width: u32,
+        screen_height: u32,
+        load_op: vk::AttachmentLoadOp,
+    ) -> RenderPipeline {
+        let renderpass = Self::build_renderpass(device, load_op);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -96,15 +147,6 @@ impl GraphicsPipeline {
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op(vk::LogicOp::CLEAR)
             .attachments(&color_blend_attachment_states);
-
-        let renderpass = Self::new_renderpass(device);
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
-        let pipeline_layout = unsafe {
-            device
-                .device
-                .create_pipeline_layout(&layout_create_info, None)
-                .expect("failed to createlayout")
-        };
         let graphics_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
             .vertex_input_state(&vertex_input_state_info)
@@ -126,23 +168,24 @@ impl GraphicsPipeline {
                 )
                 .expect("failed to create pipeline")[0]
         };
-        GraphicsPipeline {
-            fragment_shader,
-            vertex_shader,
-            pipeline_layout,
-            graphics_pipeline,
+        RenderPipeline {
             renderpass,
+            graphics_pipeline,
         }
     }
-    fn new_renderpass(device: &mut Device) -> vk::RenderPass {
+    fn build_renderpass(device: &mut Device, load_op: vk::AttachmentLoadOp) -> vk::RenderPass {
         let color_attachment = [vk::AttachmentDescription::builder()
             .format(device.surface_format.format)
             .samples(vk::SampleCountFlags::TYPE_1)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .load_op(load_op)
             .store_op(vk::AttachmentStoreOp::STORE)
             .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
             .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .initial_layout(if load_op == vk::AttachmentLoadOp::CLEAR {
+                vk::ImageLayout::UNDEFINED
+            } else {
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+            })
             .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
             .build()];
         let color_attachment_refs = [vk::AttachmentReference::builder()
@@ -175,11 +218,18 @@ impl GraphicsPipeline {
     }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
-            device.device.destroy_pipeline(self.graphics_pipeline, None);
+            let free_pipeline = |pipeline: &RenderPipeline| {
+                device
+                    .device
+                    .destroy_pipeline(pipeline.graphics_pipeline, None);
+                device.device.destroy_render_pass(pipeline.renderpass, None);
+            };
+            free_pipeline(&self.clear_pipeline);
+            free_pipeline(&self.load_pipeline);
             device
                 .device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
-            device.device.destroy_render_pass(self.renderpass, None);
+
             device
                 .device
                 .destroy_shader_module(self.fragment_shader, None);
