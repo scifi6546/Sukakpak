@@ -170,6 +170,7 @@ impl GraphicsPipeline {
             renderpass,
         }
     }
+    fn new_renderpass() {}
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
             device.device.destroy_pipeline(self.graphics_pipeline, None);

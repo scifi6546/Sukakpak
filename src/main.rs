@@ -46,11 +46,12 @@ fn main() {
 
         let mat1: Matrix4<f32> = Matrix4::new_translation(&Vector3::new(0.5, 0.0, 0.0))
             * Matrix4::from_euler_angles(rotation, 0.0, 0.0);
-        let mat2: Matrix4<f32> = Matrix4::new_translation(&Vector3::new(0.5, 0.0, 0.0))
+        let mat2: Matrix4<f32> = Matrix4::new_translation(&Vector3::new(-0.5, 0.0, 0.0))
             * Matrix4::from_euler_angles(-1.0 * rotation, 0.0, 0.0);
         context.render_frame(&[
             (mesh, mat1.as_ptr() as *const std::ffi::c_void),
             (mesh, mat2.as_ptr() as *const std::ffi::c_void),
+            (mesh, mat1.as_ptr() as *const std::ffi::c_void),
         ]);
 
         match event {
