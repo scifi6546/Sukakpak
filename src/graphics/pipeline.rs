@@ -97,43 +97,7 @@ impl GraphicsPipeline {
             .logic_op(vk::LogicOp::CLEAR)
             .attachments(&color_blend_attachment_states);
 
-        let color_attachment = [vk::AttachmentDescription::builder()
-            .format(device.surface_format.format)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-            .build()];
-        let color_attachment_refs = [vk::AttachmentReference::builder()
-            .attachment(0)
-            .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .build()];
-        let subpasses = [vk::SubpassDescription::builder()
-            .color_attachments(&color_attachment_refs)
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .build()];
-
-        let subpass_dependencies = [vk::SubpassDependency::builder()
-            .src_subpass(vk::SUBPASS_EXTERNAL)
-            .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .build()];
-        let render_pass_create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&color_attachment)
-            .subpasses(&subpasses)
-            .dependencies(&subpass_dependencies);
-        let renderpass = unsafe {
-            device
-                .device
-                .create_render_pass(&render_pass_create_info, None)
-                .expect("failed to create renderpass")
-        };
+        let renderpass = Self::new_renderpass(device);
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
         let pipeline_layout = unsafe {
             device
@@ -170,7 +134,45 @@ impl GraphicsPipeline {
             renderpass,
         }
     }
-    fn new_renderpass() {}
+    fn new_renderpass(device: &mut Device) -> vk::RenderPass {
+        let color_attachment = [vk::AttachmentDescription::builder()
+            .format(device.surface_format.format)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .build()];
+        let color_attachment_refs = [vk::AttachmentReference::builder()
+            .attachment(0)
+            .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .build()];
+        let subpasses = [vk::SubpassDescription::builder()
+            .color_attachments(&color_attachment_refs)
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
+            .build()];
+
+        let subpass_dependencies = [vk::SubpassDependency::builder()
+            .src_subpass(vk::SUBPASS_EXTERNAL)
+            .dst_subpass(0)
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .build()];
+        let render_pass_create_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&color_attachment)
+            .subpasses(&subpasses)
+            .dependencies(&subpass_dependencies);
+        unsafe {
+            device
+                .device
+                .create_render_pass(&render_pass_create_info, None)
+                .expect("failed to create renderpass")
+        }
+    }
     pub fn free(&mut self, device: &mut Device) {
         unsafe {
             device.device.destroy_pipeline(self.graphics_pipeline, None);

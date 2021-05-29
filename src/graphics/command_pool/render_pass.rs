@@ -79,7 +79,6 @@ impl RenderPass {
         texture: &Texture,
         index_buffer: &IndexBuffer,
         vertex_buffer: &VertexBuffer,
-        is_first: bool,
     ) {
         let begin_info = vk::CommandBufferBeginInfo::builder();
         device
@@ -93,7 +92,12 @@ impl RenderPass {
             .render_area(vk::Rect2D {
                 extent: vk::Extent2D { width, height },
                 offset: vk::Offset2D { x: 0, y: 0 },
-            });
+            })
+            .clear_values(&[vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.1, 0.1, 0.1, 0.1],
+                },
+            }]);
         device.device.cmd_begin_render_pass(
             self.command_buffers[image_index],
             &renderpass_info,
@@ -188,7 +192,6 @@ impl RenderPass {
                 mesh.texture,
                 mesh.index_buffer,
                 mesh.vertex_buffer,
-                idx == 0,
             );
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&[semaphore.start_semaphore])
