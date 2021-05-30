@@ -109,7 +109,7 @@ impl RenderPass {
                 },
                 vk::ClearValue {
                     depth_stencil: vk::ClearDepthStencilValue {
-                        depth: 0.0,
+                        depth: 1.0,
                         stencil: 0,
                     },
                 },

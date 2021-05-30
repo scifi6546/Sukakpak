@@ -98,7 +98,8 @@ impl Context {
         for (creator, _tex) in texture_creators.iter() {
             layouts.push(creator.get_layout());
         }
-        let depth_buffer = DepthBuffer::new(&mut device, width, height);
+        let mut command_pool = CommandPool::new(&mut device);
+        let depth_buffer = DepthBuffer::new(&mut device, &mut command_pool, width, height);
         let mut graphics_pipeline = GraphicsPipeline::new(
             &mut device,
             &vertex_buffer,
@@ -116,7 +117,6 @@ impl Context {
             width,
             height,
         );
-        let mut command_pool = CommandPool::new(&mut device);
         let (texture_pool, mut textures) = TexturePool::new(
             &mut device,
             &mut command_pool,

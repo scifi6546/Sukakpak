@@ -103,6 +103,7 @@ impl Texture {
             device,
             command_queue,
             &image,
+            vk::ImageAspectFlags::COLOR,
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         );
@@ -118,6 +119,7 @@ impl Texture {
             device,
             command_queue,
             &image,
+            vk::ImageAspectFlags::COLOR,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         );
@@ -195,10 +197,11 @@ impl Texture {
         }
     }
 
-    fn transition_image_layout(
+    pub fn transition_image_layout(
         device: &mut Device,
         command_queue: &mut CommandPool,
         image: &vk::Image,
+        aspect_mask: vk::ImageAspectFlags,
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) {
@@ -210,7 +213,7 @@ impl Texture {
             .image(*image)
             .subresource_range(
                 vk::ImageSubresourceRange::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .aspect_mask(aspect_mask)
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
@@ -233,6 +236,16 @@ impl Texture {
             (
                 vk::PipelineStageFlags::TRANSFER,
                 vk::PipelineStageFlags::FRAGMENT_SHADER,
+            )
+        } else if old_layout == vk::ImageLayout::UNDEFINED
+            && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        {
+            barrier.src_access_mask = vk::AccessFlags::empty();
+            barrier.dst_access_mask = vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE;
+            (
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
             )
         } else {
             panic!("unsupported layout transition")

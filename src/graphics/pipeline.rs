@@ -155,7 +155,8 @@ impl GraphicsPipeline {
             .depth_test_enable(true)
             .depth_write_enable(true)
             .depth_compare_op(vk::CompareOp::LESS)
-            .depth_bounds_test_enable(false);
+            .depth_bounds_test_enable(false)
+            .stencil_test_enable(false);
         let graphics_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
             .vertex_input_state(&vertex_input_state_info)
@@ -188,7 +189,7 @@ impl GraphicsPipeline {
         load_op: vk::AttachmentLoadOp,
         depth_buffer: &DepthBuffer,
     ) -> vk::RenderPass {
-        let (depth_attachment, depth_attachment_ref) = depth_buffer.get_attachment();
+        let (depth_attachment, depth_attachment_ref) = depth_buffer.get_attachment(load_op);
         let color_attachment = [vk::AttachmentDescription::builder()
             .format(device.surface_format.format)
             .samples(vk::SampleCountFlags::TYPE_1)

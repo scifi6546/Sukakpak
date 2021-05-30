@@ -1,4 +1,4 @@
-use super::{Device, Texture};
+use super::{CommandPool, Device, Texture};
 use ash::{version::DeviceV1_0, vk};
 pub struct DepthBuffer {
     image: vk::Image,
@@ -7,7 +7,12 @@ pub struct DepthBuffer {
     depth_format: vk::Format,
 }
 impl DepthBuffer {
-    pub fn new(device: &mut Device, width: u32, height: u32) -> Self {
+    pub fn new(
+        device: &mut Device,
+        command_pool: &mut CommandPool,
+        width: u32,
+        height: u32,
+    ) -> Self {
         let depth_format = device.find_supported_format(
             &[
                 vk::Format::D32_SFLOAT,
@@ -23,6 +28,14 @@ impl DepthBuffer {
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             width,
             height,
+        );
+        Texture::transition_image_layout(
+            device,
+            command_pool,
+            &image,
+            vk::ImageAspectFlags::DEPTH,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         );
         let view_info = vk::ImageViewCreateInfo::builder()
             .image(image)
@@ -46,16 +59,19 @@ impl DepthBuffer {
             depth_format,
         }
     }
-    pub fn get_attachment(&self) -> (vk::AttachmentDescription, vk::AttachmentReference) {
+    pub fn get_attachment(
+        &self,
+        load_op: vk::AttachmentLoadOp,
+    ) -> (vk::AttachmentDescription, vk::AttachmentReference) {
         (
             *vk::AttachmentDescription::builder()
                 .format(self.depth_format)
                 .samples(vk::SampleCountFlags::TYPE_1)
-                .load_op(vk::AttachmentLoadOp::DONT_CARE)
-                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .load_op(load_op)
+                .store_op(vk::AttachmentStoreOp::STORE)
                 .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
                 .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .initial_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                 .final_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
             *vk::AttachmentReference::builder()
                 .attachment(1)

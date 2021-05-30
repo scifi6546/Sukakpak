@@ -244,10 +244,10 @@ fn main() {
         counter += 1;
         let rotation = (counter as f32) / 1000.0;
         let perspective = *Perspective3::new(1.0, 3.14 / 4.0, 0.1, 100.0).as_matrix();
-        let cubes_mat = (0..4)
+        let cubes_mat = (0..2)
             .map(|x| {
-                (0..4).map(move |y| {
-                    (0..4).map(move |z| {
+                (0..2).map(move |y| {
+                    (0..2).map(move |z| {
                         perspective
                             * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -10.0))
                             * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0)
