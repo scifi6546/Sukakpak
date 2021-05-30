@@ -1,4 +1,4 @@
-use super::{Device, VertexBuffer};
+use super::{DepthBuffer, Device, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
@@ -22,6 +22,7 @@ impl GraphicsPipeline {
         layouts: Vec<vk::DescriptorSetLayout>,
         screen_width: u32,
         screen_height: u32,
+        depth_buffer: &DepthBuffer,
     ) -> Self {
         let frag_shader_data =
             read_spv(&mut Cursor::new(include_bytes!("../shaders/main.frag.spv")))
@@ -80,6 +81,7 @@ impl GraphicsPipeline {
             screen_width,
             screen_height,
             vk::AttachmentLoadOp::CLEAR,
+            depth_buffer,
         );
         let load_pipeline = Self::build_render_pipeline(
             device,
@@ -89,6 +91,7 @@ impl GraphicsPipeline {
             screen_width,
             screen_height,
             vk::AttachmentLoadOp::LOAD,
+            depth_buffer,
         );
         GraphicsPipeline {
             fragment_shader,
@@ -106,8 +109,9 @@ impl GraphicsPipeline {
         screen_width: u32,
         screen_height: u32,
         load_op: vk::AttachmentLoadOp,
+        depth_buffer: &DepthBuffer,
     ) -> RenderPipeline {
-        let renderpass = Self::build_renderpass(device, load_op);
+        let renderpass = Self::build_renderpass(device, load_op, depth_buffer);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -147,6 +151,11 @@ impl GraphicsPipeline {
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op(vk::LogicOp::CLEAR)
             .attachments(&color_blend_attachment_states);
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .depth_compare_op(vk::CompareOp::LESS)
+            .depth_bounds_test_enable(false);
         let graphics_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
             .vertex_input_state(&vertex_input_state_info)
@@ -155,6 +164,7 @@ impl GraphicsPipeline {
             .rasterization_state(&rasterization_info)
             .multisample_state(&multi_sample_state_info)
             .color_blend_state(&color_blend_state)
+            .depth_stencil_state(&depth_stencil)
             .layout(pipeline_layout)
             .render_pass(renderpass)
             .build();
@@ -173,7 +183,12 @@ impl GraphicsPipeline {
             graphics_pipeline,
         }
     }
-    fn build_renderpass(device: &mut Device, load_op: vk::AttachmentLoadOp) -> vk::RenderPass {
+    fn build_renderpass(
+        device: &mut Device,
+        load_op: vk::AttachmentLoadOp,
+        depth_buffer: &DepthBuffer,
+    ) -> vk::RenderPass {
+        let (depth_attachment, depth_attachment_ref) = depth_buffer.get_attachment();
         let color_attachment = [vk::AttachmentDescription::builder()
             .format(device.surface_format.format)
             .samples(vk::SampleCountFlags::TYPE_1)
@@ -194,19 +209,30 @@ impl GraphicsPipeline {
             .build()];
         let subpasses = [vk::SubpassDescription::builder()
             .color_attachments(&color_attachment_refs)
+            .depth_stencil_attachment(&depth_attachment_ref)
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .build()];
 
         let subpass_dependencies = [vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
             .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .src_stage_mask(
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
             .src_access_mask(vk::AccessFlags::empty())
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .dst_stage_mask(
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
+            .dst_access_mask(
+                vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+                    | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            )
             .build()];
+        let attachments = [color_attachment[0], depth_attachment];
         let render_pass_create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&color_attachment)
+            .attachments(&attachments)
             .subpasses(&subpasses)
             .dependencies(&subpass_dependencies);
         unsafe {

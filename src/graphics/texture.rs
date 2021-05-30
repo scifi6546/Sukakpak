@@ -3,6 +3,7 @@ use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
 };
+
 pub struct Texture {
     sampler: vk::Sampler,
     image_view: vk::ImageView,
@@ -13,6 +14,53 @@ pub struct Texture {
     pub descriptor_set: vk::DescriptorSet,
 }
 impl Texture {
+    pub fn new_image(
+        device: &mut Device,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+        width: u32,
+        height: u32,
+    ) -> (vk::Image, vk::DeviceMemory) {
+        let image_create_info = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .extent(
+                vk::Extent3D::builder()
+                    .width(width)
+                    .height(height)
+                    .depth(1)
+                    .build(),
+            )
+            .mip_levels(1)
+            .array_layers(1)
+            .format(format)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .usage(usage)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .samples(vk::SampleCountFlags::TYPE_1);
+        let image = unsafe { device.device.create_image(&image_create_info, None) }
+            .expect("failed to create image");
+        let memory_reqirements = unsafe { device.device.get_image_memory_requirements(image) };
+        let memory_alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(memory_reqirements.size)
+            .memory_type_index(
+                find_memorytype_index(
+                    &memory_reqirements,
+                    &device.memory_properties,
+                    vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                )
+                .expect("failed to find memory"),
+            );
+        let image_memory = unsafe { device.device.allocate_memory(&memory_alloc_info, None) }
+            .expect("failed to allocate device memory");
+        unsafe {
+            device
+                .device
+                .bind_image_memory(image, image_memory, 0)
+                .expect("failed to bind memory");
+        }
+        (image, image_memory)
+    }
     fn new(
         device: &mut Device,
         command_queue: &mut CommandPool,
@@ -43,45 +91,13 @@ impl Texture {
             );
             device.device.unmap_memory(transfer_memory);
         }
-
-        let image_create_info = vk::ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .extent(
-                vk::Extent3D::builder()
-                    .width(image_data.width())
-                    .height(image_data.height())
-                    .depth(1)
-                    .build(),
-            )
-            .mip_levels(1)
-            .array_layers(1)
-            .format(vk::Format::R8G8B8A8_SRGB)
-            .tiling(vk::ImageTiling::OPTIMAL)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .samples(vk::SampleCountFlags::TYPE_1);
-        let image = unsafe { device.device.create_image(&image_create_info, None) }
-            .expect("failed to create image");
-        let memory_reqirements = unsafe { device.device.get_image_memory_requirements(image) };
-        let memory_alloc_info = vk::MemoryAllocateInfo::builder()
-            .allocation_size(memory_reqirements.size)
-            .memory_type_index(
-                find_memorytype_index(
-                    &memory_reqirements,
-                    &device.memory_properties,
-                    vk::MemoryPropertyFlags::DEVICE_LOCAL,
-                )
-                .expect("failed to find memory"),
-            );
-        let image_memory = unsafe { device.device.allocate_memory(&memory_alloc_info, None) }
-            .expect("failed to allocate device memory");
-        unsafe {
-            device
-                .device
-                .bind_image_memory(image, image_memory, 0)
-                .expect("failed to bind memory");
-        }
+        let (image, image_memory) = Self::new_image(
+            device,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            image_data.width(),
+            image_data.height(),
+        );
 
         Self::transition_image_layout(
             device,

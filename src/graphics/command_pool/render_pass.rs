@@ -101,11 +101,19 @@ impl RenderPass {
                 extent: vk::Extent2D { width, height },
                 offset: vk::Offset2D { x: 0, y: 0 },
             })
-            .clear_values(&[vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.1, 0.1, 0.1, 0.1],
+            .clear_values(&[
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.1, 0.1, 0.1, 0.1],
+                    },
                 },
-            }]);
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 0.0,
+                        stencil: 0,
+                    },
+                },
+            ]);
         device.device.cmd_begin_render_pass(
             self.command_buffers[image_index],
             &renderpass_info,

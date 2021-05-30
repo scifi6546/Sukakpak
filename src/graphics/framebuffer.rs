@@ -1,4 +1,4 @@
-use super::{Device, GraphicsPipeline, PresentImage};
+use super::{DepthBuffer, Device, GraphicsPipeline, PresentImage};
 use ash::{version::DeviceV1_0, vk};
 pub struct Framebuffer {
     pub framebuffers: Vec<vk::Framebuffer>,
@@ -8,6 +8,7 @@ impl Framebuffer {
         device: &mut Device,
         present_images: &mut PresentImage,
         pipeline: &mut GraphicsPipeline,
+        depth_buffer: &DepthBuffer,
         width: u32,
         height: u32,
     ) -> Self {
@@ -15,7 +16,7 @@ impl Framebuffer {
             .present_image_views
             .iter()
             .map(|image_view| {
-                let attachments = [*image_view];
+                let attachments = [*image_view, depth_buffer.view];
                 let create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(pipeline.clear_pipeline.renderpass)
                     .attachments(&attachments)

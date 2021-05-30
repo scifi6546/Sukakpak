@@ -1,4 +1,5 @@
 mod command_pool;
+mod depth_buffer;
 mod device;
 mod framebuffer;
 mod index_buffer;
@@ -14,6 +15,7 @@ pub use device::Device;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 
+use depth_buffer::DepthBuffer;
 use index_buffer::IndexBuffer;
 pub use mesh::Mesh;
 use nalgebra::{Matrix4, Vector2, Vector3};
@@ -41,6 +43,7 @@ pub struct Context {
     texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
     uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+    depth_buffer: DepthBuffer,
     textures: Vec<Texture>,
     mesh_arena: Arena<Mesh>,
     texture_arena: Arena<Texture>,
@@ -95,14 +98,21 @@ impl Context {
         for (creator, _tex) in texture_creators.iter() {
             layouts.push(creator.get_layout());
         }
-
-        let mut graphics_pipeline =
-            GraphicsPipeline::new(&mut device, &vertex_buffer, layouts, width, height);
+        let depth_buffer = DepthBuffer::new(&mut device, width, height);
+        let mut graphics_pipeline = GraphicsPipeline::new(
+            &mut device,
+            &vertex_buffer,
+            layouts,
+            width,
+            height,
+            &depth_buffer,
+        );
 
         let framebuffer = Framebuffer::new(
             &mut device,
             &mut present_images,
             &mut graphics_pipeline,
+            &depth_buffer,
             width,
             height,
         );
@@ -144,6 +154,7 @@ impl Context {
                 height,
                 mesh_arena: Arena::new(),
                 texture_arena,
+                depth_buffer,
             },
             texture_ids,
         )
@@ -187,6 +198,7 @@ impl Context {
 impl Drop for Context {
     fn drop(&mut self) {
         self.render_pass.wait_idle(&mut self.device);
+        self.depth_buffer.free(&mut self.device);
         for (_idx, texture) in self.texture_arena.iter_mut() {
             texture.free(&mut self.device, &self.texture_pool);
         }
