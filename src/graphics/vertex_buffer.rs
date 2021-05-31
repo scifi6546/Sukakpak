@@ -1,10 +1,10 @@
-use super::{find_memorytype_index, Device};
+use super::{find_memorytype_index, Device, VertexBufferDesc};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::{Vector2, Vector3};
 
 pub struct VertexBuffer {
     pub binding_description: [vk::VertexInputBindingDescription; 1],
-    pub attributes: [vk::VertexInputAttributeDescription; 2],
+    pub attributes: &'static [vk::VertexInputAttributeDescription],
     pub buffer: vk::Buffer,
     buffer_memory: vk::DeviceMemory,
 }
@@ -14,14 +14,10 @@ pub struct Vertex {
     pub uv: Vector2<f32>,
 }
 impl VertexBuffer {
-    pub fn new(device: &mut Device, verticies: Vec<Vertex>) -> Self {
+    pub fn new(device: &mut Device, verticies: Vec<Vertex>, desc: &VertexBufferDesc) -> Self {
         assert!(verticies.len() > 0);
-        let binding_description = [vk::VertexInputBindingDescription::builder()
-            .binding(0)
-            .stride(std::mem::size_of::<Vertex>() as u32)
-            .input_rate(vk::VertexInputRate::VERTEX)
-            .build()];
-        let attributes = [
+        let binding_description = [desc.binding_description];
+        let attributes_temp = [
             vk::VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(0)
@@ -88,7 +84,7 @@ impl VertexBuffer {
         }
         Self {
             binding_description,
-            attributes,
+            attributes: desc.attributes,
             buffer,
             buffer_memory,
         }

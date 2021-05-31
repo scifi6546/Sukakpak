@@ -1,4 +1,4 @@
-use super::{DescriptorSets, Device, FreeChecker, PresentImage};
+use super::{DescriptorSets, Device, FreeChecker, PresentImage, UniformDescription};
 use ash::{version::DeviceV1_0, vk};
 /// For now only uniform buffer should be allocated at a time
 pub struct UniformBuffer<const SIZE: usize> {
@@ -11,40 +11,14 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
     pub fn new(
         device: &mut Device,
         present_image: &PresentImage,
+        uniform_description: &UniformDescription,
         data: *const std::ffi::c_void,
     ) -> Self {
-        let layout_binding = [vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)
-            .build()];
-        let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
-
-        let layout: Vec<vk::DescriptorSetLayout> = unsafe {
-            let temp_layout = device
-                .device
-                .create_descriptor_set_layout(&layout_info, None)
-                .expect("failed to create layout");
-            (0..present_image.num_swapchain_images())
-                .map(|_| temp_layout.clone())
-                .collect()
-        };
-        let pool_sizes = [vk::DescriptorPoolSize::builder()
-            .descriptor_count(present_image.num_swapchain_images() as u32)
-            .ty(vk::DescriptorType::UNIFORM_BUFFER)
-            .build()];
-        let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&pool_sizes)
-            .max_sets(present_image.num_swapchain_images() as u32)
-            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
-
-        let descriptor_pool = unsafe {
-            device
-                .device
-                .create_descriptor_pool(&pool_create_info, None)
-                .expect("failed to create pool")
-        };
+        let (descriptor_pool, layout, descriptor_sets) =
+            uniform_description.get_layouts(device, present_image.num_swapchain_images() as u32);
+        let layout = (0..present_image.num_swapchain_images())
+            .map(|_| layout.clone())
+            .collect::<Vec<_>>();
         let buffers_memory: Vec<(vk::Buffer, vk::DeviceMemory)> = (0..present_image
             .num_swapchain_images())
             .map(|_| {
@@ -56,15 +30,6 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 )
             })
             .collect();
-        let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(&layout);
-        let descriptor_sets = unsafe {
-            device
-                .device
-                .allocate_descriptor_sets(&descriptor_set_alloc_info)
-        }
-        .expect("failed to allocate layout");
         let buffer_info: Vec<[vk::DescriptorBufferInfo; 1]> = buffers_memory
             .iter()
             .map(|(buffer, _)| {

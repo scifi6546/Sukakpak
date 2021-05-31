@@ -1,6 +1,6 @@
 use super::{
     CommandPool, Device, IndexBuffer, OffsetData, RenderMesh, Texture, TextureID, Vertex,
-    VertexBuffer,
+    VertexBuffer, VertexBufferDesc,
 };
 
 use generational_arena::{Arena, Index as ArenaIndex};
@@ -30,12 +30,13 @@ impl Mesh {
     pub fn new(
         device: &mut Device,
         command_pool: &mut CommandPool,
+        buffer_desc: &VertexBufferDesc,
         texture: TextureID,
         verticies: Vec<Vertex>,
         indicies: Vec<u32>,
     ) -> Self {
         Self {
-            vertex_buffer: VertexBuffer::new(device, verticies),
+            vertex_buffer: VertexBuffer::new(device, verticies, buffer_desc),
             index_buffer: IndexBuffer::new(device, command_pool, indicies),
             texture,
         }

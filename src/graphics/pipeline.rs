@@ -3,6 +3,7 @@ use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{ffi::CString, io::Cursor};
 mod shaders;
+pub use shaders::{ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER};
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,

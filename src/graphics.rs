@@ -20,7 +20,9 @@ use depth_buffer::DepthBuffer;
 use index_buffer::IndexBuffer;
 pub use mesh::{Mesh, MeshID, MeshOffset, MeshOffsetID};
 use nalgebra::{Matrix4, Vector2, Vector3};
-use pipeline::GraphicsPipeline;
+use pipeline::{
+    GraphicsPipeline, ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER,
+};
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
@@ -48,6 +50,7 @@ pub struct Context {
     texture_arena: Arena<Texture>,
     width: u32,
     height: u32,
+    shader_desc: ShaderDescription,
     #[allow(dead_code)]
     window: winit::window::Window,
 }
@@ -59,6 +62,7 @@ impl Context {
         height: u32,
         textures: &[image::RgbaImage],
     ) -> (Self, Vec<TextureID>) {
+        let shader_desc = MAIN_SHADER;
         let window = winit::window::WindowBuilder::new()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(width, height))
@@ -82,11 +86,13 @@ impl Context {
                     uv: Vector2::new(0.5, 1.0),
                 },
             ],
+            &shader_desc.vertex_buffer_desc,
         );
         let mat: Matrix4<f32> = Matrix4::identity();
         let uniform_buffer = UniformBuffer::new(
             &mut device,
             &present_images,
+            &shader_desc.uniforms[0],
             mat.as_ptr() as *const std::ffi::c_void,
         );
         let mut layouts = vec![uniform_buffer.get_layout()];
@@ -155,6 +161,7 @@ impl Context {
                 mesh_offset_arena: Arena::new(),
                 texture_arena,
                 depth_buffer,
+                shader_desc,
             },
             texture_ids,
         )
@@ -197,6 +204,7 @@ impl Context {
                     index: self.mesh_arena.insert(Mesh::new(
                         &mut self.device,
                         &mut self.command_pool,
+                        &self.shader_desc.vertex_buffer_desc,
                         texture,
                         verticies,
                         indicies,
