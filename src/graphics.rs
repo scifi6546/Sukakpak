@@ -6,6 +6,7 @@ mod index_buffer;
 mod mesh;
 mod pipeline;
 mod present_images;
+mod push_constant;
 mod texture;
 mod uniform;
 mod vertex_buffer;
