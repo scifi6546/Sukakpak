@@ -3,7 +3,7 @@ use super::{
 };
 mod render_pass;
 use ash::{version::DeviceV1_0, vk};
-pub use render_pass::{RenderMesh, RenderPass};
+pub use render_pass::{OffsetData, RenderMesh, RenderPass};
 pub struct OneTimeCommandBuffer<'a> {
     pub device: &'a Device,
     pub command_buffer: [vk::CommandBuffer; 1],

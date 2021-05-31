@@ -14,7 +14,17 @@ pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
     pub uniform_data: *const std::ffi::c_void,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
+
     pub texture: &'a Texture,
+    pub offsets: OffsetData,
+}
+#[derive(Clone, Copy)]
+// Offset of mesh to draw
+pub struct OffsetData {
+    /// offset in `std::mem::size_of::<f32>()*3*indicies`
+    pub vertex_offset: usize,
+    /// offset in `std::mem::size_of::<u32>()*1*indicies`
+    pub index_offset: usize,
 }
 pub struct RenderPass {
     command_buffers: Vec<vk::CommandBuffer>,
@@ -83,6 +93,7 @@ impl RenderPass {
         texture: &Texture,
         index_buffer: &IndexBuffer,
         vertex_buffer: &VertexBuffer,
+        offset: OffsetData,
         clear_op: ClearOp,
     ) {
         let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -154,8 +165,8 @@ impl RenderPass {
             self.command_buffers[image_index],
             index_buffer.get_num_indicies() as u32,
             1,
-            0,
-            0,
+            offset.index_offset as u32,
+            offset.vertex_offset as i32,
             0,
         );
         device
@@ -211,6 +222,7 @@ impl RenderPass {
                 mesh.texture,
                 mesh.index_buffer,
                 mesh.vertex_buffer,
+                mesh.offsets,
                 match idx {
                     0 => ClearOp::ClearColor,
                     _ => ClearOp::DoNotClear,

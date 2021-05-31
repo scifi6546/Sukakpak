@@ -10,24 +10,21 @@ mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::{version::DeviceV1_0, vk};
-use command_pool::{CommandPool, RenderMesh, RenderPass};
+use command_pool::{CommandPool, OffsetData, RenderMesh, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 
 use depth_buffer::DepthBuffer;
 use index_buffer::IndexBuffer;
-pub use mesh::Mesh;
+pub use mesh::{Mesh, MeshID, MeshOffset, MeshOffsetID};
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::GraphicsPipeline;
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::{Vertex, VertexBuffer};
-#[derive(Clone, Copy)]
-pub struct MeshID {
-    index: ArenaIndex,
-}
+
 #[derive(Clone, Copy)]
 pub struct TextureID {
     index: ArenaIndex,
@@ -46,6 +43,7 @@ pub struct Context {
     depth_buffer: DepthBuffer,
     textures: Vec<Texture>,
     mesh_arena: Arena<Mesh>,
+    mesh_offset_arena: Arena<MeshOffset>,
     texture_arena: Arena<Texture>,
     width: u32,
     height: u32,
@@ -153,18 +151,26 @@ impl Context {
                 width,
                 height,
                 mesh_arena: Arena::new(),
+                mesh_offset_arena: Arena::new(),
                 texture_arena,
                 depth_buffer,
             },
             texture_ids,
         )
     }
-    pub fn render_frame(&mut self, mesh: &[(MeshID, *const std::ffi::c_void)]) {
+    pub fn render_frame(&mut self, mesh: &[(MeshOffsetID, *const std::ffi::c_void)]) {
         let mut render_meshes = vec![];
         render_meshes.reserve(mesh.len());
         for (id, uniform_data) in mesh.iter() {
-            let mesh = self.mesh_arena.get(id.index).expect("invalid mesh id");
-            render_meshes.push(mesh.to_render_mesh(*uniform_data, &self.texture_arena));
+            let offset = self
+                .mesh_offset_arena
+                .get(id.index)
+                .expect("invalid mesh id");
+            let mesh = self
+                .mesh_arena
+                .get(offset.mesh.index)
+                .expect("invalid mesh id");
+            render_meshes.push(mesh.to_render_mesh(*uniform_data, &self.texture_arena, &offset));
         }
         unsafe {
             self.render_pass.render_frame(
@@ -183,15 +189,22 @@ impl Context {
         texture: TextureID,
         verticies: Vec<Vertex>,
         indicies: Vec<u32>,
-    ) -> MeshID {
-        MeshID {
-            index: self.mesh_arena.insert(Mesh::new(
-                &mut self.device,
-                &mut self.command_pool,
+    ) -> MeshOffsetID {
+        MeshOffsetID {
+            index: self.mesh_offset_arena.insert(MeshOffset {
+                mesh: MeshID {
+                    index: self.mesh_arena.insert(Mesh::new(
+                        &mut self.device,
+                        &mut self.command_pool,
+                        texture,
+                        verticies,
+                        indicies,
+                    )),
+                },
+                vertex_buffer_offset: 0,
+                index_buffer_offset: 0,
                 texture,
-                verticies,
-                indicies,
-            )),
+            }),
         }
     }
 }
