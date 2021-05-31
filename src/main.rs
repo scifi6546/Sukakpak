@@ -23,7 +23,7 @@ fn main() {
             image::open("./textures/grass.png").unwrap().into_rgba8(),
         ],
     );
-    let _mesh = context.new_mesh(
+    let triangle = context.new_mesh(
         textures[0],
         vec![
             Vertex {
@@ -259,16 +259,13 @@ fn main() {
             .flatten()
             .flatten()
             .collect::<Vec<_>>();
-        let _mat1: Matrix4<f32> = perspective
+        let mat1: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(0.5, 0.0, -6.0))
             * Matrix4::from_euler_angles(rotation, 0.0, 0.0);
-        let _mat2: Matrix4<f32> = perspective
+        let mat2: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(-0.5, 0.0, -3.0))
             * Matrix4::from_euler_angles(-1.0 * rotation, 0.0, 0.0);
-        let _cube_mat: Matrix4<f32> = perspective
-            * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0))
-            * Matrix4::new_scaling(0.1)
-            * Matrix4::from_euler_angles(0.0, -0.7 * rotation, 0.0);
+
         let _grass_cube_mat: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -1.3))
             * Matrix4::new_scaling(0.1)
@@ -276,10 +273,12 @@ fn main() {
         let mats = cubes_mat
             .iter()
             .map(|mat| (grass_cube, mat.as_ptr() as *const std::ffi::c_void))
+            .chain([
+                (triangle, mat1.as_ptr() as *const std::ffi::c_void),
+                (triangle, mat2.as_ptr() as *const std::ffi::c_void),
+            ])
             .collect::<Vec<_>>();
-        //mats.push((mesh, mat1.as_ptr() as *const std::ffi::c_void));
-        //mats.push((mesh, mat2.as_ptr() as *const std::ffi::c_void));
-        //mats.push((cube, cube_mat.as_ptr() as *const std::ffi::c_void));
+
         context.render_frame(&mats);
 
         match event {
