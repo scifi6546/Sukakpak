@@ -1,7 +1,9 @@
 use super::Device;
 use ash::{version::DeviceV1_0, vk};
-use nalgebra::Vector3;
+use nalgebra::{Matrix4, Vector3};
+use phf::phf_map;
 pub struct UniformDescription {
+    pub size: usize,
     descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding,
 }
 impl UniformDescription {
@@ -48,14 +50,8 @@ impl UniformDescription {
         (descriptor_pool, layout, descriptor_sets)
     }
 }
-pub struct PushConstantDescription {
-    name: &'static str,
-    binding: u32,
-    size: u32,
-}
 pub struct ShaderDescription {
-    pub uniforms: &'static [UniformDescription],
-    pub push_constants: &'static [PushConstantDescription],
+    pub uniforms: phf::Map<&'static str, UniformDescription>,
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: &'static [u8],
     pub fragment_shader_data: &'static [u8],
@@ -66,16 +62,19 @@ pub struct VertexBufferDesc {
     pub attributes: &'static [vk::VertexInputAttributeDescription],
 }
 pub const MAIN_SHADER: ShaderDescription = ShaderDescription {
-    uniforms: &[UniformDescription {
-        descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding {
-            binding: 0,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::VERTEX,
-            p_immutable_samplers: std::ptr::null(),
-        },
-    }],
-    push_constants: &[],
+    uniforms: phf_map! {
+            "view"=>UniformDescription {
+                size: std::mem::size_of::<Matrix4<f32>>(),
+                descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding {
+                    binding: 0,
+                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: 1,
+                    stage_flags: vk::ShaderStageFlags::VERTEX,
+                    p_immutable_samplers: std::ptr::null(),
+                },
+        }
+    },
+
     vertex_buffer_desc: VertexBufferDesc {
         binding_description: vk::VertexInputBindingDescription {
             binding: 0,

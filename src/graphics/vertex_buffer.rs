@@ -17,20 +17,6 @@ impl VertexBuffer {
     pub fn new(device: &mut Device, verticies: Vec<Vertex>, desc: &VertexBufferDesc) -> Self {
         assert!(verticies.len() > 0);
         let binding_description = [desc.binding_description];
-        let attributes_temp = [
-            vk::VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(0)
-                .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(0)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(1)
-                .format(vk::Format::R32G32_SFLOAT)
-                .offset(std::mem::size_of::<Vector3<f32>>() as u32)
-                .build(),
-        ];
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size((verticies.len() * std::mem::size_of::<Vertex>()) as u64)
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)

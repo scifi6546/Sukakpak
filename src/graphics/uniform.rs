@@ -1,13 +1,14 @@
 use super::{DescriptorSets, Device, FreeChecker, PresentImage, UniformDescription};
 use ash::{version::DeviceV1_0, vk};
 /// For now only uniform buffer should be allocated at a time
-pub struct UniformBuffer<const SIZE: usize> {
+pub struct UniformBuffer {
     pub layout: Vec<vk::DescriptorSetLayout>,
     pub buffers: Vec<(vk::Buffer, vk::DeviceMemory, vk::DescriptorSet)>,
+    size: usize,
     free_checker: FreeChecker,
     descriptor_pool: vk::DescriptorPool,
 }
-impl<const SIZE: usize> UniformBuffer<SIZE> {
+impl UniformBuffer {
     pub fn new(
         device: &mut Device,
         present_image: &PresentImage,
@@ -23,7 +24,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
             .num_swapchain_images())
             .map(|_| {
                 device.create_buffer(
-                    SIZE as u64,
+                    uniform_description.size as u64,
                     vk::BufferUsageFlags::UNIFORM_BUFFER,
                     vk::SharingMode::EXCLUSIVE,
                     vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
@@ -36,7 +37,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
                 [vk::DescriptorBufferInfo::builder()
                     .buffer(*buffer)
                     .offset(0)
-                    .range(SIZE as u64)
+                    .range(uniform_description.size as u64)
                     .build()]
             })
             .collect();
@@ -56,9 +57,14 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
             unsafe {
                 let ptr = device
                     .device
-                    .map_memory(*memory, 0, SIZE as u64, vk::MemoryMapFlags::empty())
+                    .map_memory(
+                        *memory,
+                        0,
+                        uniform_description.size as u64,
+                        vk::MemoryMapFlags::empty(),
+                    )
                     .expect("failed to map memory");
-                std::ptr::copy_nonoverlapping(data, ptr, SIZE);
+                std::ptr::copy_nonoverlapping(data, ptr, uniform_description.size);
                 device.device.unmap_memory(*memory);
             }
         }
@@ -70,6 +76,7 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
         Self {
             layout,
             buffers,
+            size: uniform_description.size,
             free_checker: FreeChecker::default(),
             descriptor_pool,
         }
@@ -108,15 +115,15 @@ impl<const SIZE: usize> UniformBuffer<SIZE> {
             .map_memory(
                 self.buffers[image_index].1,
                 0,
-                SIZE as u64,
+                self.size as u64,
                 vk::MemoryMapFlags::empty(),
             )
             .expect("failed to map memory");
-        std::ptr::copy_nonoverlapping(data, ptr, SIZE);
+        std::ptr::copy_nonoverlapping(data, ptr, self.size);
         device.device.unmap_memory(self.buffers[image_index].1);
     }
 }
-impl<const SIZE: usize> DescriptorSets for UniformBuffer<SIZE> {
+impl DescriptorSets for UniformBuffer {
     fn get_layout(&self) -> vk::DescriptorSetLayout {
         self.layout[0]
     }

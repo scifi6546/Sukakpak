@@ -4,6 +4,7 @@ use super::{
 };
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Matrix4;
+use std::collections::HashMap;
 mod semaphore_buffer;
 use semaphore_buffer::SemaphoreBuffer;
 enum ClearOp {
@@ -14,7 +15,6 @@ pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
     pub uniform_data: *const std::ffi::c_void,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
-
     pub texture: &'a Texture,
     pub offsets: OffsetData,
 }
@@ -89,7 +89,7 @@ impl RenderPass {
         width: u32,
         height: u32,
         image_index: usize,
-        uniform_buffer: &UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffer: &HashMap<String, UniformBuffer>,
         texture: &Texture,
         index_buffer: &IndexBuffer,
         vertex_buffer: &VertexBuffer,
@@ -156,7 +156,7 @@ impl RenderPass {
             graphics_pipeline.pipeline_layout,
             0,
             &[
-                uniform_buffer.buffers[image_index].2,
+                uniform_buffer["view"].buffers[image_index].2,
                 texture.descriptor_set,
             ],
             &[],
@@ -188,7 +188,7 @@ impl RenderPass {
         graphics_pipeline: &GraphicsPipeline,
         width: u32,
         height: u32,
-        uniform_buffer: &mut UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffers: &mut HashMap<String, UniformBuffer>,
         meshes: &mut [RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>],
     ) {
         let (image_index, _) = device
@@ -210,7 +210,10 @@ impl RenderPass {
                 .device
                 .reset_fences(&[self.fences[image_index as usize]])
                 .expect("failed to reset fence");
-            uniform_buffer.update_uniform(device, image_index as usize, mesh.uniform_data);
+            uniform_buffers
+                .get_mut("view")
+                .expect("failed to find uniform \"view\"")
+                .update_uniform(device, image_index as usize, mesh.uniform_data);
             self.build_renderpass(
                 device,
                 &framebuffer.framebuffers[image_index as usize],
@@ -218,7 +221,7 @@ impl RenderPass {
                 width,
                 height,
                 image_index as usize,
-                uniform_buffer,
+                uniform_buffers,
                 mesh.texture,
                 mesh.index_buffer,
                 mesh.vertex_buffer,

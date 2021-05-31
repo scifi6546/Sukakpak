@@ -15,6 +15,7 @@ use command_pool::{CommandPool, OffsetData, RenderMesh, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
+use std::collections::HashMap;
 
 use depth_buffer::DepthBuffer;
 use index_buffer::IndexBuffer;
@@ -42,7 +43,7 @@ pub struct Context {
     vertex_buffer: VertexBuffer,
     texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
-    uniform_buffer: UniformBuffer<{ std::mem::size_of::<Matrix4<f32>>() }>,
+    uniform_buffers: HashMap<String, UniformBuffer>,
     depth_buffer: DepthBuffer,
     textures: Vec<Texture>,
     mesh_arena: Arena<Mesh>,
@@ -89,13 +90,26 @@ impl Context {
             &shader_desc.vertex_buffer_desc,
         );
         let mat: Matrix4<f32> = Matrix4::identity();
-        let uniform_buffer = UniformBuffer::new(
-            &mut device,
-            &present_images,
-            &shader_desc.uniforms[0],
-            mat.as_ptr() as *const std::ffi::c_void,
-        );
-        let mut layouts = vec![uniform_buffer.get_layout()];
+        let uniform_buffers = shader_desc
+            .uniforms
+            .into_iter()
+            .map(|(key, uniform)| {
+                (
+                    key.to_string(),
+                    UniformBuffer::new(
+                        &mut device,
+                        &present_images,
+                        uniform,
+                        mat.as_ptr() as *const std::ffi::c_void,
+                    ),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let mut layouts = uniform_buffers
+            .iter()
+            .map(|(_key, buffer)| buffer.get_layout())
+            .collect::<Vec<_>>();
+
         let mut texture_creators = textures
             .iter()
             .map(|tex| (TextureCreator::new(&mut device), tex))
@@ -146,7 +160,7 @@ impl Context {
                 framebuffer,
                 command_pool,
                 vertex_buffer,
-                uniform_buffer,
+                uniform_buffers,
                 textures,
                 render_pass,
                 texture_pool,
@@ -187,7 +201,7 @@ impl Context {
                 &self.graphics_pipeline,
                 self.width,
                 self.height,
-                &mut self.uniform_buffer,
+                &mut self.uniform_buffers,
                 &mut render_meshes,
             );
         }
@@ -236,7 +250,9 @@ impl Drop for Context {
         self.command_pool.free(&mut self.device);
         self.framebuffer.free(&mut self.device);
         self.graphics_pipeline.free(&mut self.device);
-        self.uniform_buffer.free(&mut self.device);
+        for (_k, buffer) in self.uniform_buffers.iter_mut() {
+            buffer.free(&mut self.device);
+        }
         self.vertex_buffer.free(&mut self.device);
         for (_idx, mesh) in self.mesh_arena.iter_mut() {
             mesh.free(&mut self.device);
