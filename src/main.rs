@@ -244,42 +244,40 @@ fn main() {
         counter += 1;
         let rotation = (counter as f32) / 1000.0;
         let perspective = *Perspective3::new(1.0, 3.14 / 4.0, 0.1, 100.0).as_matrix();
-        let cubes_mat = (0..2)
-            .map(|x| {
-                (0..2).map(move |y| {
-                    (0..2).map(move |z| {
-                        perspective
-                            * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -10.0))
-                            * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0)
-                            * Matrix4::new_scaling(0.2)
-                            * Matrix4::new_translation(&Vector3::new(x as f32, y as f32, z as f32))
-                    })
-                })
-            })
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
         let mat1: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(0.5, 0.0, -6.0))
             * Matrix4::from_euler_angles(rotation, 0.0, 0.0);
         let mat2: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(-0.5, 0.0, -3.0))
             * Matrix4::from_euler_angles(-1.0 * rotation, 0.0, 0.0);
+        let cubes_mat = (0..2)
+            .map(|x| {
+                (0..2).map(move |y| {
+                    (0..2).map(move |z| {
+                        (
+                            grass_cube,
+                            perspective
+                                * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -10.0))
+                                * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0)
+                                * Matrix4::new_scaling(0.2)
+                                * Matrix4::new_translation(&Vector3::new(
+                                    x as f32, y as f32, z as f32,
+                                )),
+                        )
+                    })
+                })
+            })
+            .flatten()
+            .flatten()
+            .chain([(triangle, mat1), (triangle, mat2)])
+            .collect::<Vec<_>>();
 
         let _grass_cube_mat: Matrix4<f32> = perspective
             * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -1.3))
             * Matrix4::new_scaling(0.1)
             * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0);
-        let mats = cubes_mat
-            .iter()
-            .map(|mat| (grass_cube, mat.as_ptr() as *const std::ffi::c_void))
-            .chain([
-                (triangle, mat1.as_ptr() as *const std::ffi::c_void),
-                (triangle, mat2.as_ptr() as *const std::ffi::c_void),
-            ])
-            .collect::<Vec<_>>();
 
-        context.render_frame(&mats);
+        context.render_frame(&cubes_mat);
 
         match event {
             Event::WindowEvent {

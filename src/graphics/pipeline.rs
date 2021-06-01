@@ -1,9 +1,12 @@
 use super::{DepthBuffer, Device, VertexBuffer};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
-use std::{ffi::CString, io::Cursor};
+use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
-pub use shaders::{ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER};
+pub use shaders::{
+    PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER,
+    PUSH_SHADER,
+};
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
@@ -22,6 +25,7 @@ impl GraphicsPipeline {
         device: &mut Device,
         vertex_buffer: &VertexBuffer,
         layouts: Vec<vk::DescriptorSetLayout>,
+        push_constants: &HashMap<String, PushConstantDesc>,
         screen_width: u32,
         screen_height: u32,
         depth_buffer: &DepthBuffer,
@@ -66,8 +70,13 @@ impl GraphicsPipeline {
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(&vertex_buffer.binding_description)
             .vertex_attribute_descriptions(&vertex_buffer.attributes);
-
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
+        let ranges = push_constants
+            .iter()
+            .map(|(_key, push)| push.range)
+            .collect::<Vec<_>>();
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&layouts)
+            .push_constant_ranges(&ranges);
         let pipeline_layout = unsafe {
             device
                 .device
@@ -171,6 +180,7 @@ impl GraphicsPipeline {
             .layout(pipeline_layout)
             .render_pass(renderpass)
             .build();
+        println!("pipeline layout: {:?}", graphics_pipeline_info);
         let graphics_pipeline = unsafe {
             device
                 .device

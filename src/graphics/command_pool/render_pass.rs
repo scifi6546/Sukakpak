@@ -12,7 +12,8 @@ enum ClearOp {
     DoNotClear,
 }
 pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
-    pub uniform_data: *const std::ffi::c_void,
+    pub uniform_data: HashMap<String, *const std::ffi::c_void>,
+    pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
     pub texture: &'a Texture,
@@ -210,10 +211,12 @@ impl RenderPass {
                 .device
                 .reset_fences(&[self.fences[image_index as usize]])
                 .expect("failed to reset fence");
-            uniform_buffers
-                .get_mut("view")
-                .expect("failed to find uniform \"view\"")
-                .update_uniform(device, image_index as usize, mesh.uniform_data);
+            for (key, data) in mesh.uniform_data.iter() {
+                uniform_buffers
+                    .get_mut("key")
+                    .expect("failed to find uniform \"view\"")
+                    .update_uniform(device, image_index as usize, *data);
+            }
             self.build_renderpass(
                 device,
                 &framebuffer.framebuffers[image_index as usize],

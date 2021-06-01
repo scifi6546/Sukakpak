@@ -6,7 +6,6 @@ mod index_buffer;
 mod mesh;
 mod pipeline;
 mod present_images;
-mod push_constant;
 mod texture;
 mod uniform;
 mod vertex_buffer;
@@ -22,7 +21,8 @@ use index_buffer::IndexBuffer;
 pub use mesh::{Mesh, MeshID, MeshOffset, MeshOffsetID};
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::{
-    GraphicsPipeline, ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER,
+    GraphicsPipeline, PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc,
+    MAIN_SHADER, PUSH_SHADER,
 };
 use present_images::PresentImage;
 use texture::{Texture, TextureCreator, TexturePool};
@@ -44,6 +44,7 @@ pub struct Context {
     texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
     uniform_buffers: HashMap<String, UniformBuffer>,
+    push_constants: HashMap<String, PushConstantDesc>,
     depth_buffer: DepthBuffer,
     textures: Vec<Texture>,
     mesh_arena: Arena<Mesh>,
@@ -63,7 +64,12 @@ impl Context {
         height: u32,
         textures: &[image::RgbaImage],
     ) -> (Self, Vec<TextureID>) {
-        let shader_desc = MAIN_SHADER;
+        let shader_desc = PUSH_SHADER;
+        let push_constants = shader_desc
+            .push_constants
+            .into_iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect();
         let window = winit::window::WindowBuilder::new()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(width, height))
@@ -123,6 +129,7 @@ impl Context {
             &mut device,
             &vertex_buffer,
             layouts,
+            &push_constants,
             width,
             height,
             &depth_buffer,
@@ -176,14 +183,15 @@ impl Context {
                 texture_arena,
                 depth_buffer,
                 shader_desc,
+                push_constants,
             },
             texture_ids,
         )
     }
-    pub fn render_frame(&mut self, mesh: &[(MeshOffsetID, *const std::ffi::c_void)]) {
+    pub fn render_frame(&mut self, mesh: &[(MeshOffsetID, Matrix4<f32>)]) {
         let mut render_meshes = vec![];
         render_meshes.reserve(mesh.len());
-        for (id, uniform_data) in mesh.iter() {
+        for (id, mat) in mesh.iter() {
             let offset = self
                 .mesh_offset_arena
                 .get(id.index)
@@ -192,7 +200,12 @@ impl Context {
                 .mesh_arena
                 .get(offset.mesh.index)
                 .expect("invalid mesh id");
-            render_meshes.push(mesh.to_render_mesh(*uniform_data, &self.texture_arena, &offset));
+            render_meshes.push(mesh.to_render_mesh(
+                *mat,
+                HashMap::new(),
+                &self.texture_arena,
+                &offset,
+            ));
         }
         unsafe {
             self.render_pass.render_frame(

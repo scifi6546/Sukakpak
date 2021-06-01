@@ -11,7 +11,7 @@ use std::{
     borrow::Cow,
     ffi::{CStr, CString},
 };
-const DO_BACKTRACE: bool = false;
+const DO_BACKTRACE: bool = true;
 const PANIC: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
