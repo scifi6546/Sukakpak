@@ -115,18 +115,21 @@ impl Context {
             .iter()
             .map(|(_key, buffer)| buffer.get_layout())
             .collect::<Vec<_>>();
-
+        println!("num uniform buffers: {}", layouts.len());
         let mut texture_creators = textures
             .iter()
             .map(|tex| (TextureCreator::new(&mut device), tex))
             .collect::<Vec<_>>();
+        println!("texture creators len: {}", texture_creators.len());
         for (creator, _tex) in texture_creators.iter() {
             layouts.push(creator.get_layout());
         }
+        println!("total descriptor set layout len: {}", layouts.len());
         let mut command_pool = CommandPool::new(&mut device);
         let depth_buffer = DepthBuffer::new(&mut device, &mut command_pool, width, height);
         let mut graphics_pipeline = GraphicsPipeline::new(
             &mut device,
+            &shader_desc,
             &vertex_buffer,
             layouts,
             &push_constants,

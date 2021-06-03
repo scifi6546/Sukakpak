@@ -91,10 +91,7 @@ impl RenderPass {
         height: u32,
         image_index: usize,
         uniform_buffer: &HashMap<String, UniformBuffer>,
-        texture: &Texture,
-        index_buffer: &IndexBuffer,
-        vertex_buffer: &VertexBuffer,
-        offset: OffsetData,
+        mesh: &RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>,
         clear_op: ClearOp,
     ) {
         let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -142,12 +139,12 @@ impl RenderPass {
         device.device.cmd_bind_vertex_buffers(
             self.command_buffers[image_index],
             0,
-            &[vertex_buffer.buffer],
+            &[mesh.vertex_buffer.buffer],
             &[0],
         );
         device.device.cmd_bind_index_buffer(
             self.command_buffers[image_index],
-            index_buffer.buffer,
+            mesh.index_buffer.buffer,
             0,
             vk::IndexType::UINT32,
         );
@@ -156,18 +153,26 @@ impl RenderPass {
             vk::PipelineBindPoint::GRAPHICS,
             graphics_pipeline.pipeline_layout,
             0,
-            &[
-                uniform_buffer["view"].buffers[image_index].2,
-                texture.descriptor_set,
-            ],
+            &[mesh.texture.descriptor_set],
             &[],
+        );
+        //getting the slice
+        let matrix_ptr = mesh.view_matrix.as_ptr() as *const u8;
+        let matrix_slice =
+            std::slice::from_raw_parts(matrix_ptr, std::mem::size_of::<Matrix4<f32>>());
+        device.device.cmd_push_constants(
+            self.command_buffers[image_index],
+            graphics_pipeline.pipeline_layout,
+            vk::ShaderStageFlags::VERTEX,
+            0,
+            matrix_slice,
         );
         device.device.cmd_draw_indexed(
             self.command_buffers[image_index],
-            index_buffer.get_num_indicies() as u32,
+            mesh.index_buffer.get_num_indicies() as u32,
             1,
-            offset.index_offset as u32,
-            offset.vertex_offset as i32,
+            mesh.offsets.index_offset as u32,
+            mesh.offsets.vertex_offset as i32,
             0,
         );
         device
@@ -213,7 +218,7 @@ impl RenderPass {
                 .expect("failed to reset fence");
             for (key, data) in mesh.uniform_data.iter() {
                 uniform_buffers
-                    .get_mut("key")
+                    .get_mut(key)
                     .expect("failed to find uniform \"view\"")
                     .update_uniform(device, image_index as usize, *data);
             }
@@ -225,10 +230,7 @@ impl RenderPass {
                 height,
                 image_index as usize,
                 uniform_buffers,
-                mesh.texture,
-                mesh.index_buffer,
-                mesh.vertex_buffer,
-                mesh.offsets,
+                mesh,
                 match idx {
                     0 => ClearOp::ClearColor,
                     _ => ClearOp::DoNotClear,

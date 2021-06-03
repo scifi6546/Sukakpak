@@ -325,7 +325,7 @@ impl TextureCreator {
             .binding(1)
             .descriptor_count(1)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)];
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT | vk::ShaderStageFlags::VERTEX)];
         let layout_create_info =
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
         let layout = unsafe {

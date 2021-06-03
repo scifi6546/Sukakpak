@@ -23,6 +23,7 @@ pub struct GraphicsPipeline {
 impl GraphicsPipeline {
     pub fn new(
         device: &mut Device,
+        shader_data: &ShaderDescription,
         vertex_buffer: &VertexBuffer,
         layouts: Vec<vk::DescriptorSetLayout>,
         push_constants: &HashMap<String, PushConstantDesc>,
@@ -30,9 +31,8 @@ impl GraphicsPipeline {
         screen_height: u32,
         depth_buffer: &DepthBuffer,
     ) -> Self {
-        let frag_shader_data =
-            read_spv(&mut Cursor::new(include_bytes!("../shaders/main.frag.spv")))
-                .expect("failed to create shader");
+        let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data))
+            .expect("failed to create shader");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_shader_data);
         let fragment_shader = unsafe {
             device
@@ -41,9 +41,8 @@ impl GraphicsPipeline {
                 .expect("failed to create shader")
         };
 
-        let vert_shader_data =
-            read_spv(&mut Cursor::new(include_bytes!("../shaders/main.vert.spv")))
-                .expect("failed to create shader");
+        let vert_shader_data = read_spv(&mut Cursor::new(shader_data.vertex_shader_data))
+            .expect("failed to create shader");
         let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vert_shader_data);
         let vertex_shader = unsafe {
             device
@@ -77,6 +76,7 @@ impl GraphicsPipeline {
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(&layouts)
             .push_constant_ranges(&ranges);
+        println!("layout size: {}", layouts.len());
         let pipeline_layout = unsafe {
             device
                 .device
