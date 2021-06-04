@@ -44,10 +44,10 @@ impl<'a> RenderCollection<'a> {
     pub fn push(&mut self, mesh: RenderMesh<'a>) {
         for (name, data) in mesh.uniform_data.iter() {
             if self.batches.contains_key(name) {
-                let mut data_entry = self.batches.get_mut(name).unwrap();
+                let data_entry = self.batches.get_mut(name).unwrap();
                 let data_vec = data.to_vec();
                 if data_entry.contains_key(&data_vec) {
-                    let mut v = data_entry.get_mut(&data_vec).unwrap();
+                    let v = data_entry.get_mut(&data_vec).unwrap();
                     v.push(RenderCollectionMesh {
                         view_matrix: mesh.view_matrix,
                         vertex_buffer: mesh.vertex_buffer,

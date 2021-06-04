@@ -66,7 +66,7 @@ pub struct VertexBufferDesc {
     pub binding_description: vk::VertexInputBindingDescription,
     pub attributes: &'static [vk::VertexInputAttributeDescription],
 }
-pub const MAIN_SHADER: ShaderDescription = ShaderDescription {
+pub const _MAIN_SHADER: ShaderDescription = ShaderDescription {
     uniforms: phf_map! {
             "view"=>UniformDescription {
                 size: std::mem::size_of::<Matrix4<f32>>(),

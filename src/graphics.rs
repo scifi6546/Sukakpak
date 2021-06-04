@@ -21,8 +21,7 @@ use index_buffer::IndexBuffer;
 pub use mesh::{Mesh, MeshID, MeshOffset, MeshOffsetID};
 use nalgebra::{Matrix4, Vector2, Vector3};
 use pipeline::{
-    GraphicsPipeline, PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc,
-    MAIN_SHADER, PUSH_SHADER,
+    GraphicsPipeline, ShaderDescription, UniformDescription, VertexBufferDesc, PUSH_SHADER,
 };
 use present_images::PresentImage;
 
@@ -49,7 +48,6 @@ pub struct Context {
     texture_creators: Vec<TextureCreator>,
     texture_pool: TexturePool,
     uniform_buffers: HashMap<String, UniformBuffer>,
-    push_constants: HashMap<String, PushConstantDesc>,
     depth_buffer: DepthBuffer,
     textures: Vec<Texture>,
     mesh_arena: Arena<Mesh>,
@@ -191,7 +189,6 @@ impl Context {
                 texture_arena,
                 depth_buffer,
                 shader_desc,
-                push_constants,
             },
             texture_ids,
         )
