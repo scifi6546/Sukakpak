@@ -10,7 +10,7 @@ mod texture;
 mod uniform;
 mod vertex_buffer;
 use ash::{version::DeviceV1_0, vk};
-use command_pool::{CommandPool, OffsetData, RenderMesh, RenderPass};
+use command_pool::{CommandPool, OffsetData, RenderCollection, RenderMesh, RenderPass};
 pub use device::Device;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
@@ -25,6 +25,7 @@ use pipeline::{
     MAIN_SHADER, PUSH_SHADER,
 };
 use present_images::PresentImage;
+
 use texture::{Texture, TextureCreator, TexturePool};
 pub use uniform::UniformBuffer;
 pub use vertex_buffer::{Vertex, VertexBuffer};
@@ -32,6 +33,10 @@ pub use vertex_buffer::{Vertex, VertexBuffer};
 #[derive(Clone, Copy)]
 pub struct TextureID {
     index: ArenaIndex,
+}
+pub struct UniformData {
+    pub view_matrix: Matrix4<f32>,
+    pub uniforms: HashMap<String, Vec<u8>>,
 }
 pub struct Context {
     device: Device,
@@ -191,10 +196,9 @@ impl Context {
             texture_ids,
         )
     }
-    pub fn render_frame(&mut self, mesh: &[(MeshOffsetID, Matrix4<f32>)]) {
-        let mut render_meshes = vec![];
-        render_meshes.reserve(mesh.len());
-        for (id, mat) in mesh.iter() {
+    pub fn render_frame(&mut self, mesh: &[(MeshOffsetID, UniformData)]) {
+        let mut render_collection = RenderCollection::default();
+        for (id, uniform_data) in mesh.iter() {
             let offset = self
                 .mesh_offset_arena
                 .get(id.index)
@@ -203,8 +207,8 @@ impl Context {
                 .mesh_arena
                 .get(offset.mesh.index)
                 .expect("invalid mesh id");
-            render_meshes.push(mesh.to_render_mesh(
-                *mat,
+            render_collection.push(mesh.to_render_mesh(
+                uniform_data.view_matrix,
                 HashMap::new(),
                 &self.texture_arena,
                 &offset,
@@ -218,7 +222,7 @@ impl Context {
                 self.width,
                 self.height,
                 &mut self.uniform_buffers,
-                &mut render_meshes,
+                &render_collection,
             );
         }
     }

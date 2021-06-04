@@ -30,10 +30,66 @@ pub struct RenderCollectionMesh<'a> {
 //collection of data used for rendering
 pub struct RenderCollection<'a> {
     //orders data by submission of uniform
-    batches: HashMap<(String, &'a [u8]), RenderCollectionMesh<'a>>,
+    batches: HashMap<String, HashMap<Vec<u8>, Vec<RenderCollectionMesh<'a>>>>,
 }
 
-impl<'a> RenderCollection<'a> {}
+impl<'a> RenderCollection<'a> {
+    pub fn num_uniforms_to_update(&self) -> usize {
+        self.batches
+            .iter()
+            .map(|(_k, map)| map.len())
+            .fold(0, |r, s| r + s)
+    }
+    pub fn push(&mut self, mesh: RenderMesh<'a>) {
+        for (name, data) in mesh.uniform_data.iter() {
+            if self.batches.contains_key(name) {
+                let mut data_entry = self.batches.get_mut(name).unwrap();
+                let data_vec = data.to_vec();
+                if data_entry.contains_key(&data_vec) {
+                    let mut v = data_entry.get_mut(&data_vec).unwrap();
+                    v.push(RenderCollectionMesh {
+                        view_matrix: mesh.view_matrix,
+                        vertex_buffer: mesh.vertex_buffer,
+                        index_buffer: mesh.index_buffer,
+                        texture: mesh.texture,
+                        offsets: mesh.offsets,
+                    });
+                } else {
+                    data_entry.insert(
+                        data_vec,
+                        vec![RenderCollectionMesh {
+                            view_matrix: mesh.view_matrix,
+                            vertex_buffer: mesh.vertex_buffer,
+                            index_buffer: mesh.index_buffer,
+                            texture: mesh.texture,
+                            offsets: mesh.offsets,
+                        }],
+                    );
+                }
+            } else {
+                let mut map = HashMap::new();
+                map.insert(
+                    data.to_vec(),
+                    vec![RenderCollectionMesh {
+                        view_matrix: mesh.view_matrix,
+                        vertex_buffer: mesh.vertex_buffer,
+                        index_buffer: mesh.index_buffer,
+                        texture: mesh.texture,
+                        offsets: mesh.offsets,
+                    }],
+                );
+                self.batches.insert(name.clone(), map);
+            }
+        }
+    }
+}
+impl<'a> Default for RenderCollection<'a> {
+    fn default() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+}
 #[derive(Clone, Copy)]
 // Offset of mesh to draw
 pub struct OffsetData {
@@ -106,7 +162,7 @@ impl RenderPass {
         height: u32,
         image_index: usize,
         uniform_buffers: &HashMap<String, UniformBuffer>,
-        mesh: &RenderMesh,
+        mesh_list: &[RenderCollectionMesh],
         clear_op: ClearOp,
     ) {
         let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -151,50 +207,53 @@ impl RenderPass {
                 ClearOp::DoNotClear => graphics_pipeline.load_pipeline.graphics_pipeline,
             },
         );
-        device.device.cmd_bind_vertex_buffers(
-            self.command_buffers[image_index],
-            0,
-            &[mesh.vertex_buffer.buffer],
-            &[0],
-        );
-        device.device.cmd_bind_index_buffer(
-            self.command_buffers[image_index],
-            mesh.index_buffer.buffer,
-            0,
-            vk::IndexType::UINT32,
-        );
-        let mut descriptor_sets = uniform_buffers
-            .iter()
-            .map(|(_key, uniform)| uniform.buffers[image_index].2)
-            .collect::<Vec<_>>();
-        descriptor_sets.push(mesh.texture.descriptor_set);
-        device.device.cmd_bind_descriptor_sets(
-            self.command_buffers[image_index],
-            vk::PipelineBindPoint::GRAPHICS,
-            graphics_pipeline.pipeline_layout,
-            0,
-            &descriptor_sets,
-            &[],
-        );
-        //getting the slice
-        let matrix_ptr = mesh.view_matrix.as_ptr() as *const u8;
-        let matrix_slice =
-            std::slice::from_raw_parts(matrix_ptr, std::mem::size_of::<Matrix4<f32>>());
-        device.device.cmd_push_constants(
-            self.command_buffers[image_index],
-            graphics_pipeline.pipeline_layout,
-            vk::ShaderStageFlags::VERTEX,
-            0,
-            matrix_slice,
-        );
-        device.device.cmd_draw_indexed(
-            self.command_buffers[image_index],
-            mesh.index_buffer.get_num_indicies() as u32,
-            1,
-            mesh.offsets.index_offset as u32,
-            mesh.offsets.vertex_offset as i32,
-            0,
-        );
+        for mesh in mesh_list.iter() {
+            device.device.cmd_bind_vertex_buffers(
+                self.command_buffers[image_index],
+                0,
+                &[mesh.vertex_buffer.buffer],
+                &[0],
+            );
+            device.device.cmd_bind_index_buffer(
+                self.command_buffers[image_index],
+                mesh.index_buffer.buffer,
+                0,
+                vk::IndexType::UINT32,
+            );
+            let mut descriptor_sets = uniform_buffers
+                .iter()
+                .map(|(_key, uniform)| uniform.buffers[image_index].2)
+                .collect::<Vec<_>>();
+            descriptor_sets.push(mesh.texture.descriptor_set);
+            device.device.cmd_bind_descriptor_sets(
+                self.command_buffers[image_index],
+                vk::PipelineBindPoint::GRAPHICS,
+                graphics_pipeline.pipeline_layout,
+                0,
+                &descriptor_sets,
+                &[],
+            );
+            //getting the slice
+            let matrix_ptr = mesh.view_matrix.as_ptr() as *const u8;
+            let matrix_slice =
+                std::slice::from_raw_parts(matrix_ptr, std::mem::size_of::<Matrix4<f32>>());
+            device.device.cmd_push_constants(
+                self.command_buffers[image_index],
+                graphics_pipeline.pipeline_layout,
+                vk::ShaderStageFlags::VERTEX,
+                0,
+                matrix_slice,
+            );
+            device.device.cmd_draw_indexed(
+                self.command_buffers[image_index],
+                mesh.index_buffer.get_num_indicies() as u32,
+                1,
+                mesh.offsets.index_offset as u32,
+                mesh.offsets.vertex_offset as i32,
+                0,
+            );
+        }
+
         device
             .device
             .cmd_end_render_pass(self.command_buffers[image_index]);
@@ -215,7 +274,7 @@ impl RenderPass {
         width: u32,
         height: u32,
         uniform_buffers: &mut HashMap<String, UniformBuffer>,
-        meshes: &mut [RenderMesh],
+        meshes: &RenderCollection,
     ) {
         let (image_index, _) = device
             .swapchain_loader
@@ -226,51 +285,56 @@ impl RenderPass {
                 vk::Fence::null(),
             )
             .expect("failed to aquire image");
-        let semaphores = self.semaphore_buffer.get_semaphores(device, meshes.len());
-        for (idx, (mesh, semaphore)) in meshes.iter_mut().zip(semaphores).enumerate() {
-            device
-                .device
-                .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
-                .expect("failed to wait for fence");
-            device
-                .device
-                .reset_fences(&[self.fences[image_index as usize]])
-                .expect("failed to reset fence");
-            for (key, data) in mesh.uniform_data.iter() {
-                uniform_buffers
-                    .get_mut(key)
-                    .expect("failed to find uniform \"view\"")
-                    .update_uniform(device, image_index as usize, *data);
-            }
-            self.build_renderpass(
-                device,
-                &framebuffer.framebuffers[image_index as usize],
-                graphics_pipeline,
-                width,
-                height,
-                image_index as usize,
-                uniform_buffers,
-                mesh,
-                match idx {
-                    0 => ClearOp::ClearColor,
-                    _ => ClearOp::DoNotClear,
-                },
-            );
-            let submit_info = vk::SubmitInfo::builder()
-                .wait_semaphores(&[semaphore.start_semaphore])
-                .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-                .command_buffers(&[self.command_buffers[image_index as usize]])
-                .signal_semaphores(&[semaphore.finished_semaphore])
-                .build();
+        let semaphores = self
+            .semaphore_buffer
+            .get_semaphores(device, meshes.num_uniforms_to_update());
+        for (idx, ((uniform_name, mesh), semaphore)) in
+            meshes.batches.iter().zip(semaphores).enumerate()
+        {
+            for (uniform_data, mesh) in mesh.iter() {
+                device
+                    .device
+                    .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)
+                    .expect("failed to wait for fence");
+                device
+                    .device
+                    .reset_fences(&[self.fences[image_index as usize]])
+                    .expect("failed to reset fence");
 
-            device
-                .device
-                .queue_submit(
-                    device.present_queue,
-                    &[submit_info],
-                    self.fences[image_index as usize],
-                )
-                .expect("failed to submit queue");
+                uniform_buffers
+                    .get_mut(uniform_name)
+                    .expect(&format!("failed to find uniform \" {}\"", &uniform_name))
+                    .update_uniform(device, image_index as usize, &uniform_data);
+                self.build_renderpass(
+                    device,
+                    &framebuffer.framebuffers[image_index as usize],
+                    graphics_pipeline,
+                    width,
+                    height,
+                    image_index as usize,
+                    uniform_buffers,
+                    mesh,
+                    match idx {
+                        0 => ClearOp::ClearColor,
+                        _ => ClearOp::DoNotClear,
+                    },
+                );
+                let submit_info = vk::SubmitInfo::builder()
+                    .wait_semaphores(&[semaphore.start_semaphore])
+                    .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+                    .command_buffers(&[self.command_buffers[image_index as usize]])
+                    .signal_semaphores(&[semaphore.finished_semaphore])
+                    .build();
+
+                device
+                    .device
+                    .queue_submit(
+                        device.present_queue,
+                        &[submit_info],
+                        self.fences[image_index as usize],
+                    )
+                    .expect("failed to submit queue");
+            }
         }
         let wait_semaphores = [device.swapchain];
         let image_indices = [image_index];

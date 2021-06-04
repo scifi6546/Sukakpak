@@ -2,9 +2,9 @@ pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 
 mod graphics;
 
-use graphics::{Context, Vertex};
+use graphics::{Context, UniformData, Vertex};
 use nalgebra::{Matrix4, Perspective3, Vector2, Vector3};
-
+use std::collections::HashMap;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -256,20 +256,38 @@ fn main() {
                     (0..2).map(move |z| {
                         (
                             grass_cube,
-                            perspective
-                                * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -10.0))
-                                * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0)
-                                * Matrix4::new_scaling(0.2)
-                                * Matrix4::new_translation(&Vector3::new(
-                                    x as f32, y as f32, z as f32,
-                                )),
+                            UniformData {
+                                view_matrix: perspective
+                                    * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -10.0))
+                                    * Matrix4::from_euler_angles(-0.7 * rotation, 0.0, 0.0)
+                                    * Matrix4::new_scaling(0.2)
+                                    * Matrix4::new_translation(&Vector3::new(
+                                        x as f32, y as f32, z as f32,
+                                    )),
+                                uniforms: HashMap::new(),
+                            },
                         )
                     })
                 })
             })
             .flatten()
             .flatten()
-            .chain([(triangle, mat1), (triangle, mat2)])
+            .chain([
+                (
+                    triangle,
+                    UniformData {
+                        view_matrix: mat1,
+                        uniforms: HashMap::new(),
+                    },
+                ),
+                (
+                    triangle,
+                    UniformData {
+                        view_matrix: mat2,
+                        uniforms: HashMap::new(),
+                    },
+                ),
+            ])
             .collect::<Vec<_>>();
 
         let _grass_cube_mat: Matrix4<f32> = perspective
