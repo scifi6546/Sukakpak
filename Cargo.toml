@@ -1,2 +1,2 @@
 [workspace]
-members = ["renderer","main"]
+members = ["renderer","main","sukakpak"]
