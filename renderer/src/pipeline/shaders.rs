@@ -101,8 +101,8 @@ pub const _MAIN_SHADER: ShaderDescription = ShaderDescription {
             },
         ],
     },
-    fragment_shader_data: include_bytes!("../../shaders/main.frag.spv"),
-    vertex_shader_data: include_bytes!("../../shaders/main.vert.spv"),
+    fragment_shader_data: include_bytes!("../shaders/main.frag.spv"),
+    vertex_shader_data: include_bytes!("../shaders/main.vert.spv"),
 };
 pub const PUSH_SHADER: ShaderDescription = ShaderDescription {
     uniforms: phf_map! {},
@@ -136,6 +136,6 @@ pub const PUSH_SHADER: ShaderDescription = ShaderDescription {
             },
         ],
     },
-    fragment_shader_data: include_bytes!("../../shaders/push.frag.spv"),
-    vertex_shader_data: include_bytes!("../../shaders/push.vert.spv"),
+    fragment_shader_data: include_bytes!("../shaders/push.frag.spv"),
+    vertex_shader_data: include_bytes!("../shaders/push.vert.spv"),
 };
