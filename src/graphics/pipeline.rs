@@ -180,7 +180,6 @@ impl GraphicsPipeline {
             .layout(pipeline_layout)
             .render_pass(renderpass)
             .build();
-        println!("pipeline layout: {:?}", graphics_pipeline_info);
         let graphics_pipeline = unsafe {
             device
                 .device

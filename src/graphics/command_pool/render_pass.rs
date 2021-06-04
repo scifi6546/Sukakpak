@@ -11,7 +11,7 @@ enum ClearOp {
     ClearColor,
     DoNotClear,
 }
-pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
+pub struct RenderMesh<'a> {
     pub uniform_data: HashMap<String, *const std::ffi::c_void>,
     pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBuffer,
@@ -19,6 +19,20 @@ pub struct RenderMesh<'a, const UNIFORM_SIZE: usize> {
     pub texture: &'a Texture,
     pub offsets: OffsetData,
 }
+
+pub struct TempRenderMesh<'a> {
+    pub view_matrix: Matrix4<f32>,
+    pub vertex_buffer: &'a VertexBuffer,
+    pub index_buffer: &'a IndexBuffer,
+    pub texture: &'a Texture,
+    pub offsets: OffsetData,
+}
+//collection of data used for rendering
+pub struct RenderCollection<'a> {
+    //orders data by submission of uniform
+    batches: HashMap<(String, &'a [u8]), TempRenderMesh<'a>>,
+}
+impl<'a> RenderCollection<'a> {}
 #[derive(Clone, Copy)]
 // Offset of mesh to draw
 pub struct OffsetData {
@@ -90,8 +104,8 @@ impl RenderPass {
         width: u32,
         height: u32,
         image_index: usize,
-        uniform_buffer: &HashMap<String, UniformBuffer>,
-        mesh: &RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>,
+        uniform_buffers: &HashMap<String, UniformBuffer>,
+        mesh: &RenderMesh,
         clear_op: ClearOp,
     ) {
         let begin_info = vk::CommandBufferBeginInfo::builder();
@@ -148,12 +162,17 @@ impl RenderPass {
             0,
             vk::IndexType::UINT32,
         );
+        let mut descriptor_sets = uniform_buffers
+            .iter()
+            .map(|(_key, uniform)| uniform.buffers[image_index].2)
+            .collect::<Vec<_>>();
+        descriptor_sets.push(mesh.texture.descriptor_set);
         device.device.cmd_bind_descriptor_sets(
             self.command_buffers[image_index],
             vk::PipelineBindPoint::GRAPHICS,
             graphics_pipeline.pipeline_layout,
             0,
-            &[mesh.texture.descriptor_set],
+            &descriptor_sets,
             &[],
         );
         //getting the slice
@@ -195,7 +214,7 @@ impl RenderPass {
         width: u32,
         height: u32,
         uniform_buffers: &mut HashMap<String, UniformBuffer>,
-        meshes: &mut [RenderMesh<{ std::mem::size_of::<Matrix4<f32>>() }>],
+        meshes: &mut [RenderMesh],
     ) {
         let (image_index, _) = device
             .swapchain_loader

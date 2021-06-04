@@ -3,7 +3,9 @@ use ash::{
     version::{DeviceV1_0, InstanceV1_0},
     vk,
 };
-
+//todo figure out better descriptor set assignment method
+const DESCRIPTOR_SET: u32 = 0;
+const BINDING: u32 = 0;
 pub struct Texture {
     sampler: vk::Sampler,
     image_view: vk::ImageView,
@@ -179,7 +181,7 @@ impl Texture {
             .sampler(sampler)];
         let write = [*vk::WriteDescriptorSet::builder()
             .dst_set(descriptor_set)
-            .dst_binding(1)
+            .dst_binding(DESCRIPTOR_SET)
             .dst_array_element(0)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .image_info(&image_descriptor_info)];
@@ -322,7 +324,7 @@ pub struct TextureCreator {
 impl TextureCreator {
     pub fn new(device: &mut Device) -> Self {
         let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
-            .binding(1)
+            .binding(BINDING)
             .descriptor_count(1)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .stage_flags(vk::ShaderStageFlags::FRAGMENT | vk::ShaderStageFlags::VERTEX)];

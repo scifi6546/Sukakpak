@@ -51,7 +51,7 @@ impl Mesh {
         uniform_data: HashMap<String, *const std::ffi::c_void>,
         texture_arena: &'a Arena<Texture>,
         offset: &MeshOffset,
-    ) -> RenderMesh<'a, { std::mem::size_of::<Matrix4<f32>>() }> {
+    ) -> RenderMesh<'a> {
         RenderMesh {
             vertex_buffer: &self.vertex_buffer,
             index_buffer: &self.index_buffer,
