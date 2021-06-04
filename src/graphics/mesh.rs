@@ -48,7 +48,7 @@ impl Mesh {
     pub fn to_render_mesh<'a>(
         &'a self,
         view_matrix: Matrix4<f32>,
-        uniform_data: HashMap<String, *const std::ffi::c_void>,
+        uniform_data: HashMap<String, &'a [u8]>,
         texture_arena: &'a Arena<Texture>,
         offset: &MeshOffset,
     ) -> RenderMesh<'a> {

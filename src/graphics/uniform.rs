@@ -104,12 +104,7 @@ impl UniformBuffer {
                 .destroy_descriptor_set_layout(self.layout[0], None)
         }
     }
-    pub unsafe fn update_uniform(
-        &mut self,
-        device: &mut Device,
-        image_index: usize,
-        data: *const std::ffi::c_void,
-    ) {
+    pub unsafe fn update_uniform(&mut self, device: &mut Device, image_index: usize, data: &[u8]) {
         let ptr = device
             .device
             .map_memory(
@@ -119,7 +114,7 @@ impl UniformBuffer {
                 vk::MemoryMapFlags::empty(),
             )
             .expect("failed to map memory");
-        std::ptr::copy_nonoverlapping(data, ptr, self.size);
+        std::ptr::copy_nonoverlapping(data.as_ptr() as *const std::ffi::c_void, ptr, self.size);
         device.device.unmap_memory(self.buffers[image_index].1);
     }
 }

@@ -12,7 +12,7 @@ enum ClearOp {
     DoNotClear,
 }
 pub struct RenderMesh<'a> {
-    pub uniform_data: HashMap<String, *const std::ffi::c_void>,
+    pub uniform_data: HashMap<String, &'a [u8]>,
     pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
@@ -20,7 +20,7 @@ pub struct RenderMesh<'a> {
     pub offsets: OffsetData,
 }
 
-pub struct TempRenderMesh<'a> {
+pub struct RenderCollectionMesh<'a> {
     pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBuffer,
@@ -30,8 +30,9 @@ pub struct TempRenderMesh<'a> {
 //collection of data used for rendering
 pub struct RenderCollection<'a> {
     //orders data by submission of uniform
-    batches: HashMap<(String, &'a [u8]), TempRenderMesh<'a>>,
+    batches: HashMap<(String, &'a [u8]), RenderCollectionMesh<'a>>,
 }
+
 impl<'a> RenderCollection<'a> {}
 #[derive(Clone, Copy)]
 // Offset of mesh to draw
