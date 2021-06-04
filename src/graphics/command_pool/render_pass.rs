@@ -27,6 +27,7 @@ pub struct RenderCollectionMesh<'a> {
     pub texture: &'a Texture,
     pub offsets: OffsetData,
 }
+#[derive(Default)]
 //collection of data used for rendering
 pub struct RenderCollection<'a> {
     //orders data by submission of uniform
@@ -80,13 +81,6 @@ impl<'a> RenderCollection<'a> {
                 );
                 self.batches.insert(name.clone(), map);
             }
-        }
-    }
-}
-impl<'a> Default for RenderCollection<'a> {
-    fn default() -> Self {
-        Self {
-            ..Default::default()
         }
     }
 }
