@@ -626,6 +626,7 @@ dependencies = [
  "nalgebra",
  "phf",
  "renderer",
+ "sukakpak",
  "winit",
 ]
 
