@@ -12,8 +12,10 @@ pub struct Backend {
     core: Core,
 }
 impl Backend {
-    pub fn new(create_info: BackendCreateInfo) -> Result<Self> {
-        let event_loop = winit::event_loop::EventLoop::new();
+    pub fn new(
+        create_info: BackendCreateInfo,
+        event_loop: &winit::event_loop::EventLoop<()>,
+    ) -> Result<Self> {
         let window = winit::window::WindowBuilder::new()
             .with_title(create_info.name.clone())
             .with_inner_size(winit::dpi::LogicalSize::new(

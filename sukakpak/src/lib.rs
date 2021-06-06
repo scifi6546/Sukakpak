@@ -2,25 +2,38 @@ use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
 use backend::Backend;
 pub use backend::BackendCreateInfo as CreateInfo;
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::ControlFlow,
+};
 pub struct Context {
     backend: Backend,
 }
 impl Context {
-    pub fn new<R: Renderable>(create_info: CreateInfo) {
+    pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
+        let event_loop = winit::event_loop::EventLoop::new();
         let mut context = Context {
-            backend: Backend::new(create_info).expect("failed to create backend"),
+            backend: Backend::new(create_info, &event_loop).expect("failed to create backend"),
         };
         let mut render = {
             let mut child = ContextChild::new(&mut context);
             R::init(&mut child)
         };
-        loop {
+
+        event_loop.run(move |event, _, control_flow| {
             let mut child = ContextChild::new(&mut context);
             render.render_frame(&mut child);
             if child.quit {
-                break;
+                *control_flow = ControlFlow::Exit
             }
-        }
+            match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                _ => (),
+            }
+        });
     }
 }
 pub struct ContextChild<'a> {
