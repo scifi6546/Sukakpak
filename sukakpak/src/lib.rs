@@ -1,7 +1,9 @@
 use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
 use backend::Backend;
+mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
+pub use mesh::{EasyMesh, Mesh as MeshAsset};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -52,13 +54,13 @@ impl<'a> ContextChild<'a> {
             quit: false,
         }
     }
-    pub fn build_meshes(&mut self) -> Mesh {
+    pub fn build_meshes(&mut self, mesh: MeshAsset) -> Mesh {
         todo!("build mesh")
     }
     pub fn build_texture(&mut self) -> Texture {
         todo!("build texture")
     }
-    pub fn draw_mesh(&mut self, mesh: Mesh) {
+    pub fn draw_mesh(&mut self, mesh: &Mesh) {
         todo!("draw mesh")
     }
     pub fn build_framebuffer(&mut self) {
@@ -97,12 +99,41 @@ mod tests {
             context.quit();
         }
     }
+    struct TriangleRenderable {
+        num_frames: usize,
+        triangle: Mesh,
+    }
+    impl Renderable for TriangleRenderable {
+        fn init<'a>(context: &mut ContextChild<'a>) -> Self {
+            let triangle = context.build_meshes(MeshAsset::new_triangle());
+            Self {
+                triangle,
+                num_frames: 0,
+            }
+        }
+        fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
+            if self.num_frames == 0 {
+                context.draw_mesh(&self.triangle);
+                self.num_frames += 1;
+            } else {
+                context.quit();
+            }
+        }
+    }
     #[test]
-    fn it_works() {
+    fn startup() {
         //should start and stop without issue
         Context::new::<EmptyRenderable>(CreateInfo {
             default_size: Vector2::new(800, 800),
             name: String::from("Basic Unit Test"),
+        });
+    }
+    #[test]
+    fn draw_triangle() {
+        //should start and stop without issue
+        Context::new::<TriangleRenderable>(CreateInfo {
+            default_size: Vector2::new(800, 800),
+            name: String::from("Draw Triangle"),
         });
     }
 }
