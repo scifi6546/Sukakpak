@@ -1,30 +1,44 @@
 use generational_arena::{Arena, Index as ArenaIndex};
-pub struct Context {}
+mod backend;
+use backend::Backend;
+pub use backend::BackendCreateInfo as CreateInfo;
+pub struct Context {
+    backend: Backend,
+}
 impl Context {
-    pub fn new<R: Renderable>() -> ! {
-        let mut context = Context {};
+    pub fn new<R: Renderable>(create_info: CreateInfo) {
+        let mut context = Context {
+            backend: Backend::new(create_info).expect("failed to create backend"),
+        };
         let mut render = {
-            let mut child = ContextChild {
-                context: &mut context,
-            };
+            let mut child = ContextChild::new(&mut context);
             R::init(&mut child)
         };
         loop {
-            let mut child = ContextChild {
-                context: &mut context,
-            };
+            let mut child = ContextChild::new(&mut context);
             render.render_frame(&mut child);
+            if child.quit {
+                break;
+            }
         }
     }
 }
 pub struct ContextChild<'a> {
     context: &'a mut Context,
+    //true if quit is signaled
+    quit: bool,
 }
 pub struct Mesh {}
 pub struct Texture {}
 pub struct FrameBuffer {}
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
 impl<'a> ContextChild<'a> {
+    fn new(context: &'a mut Context) -> Self {
+        Self {
+            context,
+            quit: false,
+        }
+    }
     pub fn build_meshes(&mut self) -> Mesh {
         todo!("build mesh")
     }
@@ -48,7 +62,7 @@ impl<'a> ContextChild<'a> {
     }
     /// quits the program once `render_frame` finishes
     pub fn quit(&mut self) {
-        todo!()
+        self.quit = true;
     }
 }
 /// User Provided code that provides draw calls
@@ -59,6 +73,8 @@ pub trait Renderable {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nalgebra::Vector2;
+
     struct EmptyRenderable {}
     impl Renderable for EmptyRenderable {
         fn init<'a>(_context: &mut ContextChild<'a>) -> Self {
@@ -71,6 +87,9 @@ mod tests {
     #[test]
     fn it_works() {
         //should start and stop without issue
-        Context::new::<EmptyRenderable>();
+        Context::new::<EmptyRenderable>(CreateInfo {
+            default_size: Vector2::new(800, 800),
+            name: String::from("Basic Unit Test"),
+        });
     }
 }
