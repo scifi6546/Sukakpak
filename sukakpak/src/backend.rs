@@ -2,13 +2,16 @@ use anyhow::Result;
 
 use nalgebra::Vector2;
 mod render_core;
+mod vertex_buffer;
 use render_core::Core;
+use vertex_buffer::{VertexBufferAllocation, VertexBufferPool};
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
     pub name: String,
 }
 pub struct Backend {
     window: winit::window::Window,
+
     core: Core,
 }
 impl Backend {

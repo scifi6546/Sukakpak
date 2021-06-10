@@ -54,13 +54,13 @@ impl<'a> ContextChild<'a> {
             quit: false,
         }
     }
-    pub fn build_meshes(&mut self, mesh: MeshAsset) -> Mesh {
+    pub fn build_meshes(&mut self, _mesh: MeshAsset) -> Mesh {
         todo!("build mesh")
     }
     pub fn build_texture(&mut self) -> Texture {
         todo!("build texture")
     }
-    pub fn draw_mesh(&mut self, mesh: &Mesh) {
+    pub fn draw_mesh(&mut self, _mesh: &Mesh) {
         todo!("draw mesh")
     }
     pub fn build_framebuffer(&mut self) {
@@ -72,7 +72,7 @@ impl<'a> ContextChild<'a> {
     pub fn update_uniform(&mut self) {
         todo!("update uniform")
     }
-    pub fn force_draw(mut self) {
+    pub fn force_draw(&mut self) {
         todo!("force draw")
     }
     /// quits the program once `render_frame` finishes
