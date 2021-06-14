@@ -11,7 +11,6 @@ pub struct BackendCreateInfo {
 }
 pub struct Backend {
     window: winit::window::Window,
-
     core: Core,
 }
 impl Backend {

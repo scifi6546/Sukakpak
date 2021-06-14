@@ -38,9 +38,10 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 pub struct Core {
-    device: ash::Device,
+    pub physical_device: vk::PhysicalDevice,
+    pub device: ash::Device,
     entry: ash::Entry,
-    instance: ash::Instance,
+    pub instance: ash::Instance,
     memory_properties: vk::PhysicalDeviceMemoryProperties,
     debug_callback: vk::DebugUtilsMessengerEXT,
     present_queue: vk::Queue,
@@ -209,6 +210,7 @@ impl Core {
         let swapchain =
             unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap();
         Ok(Self {
+            physical_device,
             swapchain_loader,
             device,
             entry,

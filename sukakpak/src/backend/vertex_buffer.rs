@@ -1,17 +1,19 @@
-mod allocators;
-pub struct VertexBufferPool {}
+use super::Core;
+use ash::vk;
+use gpu_allocator::{VulkanAllocator, VulkanAllocatorCreateDesc};
+pub struct VertexBufferPool {
+    allocator: VulkanAllocator,
+}
 impl VertexBufferPool {
-    pub fn new(alloc_size: usize) -> Self {
-        todo!()
+    pub fn new(core: &Core) -> Self {
+        Self {
+            allocator: VulkanAllocator::new(&VulkanAllocatorCreateDesc {
+                instance: core.instance.clone(),
+                device: core.device.clone(),
+                physical_device: core.physical_device,
+                debug_settings: Default::default(),
+            }),
+        }
     }
 }
 pub struct VertexBufferAllocation {}
-trait AllocTarget {}
-trait AllocateTarget {
-    type SubTarget;
-    /// allocates a block with a new size. If there is an existing block the data is copied over
-    /// from the old block to a bock with the new size
-    fn alloc_block(&mut self, size: usize);
-    /// gets an offset block
-    fn offset(&mut self, offset: usize) -> Self::SubTarget;
-}
