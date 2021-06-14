@@ -3,6 +3,7 @@ use anyhow::Result;
 use nalgebra::Vector2;
 mod render_core;
 mod vertex_buffer;
+use super::Mesh;
 use render_core::Core;
 use vertex_buffer::{VertexBufferAllocation, VertexBufferPool};
 pub struct BackendCreateInfo {
@@ -13,6 +14,7 @@ pub struct Backend {
     window: winit::window::Window,
     core: Core,
 }
+pub struct VertexBufferID {}
 impl Backend {
     pub fn new(
         create_info: BackendCreateInfo,
@@ -27,6 +29,9 @@ impl Backend {
             .build(&event_loop)?;
         let core = Core::new(&window, &create_info)?;
         Ok(Self { window, core })
+    }
+    pub fn allocate_mesh(&mut self, mesh: Mesh) -> VertexBufferID {
+        todo!()
     }
 }
 impl Drop for Backend {

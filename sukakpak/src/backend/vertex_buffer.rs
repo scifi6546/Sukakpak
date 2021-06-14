@@ -1,4 +1,4 @@
-use super::Core;
+use super::{Core, Mesh};
 use ash::vk;
 use gpu_allocator::{VulkanAllocator, VulkanAllocatorCreateDesc};
 pub struct VertexBufferPool {
@@ -14,6 +14,9 @@ impl VertexBufferPool {
                 debug_settings: Default::default(),
             }),
         }
+    }
+    pub fn allocate_buffer(&mut self, mesh: Vec<u8>) -> VertexBufferAllocation {
+        todo!()
     }
 }
 pub struct VertexBufferAllocation {}

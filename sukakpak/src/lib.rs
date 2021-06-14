@@ -43,7 +43,9 @@ pub struct ContextChild<'a> {
     //true if quit is signaled
     quit: bool,
 }
-pub struct Mesh {}
+pub struct Mesh {
+    mesh: backend::MeshID,
+}
 pub struct Texture {}
 pub struct FrameBuffer {}
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
@@ -54,7 +56,8 @@ impl<'a> ContextChild<'a> {
             quit: false,
         }
     }
-    pub fn build_meshes(&mut self, _mesh: MeshAsset) -> Mesh {
+    pub fn build_meshes(&mut self, mesh: MeshAsset) -> Mesh {
+        self.context.backend.allocate_mesh(mesh);
         todo!("build mesh")
     }
     pub fn build_texture(&mut self) -> Texture {
