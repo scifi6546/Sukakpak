@@ -1,5 +1,6 @@
 struct Tree {}
 pub struct Allocator {}
+impl Allocator {}
 #[cfg(test)]
 mod tests {
     use super::*;
