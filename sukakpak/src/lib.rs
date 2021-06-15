@@ -1,6 +1,6 @@
 use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
-use backend::Backend;
+use backend::{Backend, VertexBufferID, VertexLayout};
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
@@ -44,7 +44,7 @@ pub struct ContextChild<'a> {
     quit: bool,
 }
 pub struct Mesh {
-    mesh: backend::MeshID,
+    verticies: VertexBufferID,
 }
 pub struct Texture {}
 pub struct FrameBuffer {}
@@ -57,8 +57,13 @@ impl<'a> ContextChild<'a> {
         }
     }
     pub fn build_meshes(&mut self, mesh: MeshAsset) -> Mesh {
-        self.context.backend.allocate_mesh(mesh);
-        todo!("build mesh")
+        Mesh {
+            verticies: self
+                .context
+                .backend
+                .allocate_verticies(mesh.verticies, VertexLayout::XYZ_F32)
+                .expect("failed to allocate mesh"),
+        }
     }
     pub fn build_texture(&mut self) -> Texture {
         todo!("build texture")
