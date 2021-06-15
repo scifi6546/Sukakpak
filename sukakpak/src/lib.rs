@@ -68,7 +68,7 @@ impl<'a> ContextChild<'a> {
     pub fn build_texture(&mut self) -> Texture {
         todo!("build texture")
     }
-    pub fn draw_mesh(&mut self, _mesh: &Mesh) {
+    pub fn draw_mesh(&mut self, mesh: &Mesh) {
         todo!("draw mesh")
     }
     pub fn build_framebuffer(&mut self) {

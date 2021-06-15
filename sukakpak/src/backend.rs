@@ -2,11 +2,11 @@ use anyhow::Result;
 
 use nalgebra::Vector2;
 mod render_core;
-mod vertex_buffer;
+mod resource_pool;
 use super::Mesh;
 use generational_arena::{Arena, Index as ArenaIndex};
 use render_core::Core;
-use vertex_buffer::{VertexBufferAllocation, VertexBufferPool};
+use resource_pool::{VertexBufferAllocation, VertexBufferPool};
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
     pub name: String,
