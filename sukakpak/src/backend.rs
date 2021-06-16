@@ -2,9 +2,12 @@ use anyhow::Result;
 
 use nalgebra::Vector2;
 mod command_pool;
+mod framebuffer;
 mod render_core;
+mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
+use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 use render_core::Core;
 use resource_pool::{IndexBufferAllocation, ResourcePool, VertexBufferAllocation};

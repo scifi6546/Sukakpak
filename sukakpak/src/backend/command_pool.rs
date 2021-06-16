@@ -29,7 +29,7 @@ impl<'a> Drop for OneTimeCommandBuffer<'a> {
     }
 }
 pub struct CommandPool {
-    command_pool: vk::CommandPool,
+    pub command_pool: vk::CommandPool,
 }
 impl CommandPool {
     pub fn new(core: &mut Core) -> Self {
