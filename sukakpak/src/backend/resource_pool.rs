@@ -144,11 +144,14 @@ impl ResourcePool {
     }
 }
 pub struct IndexBufferAllocation {
-    buffer: vk::Buffer,
-    allocation: SubAllocation,
-    buffer_size: usize,
+    pub buffer: vk::Buffer,
+    pub allocation: SubAllocation,
+    pub buffer_size: usize,
 }
 impl IndexBufferAllocation {
+    pub fn num_indices(&self) -> usize {
+        self.buffer_size / size_of::<u32>()
+    }
     pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         resource_pool.allocator.free(self.allocation)?;
         unsafe {
@@ -160,8 +163,8 @@ impl IndexBufferAllocation {
 pub struct VertexBufferAllocation {
     allocation: SubAllocation,
     buffer: vk::Buffer,
-    binding_description: vk::VertexInputBindingDescription,
-    input_description: Vec<vk::VertexInputAttributeDescription>,
+    pub binding_description: vk::VertexInputBindingDescription,
+    pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
     pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) {

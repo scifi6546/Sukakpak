@@ -10,6 +10,7 @@ use command_pool::CommandPool;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 use render_core::Core;
+mod pipeline;
 use resource_pool::{IndexBufferAllocation, ResourcePool, VertexBufferAllocation};
 
 pub struct BackendCreateInfo {
