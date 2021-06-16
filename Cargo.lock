@@ -1425,6 +1425,7 @@ dependencies = [
  "anyhow",
  "ash",
  "ash-window",
+ "backtrace",
  "generational-arena",
  "gpu-allocator",
  "nalgebra 0.27.1",

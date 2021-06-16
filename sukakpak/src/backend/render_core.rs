@@ -1,3 +1,4 @@
+use super::CommandPool;
 use anyhow::Result;
 use ash::{
     extensions::ext::DebugUtils,
@@ -7,6 +8,7 @@ use ash::{
 };
 
 use std::ffi::{CStr, CString};
+const DO_BACKTRACE: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -35,6 +37,9 @@ unsafe extern "system" fn vulkan_debug_callback(
         &message_id_number.to_string(),
         message,
     );
+    if DO_BACKTRACE {
+        println!("{:?}", backtrace::Backtrace::new());
+    }
     vk::FALSE
 }
 pub struct Core {
@@ -42,9 +47,10 @@ pub struct Core {
     pub device: ash::Device,
     entry: ash::Entry,
     pub instance: ash::Instance,
-    memory_properties: vk::PhysicalDeviceMemoryProperties,
+    pub memory_properties: vk::PhysicalDeviceMemoryProperties,
     debug_callback: vk::DebugUtilsMessengerEXT,
-    present_queue: vk::Queue,
+    pub present_queue: vk::Queue,
+    pub queue_family_index: u32,
     swapchain: vk::SwapchainKHR,
     swapchain_loader: Swapchain,
     surface: vk::SurfaceKHR,
@@ -222,7 +228,52 @@ impl Core {
             surface_loader,
             surface,
             debug_utils_loader,
+            queue_family_index,
         })
+    }
+    pub fn find_supported_format(
+        &self,
+        formats: &[vk::Format],
+        tiling: vk::ImageTiling,
+        features: vk::FormatFeatureFlags,
+    ) -> vk::Format {
+        for format in formats {
+            let properties = unsafe {
+                self.instance
+                    .get_physical_device_format_properties(self.physical_device, *format)
+            };
+            if tiling == vk::ImageTiling::LINEAR
+                && (properties.linear_tiling_features & features) == features
+            {
+                return *format;
+            } else if tiling == vk::ImageTiling::OPTIMAL
+                && (properties.optimal_tiling_features & features) == features
+            {
+                return *format;
+            };
+        }
+        panic!("format not found")
+    }
+    pub fn copy_buffer(
+        &mut self,
+        command_pool: &mut CommandPool,
+        src: &vk::Buffer,
+        dst: &vk::Buffer,
+        buffer_size: u64,
+    ) {
+        unsafe {
+            let copy_command = command_pool.create_onetime_buffer(self);
+            let copy_region = [*vk::BufferCopy::builder()
+                .src_offset(0)
+                .dst_offset(0)
+                .size(buffer_size)];
+            copy_command.core.device.cmd_copy_buffer(
+                copy_command.command_buffer[0],
+                *src,
+                *dst,
+                &copy_region,
+            );
+        }
     }
     /// frees resources. Must only be called once
     pub unsafe fn free(&mut self) {
