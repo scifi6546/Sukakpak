@@ -25,65 +25,8 @@ pub struct RenderCollectionMesh<'a> {
     pub vertex_buffer: &'a VertexBuffer,
     pub index_buffer: &'a IndexBufferAllocation,
     pub texture: &'a Texture,
-    pub offsets: OffsetData,
-}
-#[derive(Default)]
-//collection of data used for rendering
-pub struct RenderCollection<'a> {
-    //orders data by submission of uniform
-    batches: HashMap<String, HashMap<Vec<u8>, Vec<RenderCollectionMesh<'a>>>>,
 }
 
-impl<'a> RenderCollection<'a> {
-    pub fn num_uniforms_to_update(&self) -> usize {
-        self.batches
-            .iter()
-            .map(|(_k, map)| map.len())
-            .fold(0, |r, s| r + s)
-    }
-    pub fn push(&mut self, mesh: RenderMesh<'a>) {
-        for (name, data) in mesh.uniform_data.iter() {
-            if self.batches.contains_key(name) {
-                let data_entry = self.batches.get_mut(name).unwrap();
-                let data_vec = data.to_vec();
-                if data_entry.contains_key(&data_vec) {
-                    let v = data_entry.get_mut(&data_vec).unwrap();
-                    v.push(RenderCollectionMesh {
-                        view_matrix: mesh.view_matrix,
-                        vertex_buffer: mesh.vertex_buffer,
-                        index_buffer: mesh.index_buffer,
-                        texture: mesh.texture,
-                        offsets: mesh.offsets,
-                    });
-                } else {
-                    data_entry.insert(
-                        data_vec,
-                        vec![RenderCollectionMesh {
-                            view_matrix: mesh.view_matrix,
-                            vertex_buffer: mesh.vertex_buffer,
-                            index_buffer: mesh.index_buffer,
-                            texture: mesh.texture,
-                            offsets: mesh.offsets,
-                        }],
-                    );
-                }
-            } else {
-                let mut map = HashMap::new();
-                map.insert(
-                    data.to_vec(),
-                    vec![RenderCollectionMesh {
-                        view_matrix: mesh.view_matrix,
-                        vertex_buffer: mesh.vertex_buffer,
-                        index_buffer: mesh.index_buffer,
-                        texture: mesh.texture,
-                        offsets: mesh.offsets,
-                    }],
-                );
-                self.batches.insert(name.clone(), map);
-            }
-        }
-    }
-}
 #[derive(Clone, Copy)]
 // Offset of mesh to draw
 pub struct OffsetData {
@@ -258,7 +201,7 @@ impl RenderPass {
         width: u32,
         height: u32,
         uniform_buffers: &mut HashMap<String, UniformBuffer>,
-        meshes: &RenderCollection,
+        meshes: &Vec<RenderMesh>,
     ) {
         let (image_index, _) = core
             .swapchain_loader
