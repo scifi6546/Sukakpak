@@ -1429,6 +1429,7 @@ dependencies = [
  "generational-arena",
  "gpu-allocator",
  "nalgebra 0.27.1",
+ "phf",
  "winit",
 ]
 

@@ -5,20 +5,39 @@ use gpu_allocator::{
     AllocationCreateDesc, MemoryLocation, SubAllocation, VulkanAllocator, VulkanAllocatorCreateDesc,
 };
 use nalgebra::Vector2;
-use std::mem::{size_of, ManuallyDrop};
+mod descriptor_pool;
+use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool, ShaderStage};
+use std::{
+    collections::HashMap,
+    mem::{size_of, ManuallyDrop},
+};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
+    descriptor_pool: DescriptorPool,
 }
 impl ResourcePool {
-    pub fn new(core: &Core) -> Self {
-        Self {
+    pub fn new(core: &Core) -> Result<Self> {
+        Ok(Self {
             allocator: ManuallyDrop::new(VulkanAllocator::new(&VulkanAllocatorCreateDesc {
                 instance: core.instance.clone(),
                 device: core.device.clone(),
                 physical_device: core.physical_device,
                 debug_settings: Default::default(),
             })),
-        }
+            descriptor_pool: DescriptorPool::new(
+                core,
+                [(
+                    DescriptorName::MeshTexture,
+                    DescriptorDesc {
+                        shader_stage: ShaderStage::Fragment,
+                        binding: 0,
+                    },
+                )]
+                .iter()
+                .copied()
+                .collect(),
+            )?,
+        })
     }
     pub fn allocate_vertex_buffer(
         &mut self,

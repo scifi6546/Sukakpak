@@ -60,7 +60,7 @@ impl Backend {
             ))
             .build(&event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
-        let resource_pool = ResourcePool::new(&core);
+        let resource_pool = ResourcePool::new(&core)?;
         let command_pool = CommandPool::new(&mut core);
 
         Ok(Self {
