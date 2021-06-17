@@ -1,5 +1,5 @@
 use anyhow::Result;
-
+use image::RgbaImage;
 use nalgebra::Vector2;
 mod command_pool;
 mod depth_buffer;
@@ -43,6 +43,7 @@ pub struct VertexBufferID {
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
 }
+pub struct TextureID {}
 pub struct MeshID {
     pub verticies: VertexBufferID,
     pub indicies: IndexBufferID,
@@ -98,7 +99,7 @@ impl Backend {
                 )?),
         })
     }
-    pub fn allocate_texture(&mut self, texture: &std::path::Path) {
+    pub fn allocate_texture(&mut self, texture: &RgbaImage) -> TextureID {
         todo!()
     }
     pub fn draw_mesh(&mut self, mesh: &MeshID) -> Result<()> {
@@ -116,7 +117,9 @@ impl Drop for Backend {
                     .expect("failed to free buffer");
             }
             self.command_pool.free(&mut self.core);
-            self.resource_pool.free();
+            self.resource_pool
+                .free(&mut self.core)
+                .expect("failed to free");
             self.core.free();
         }
     }

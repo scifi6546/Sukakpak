@@ -286,10 +286,12 @@ impl ResourcePool {
             descriptor_pool,
         })
     }
-    pub fn free(&mut self) {
+    pub fn free(&mut self, core: &mut Core) -> Result<()> {
+        self.descriptor_pool.free(core)?;
         unsafe {
             ManuallyDrop::drop(&mut self.allocator);
         }
+        Ok(())
     }
 }
 pub struct IndexBufferAllocation {
@@ -316,11 +318,12 @@ pub struct VertexBufferAllocation {
     pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
-    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
-        resource_pool.allocator.free(self.allocation);
+    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        resource_pool.allocator.free(self.allocation)?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
         }
+        Ok(())
     }
 }
 pub struct TextureAllocation {

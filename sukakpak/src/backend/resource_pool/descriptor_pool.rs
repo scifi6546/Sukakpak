@@ -30,7 +30,7 @@ pub struct DescriptorDesc {
 }
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
-    descriptors: HashMap<DescriptorName, vk::DescriptorSetLayout>,
+    descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
 }
 impl DescriptorPool {
     pub fn new(core: &Core, descriptors: HashMap<DescriptorName, DescriptorDesc>) -> Result<Self> {
@@ -54,11 +54,20 @@ impl DescriptorPool {
                         .stage_flags(descriptor.shader_stage.to_vk())];
                     let layout_create_info =
                         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
-                    unsafe {
+                    let layouts = [unsafe {
                         core.device
                             .create_descriptor_set_layout(&layout_create_info, None)
                     }
-                    .expect("failed to create descriptor_set")
+                    .expect("failed to create descriptor_set")];
+                    let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+                        .descriptor_pool(descriptor_pool)
+                        .set_layouts(&layouts);
+                    let descriptor_set = unsafe {
+                        core.device
+                            .allocate_descriptor_sets(&descriptor_set_alloc_info)
+                    }
+                    .expect("failed to alloc descriptor set");
+                    (layouts[0], descriptor_set[0])
                 })
             })
             .collect();
@@ -68,10 +77,16 @@ impl DescriptorPool {
         })
     }
 
-    pub fn free(&mut self, core: &mut Core) {
+    pub fn free(&mut self, core: &mut Core) -> Result<()> {
         unsafe {
+            for (_name, (layout, set)) in self.descriptors.iter() {
+                core.device
+                    .free_descriptor_sets(self.descriptor_pool, &[*set])?;
+                core.device.destroy_descriptor_set_layout(*layout, None);
+            }
             core.device
                 .destroy_descriptor_pool(self.descriptor_pool, None);
         }
+        Ok(())
     }
 }
