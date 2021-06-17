@@ -1,6 +1,7 @@
+use anyhow::Result;
 use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
-use backend::{Backend, IndexBufferID, VertexBufferID, VertexLayout};
+use backend::{Backend, IndexBufferID, MeshID as Mesh, VertexBufferID, VertexLayout};
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
@@ -43,10 +44,6 @@ pub struct ContextChild<'a> {
     //true if quit is signaled
     quit: bool,
 }
-pub struct Mesh {
-    verticies: VertexBufferID,
-    indicies: IndexBufferID,
-}
 pub struct Texture {}
 pub struct FrameBuffer {}
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
@@ -74,8 +71,8 @@ impl<'a> ContextChild<'a> {
     pub fn build_texture(&mut self) -> Texture {
         todo!("build texture")
     }
-    pub fn draw_mesh(&mut self, mesh: &Mesh) {
-        todo!("draw mesh")
+    pub fn draw_mesh(&mut self, mesh: &Mesh) -> Result<()> {
+        self.context.backend.draw_mesh(mesh)
     }
     pub fn build_framebuffer(&mut self) {
         todo!("build framebuffer")

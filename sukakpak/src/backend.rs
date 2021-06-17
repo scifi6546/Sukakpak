@@ -2,16 +2,24 @@ use anyhow::Result;
 
 use nalgebra::Vector2;
 mod command_pool;
+mod depth_buffer;
 mod framebuffer;
+mod present_image;
 mod render_core;
 mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
+use depth_buffer::DepthBuffer;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
+use pipeline::GraphicsPipeline;
+use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
-use resource_pool::{IndexBufferAllocation, ResourcePool, VertexBufferAllocation};
+use resource_pool::{
+    IndexBufferAllocation, ResourcePool, TextureAllocation, UniformAllocation,
+    VertexBufferAllocation,
+};
 
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
@@ -34,6 +42,10 @@ pub struct VertexBufferID {
 }
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
+}
+pub struct MeshID {
+    pub verticies: VertexBufferID,
+    pub indicies: IndexBufferID,
 }
 impl Backend {
     pub fn new(
@@ -85,6 +97,12 @@ impl Backend {
                     indicies,
                 )?),
         })
+    }
+    pub fn allocate_texture(&mut self, texture: &std::path::Path) {
+        todo!()
+    }
+    pub fn draw_mesh(&mut self, mesh: &MeshID) -> Result<()> {
+        todo!()
     }
 }
 impl Drop for Backend {

@@ -63,8 +63,9 @@ impl GraphicsPipeline {
                 ..Default::default()
             },
         ];
+        let vertex_binding_descriptions = [vertex_buffer.binding_description];
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_binding_descriptions(&[vertex_buffer.binding_description])
+            .vertex_binding_descriptions(&vertex_binding_descriptions)
             .vertex_attribute_descriptions(&vertex_buffer.input_description);
 
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);

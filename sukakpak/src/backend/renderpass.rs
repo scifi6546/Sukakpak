@@ -1,6 +1,6 @@
 use super::{
-    CommandPool, Core, Framebuffer, GraphicsPipeline, IndexBufferAllocation, Texture,
-    UniformBuffer, VertexBuffer,
+    CommandPool, Core, Framebuffer, GraphicsPipeline, IndexBufferAllocation, TextureAllocation,
+    UniformAllocation, VertexBufferAllocation,
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
@@ -15,17 +15,17 @@ enum ClearOp {
 pub struct RenderMesh<'a> {
     pub uniform_data: HashMap<String, &'a [u8]>,
     pub view_matrix: Matrix4<f32>,
-    pub vertex_buffer: &'a VertexBuffer,
+    pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
-    pub texture: &'a Texture,
+    pub texture: &'a TextureAllocation,
     pub offsets: OffsetData,
 }
 
 pub struct RenderCollectionMesh<'a> {
     pub view_matrix: Matrix4<f32>,
-    pub vertex_buffer: &'a VertexBuffer,
+    pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
-    pub texture: &'a Texture,
+    pub texture: &'a TextureAllocation,
 }
 
 #[derive(Clone, Copy)]
@@ -92,6 +92,8 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
+        framebuffer: &vk::Framebuffer,
+        screen_dimensions: Vector2<u32>,
         mesh: RenderMesh,
     ) {
         if let Some(image_index) = self.image_index {
@@ -99,7 +101,7 @@ impl RenderPass {
                 core.device.cmd_bind_vertex_buffers(
                     self.command_buffers[image_index as usize],
                     0,
-                    &[mesh.vertex_buffer],
+                    &[mesh.vertex_buffer.buffer],
                     &[0],
                 );
                 core.device.cmd_bind_index_buffer(
@@ -130,8 +132,20 @@ impl RenderPass {
             }
         } else {
             self.acquire_next_image(core);
-            self.begin_renderpass(core, ClearOp::DoNotClear);
-            self.draw_mesh(core, mesh);
+            self.begin_renderpass(
+                core,
+                graphics_pipeline,
+                framebuffer,
+                screen_dimensions,
+                ClearOp::DoNotClear,
+            );
+            self.draw_mesh(
+                core,
+                graphics_pipeline,
+                framebuffer,
+                screen_dimensions,
+                mesh,
+            );
         }
     }
     pub fn begin_renderpass(
@@ -139,8 +153,8 @@ impl RenderPass {
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
         framebuffer: &vk::Framebuffer,
-        clear_op: ClearOp,
         dimensions: Vector2<u32>,
+        clear_op: ClearOp,
     ) {
         if let Some(image_index) = self.image_index {
             unsafe {
@@ -190,7 +204,7 @@ impl RenderPass {
             }
         } else {
             self.acquire_next_image(core);
-            self.begin_renderpass(core, clear_op);
+            self.begin_renderpass(core, graphics_pipeline, framebuffer, dimensions, clear_op);
         }
     }
     pub fn submit_draw() {
@@ -201,12 +215,14 @@ impl RenderPass {
     }
     //aquires new image index and populates self.image_index
     pub fn acquire_next_image(&mut self, core: &mut Core) -> Result<()> {
-        let (image_index, _) = core.swapchain_loader.acquire_next_image(
-            core.swapchain,
-            u64::MAX,
-            self.image_available_semaphore,
-            vk::Fence::null(),
-        )?;
+        let (image_index, _) = unsafe {
+            core.swapchain_loader.acquire_next_image(
+                core.swapchain,
+                u64::MAX,
+                self.image_available_semaphore,
+                vk::Fence::null(),
+            )
+        }?;
         self.image_index = Some(image_index);
         Ok(())
     }
