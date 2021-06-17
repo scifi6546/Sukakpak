@@ -1,7 +1,10 @@
 use anyhow::Result;
 use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
-use backend::{Backend, IndexBufferID, MeshID as Mesh, VertexBufferID, VertexLayout};
+use backend::{
+    Backend, IndexBufferID, MeshID as Mesh, TextureID as Texture, VertexBufferID, VertexLayout,
+};
+use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
@@ -44,7 +47,7 @@ pub struct ContextChild<'a> {
     //true if quit is signaled
     quit: bool,
 }
-pub struct Texture {}
+
 pub struct FrameBuffer {}
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
 impl<'a> ContextChild<'a> {
@@ -68,8 +71,8 @@ impl<'a> ContextChild<'a> {
                 .expect("failed to allocate indicies"),
         }
     }
-    pub fn build_texture(&mut self) -> Texture {
-        todo!("build texture")
+    pub fn build_texture(&mut self, image: &RgbaImage) -> Texture {
+        self.context.backend.allocate_texture(image)
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh) -> Result<()> {
         self.context.backend.draw_mesh(mesh)
@@ -113,13 +116,16 @@ mod tests {
     struct TriangleRenderable {
         num_frames: usize,
         triangle: Mesh,
+        texture: Texture,
     }
     impl Renderable for TriangleRenderable {
         fn init<'a>(context: &mut ContextChild<'a>) -> Self {
             let triangle = context.build_meshes(MeshAsset::new_triangle());
+            let texture = context.build_texture(&RgbaImage::new(100, 100));
             Self {
                 triangle,
                 num_frames: 0,
+                texture,
             }
         }
         fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
@@ -131,10 +137,27 @@ mod tests {
             }
         }
     }
+    struct BuildTexture {}
+    impl Renderable for BuildTexture {
+        fn init<'a>(context: &mut ContextChild<'a>) -> Self {
+            context.build_texture(&RgbaImage::new(10, 10));
+            Self {}
+        }
+        fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
+            context.quit();
+        }
+    }
     #[test]
     fn startup() {
         //should start and stop without issue
         Context::new::<EmptyRenderable>(CreateInfo {
+            default_size: Vector2::new(800, 800),
+            name: String::from("Basic Unit Test"),
+        });
+    }
+    #[test]
+    fn build_texture() {
+        Context::new::<BuildTexture>(CreateInfo {
             default_size: Vector2::new(800, 800),
             name: String::from("Basic Unit Test"),
         });
