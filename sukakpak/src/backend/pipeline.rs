@@ -1,9 +1,11 @@
 use super::{Core, DepthBuffer, VertexBufferAllocation};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
-use std::{ffi::CString, io::Cursor};
+use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
-pub use shaders::{ShaderDescription, UniformDescription, VertexBufferDesc, MAIN_SHADER};
+pub use shaders::{
+    PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc, PUSH_SHADER,
+};
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
@@ -17,19 +19,23 @@ pub struct GraphicsPipeline {
     // does not clear color bit on draw
     pub load_pipeline: RenderPipeline,
 }
+pub struct VertexLayoutDesc {
+    pub binding_description: vk::VertexInputBindingDescription,
+    pub input_description: Vec<vk::VertexInputAttributeDescription>,
+    pub layouts: Vec<vk::DescriptorSetLayout>,
+}
 impl GraphicsPipeline {
     pub fn new(
         core: &mut Core,
-        vertex_buffer: &VertexBufferAllocation,
-        layouts: Vec<vk::DescriptorSetLayout>,
+        shader_data: &ShaderDescription,
+        vertex_layout: &VertexLayoutDesc,
+        push_constants: &HashMap<String, PushConstantDesc>,
         screen_width: u32,
         screen_height: u32,
         depth_buffer: &DepthBuffer,
     ) -> Self {
-        let frag_shader_data = read_spv(&mut Cursor::new(include_bytes!(
-            "../../shaders/main.frag.spv"
-        )))
-        .expect("failed to create shader");
+        let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data))
+            .expect("failed to create shader");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_shader_data);
         let fragment_shader = unsafe {
             core.device
@@ -37,10 +43,8 @@ impl GraphicsPipeline {
                 .expect("failed to create shader")
         };
 
-        let vert_shader_data = read_spv(&mut Cursor::new(include_bytes!(
-            "../../shaders/main.vert.spv"
-        )))
-        .expect("failed to create shader");
+        let vert_shader_data = read_spv(&mut Cursor::new(shader_data.vertex_shader_data))
+            .expect("failed to create shader");
         let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vert_shader_data);
         let vertex_shader = unsafe {
             core.device
@@ -63,12 +67,17 @@ impl GraphicsPipeline {
                 ..Default::default()
             },
         ];
-        let vertex_binding_descriptions = [vertex_buffer.binding_description];
+        let binding_description = [vertex_layout.binding_description];
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_binding_descriptions(&vertex_binding_descriptions)
-            .vertex_attribute_descriptions(&vertex_buffer.input_description);
-
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
+            .vertex_binding_descriptions(&binding_description)
+            .vertex_attribute_descriptions(&vertex_layout.input_description);
+        let ranges = push_constants
+            .iter()
+            .map(|(_key, push)| push.range)
+            .collect::<Vec<_>>();
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&vertex_layout.layouts)
+            .push_constant_ranges(&ranges);
         let pipeline_layout = unsafe {
             core.device
                 .create_pipeline_layout(&layout_create_info, None)

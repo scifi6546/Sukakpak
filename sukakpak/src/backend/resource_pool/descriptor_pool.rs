@@ -30,7 +30,7 @@ pub struct DescriptorDesc {
 }
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
-    descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
+    pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
 }
 impl DescriptorPool {
     pub fn new(core: &Core, descriptors: HashMap<DescriptorName, DescriptorDesc>) -> Result<Self> {

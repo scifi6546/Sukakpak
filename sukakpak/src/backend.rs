@@ -12,7 +12,7 @@ use command_pool::CommandPool;
 use depth_buffer::DepthBuffer;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::GraphicsPipeline;
+use pipeline::{GraphicsPipeline, VertexLayoutDesc};
 use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
@@ -33,8 +33,13 @@ pub struct Backend {
     window: winit::window::Window,
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
+    textures: Arena<TextureAllocation>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
+    present_image: PresentImage,
+    depth_buffer: DepthBuffer,
+    framebuffer: Framebuffer,
+    graphics_pipeline: GraphicsPipeline,
     core: Core,
 }
 pub struct VertexBufferID {
@@ -43,9 +48,13 @@ pub struct VertexBufferID {
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
 }
-pub struct TextureID {}
+#[derive(Clone, Copy)]
+pub struct TextureID {
+    buffer_index: ArenaIndex,
+}
 pub struct MeshID {
     pub verticies: VertexBufferID,
+    pub texture: TextureID,
     pub indicies: IndexBufferID,
 }
 impl Backend {
@@ -61,16 +70,39 @@ impl Backend {
             ))
             .build(&event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
-        let resource_pool = ResourcePool::new(&core)?;
-        let command_pool = CommandPool::new(&mut core);
+        let mut resource_pool = ResourcePool::new(&core)?;
+        let mut command_pool = CommandPool::new(&mut core);
+
+        let mut present_image = PresentImage::new(&mut core);
+        let mut depth_buffer = DepthBuffer::new(
+            &mut core,
+            &mut command_pool,
+            &mut resource_pool,
+            create_info.default_size,
+        )?;
+        let mut graphics_pipeline = GraphicsPipeline::new(&mut core, &pipeline::PUSH_SHADER);
+
+        let framebuffer = Framebuffer::new(
+            &mut core,
+            &mut present_image,
+            &mut graphics_pipeline,
+            &mut depth_buffer,
+            create_info.default_size.x,
+            create_info.default_size.y,
+        );
 
         Ok(Self {
             window,
             core,
             resource_pool,
             command_pool,
+            present_image,
+            framebuffer,
+            depth_buffer,
+            graphics_pipeline,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
+            textures: Arena::new(),
         })
     }
     pub fn allocate_verticies(
@@ -99,8 +131,14 @@ impl Backend {
                 )?),
         })
     }
-    pub fn allocate_texture(&mut self, texture: &RgbaImage) -> TextureID {
-        todo!()
+    pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
+        Ok(TextureID {
+            buffer_index: self.textures.insert(self.resource_pool.allocate_texture(
+                &mut self.core,
+                &mut self.command_pool,
+                texture,
+            )?),
+        })
     }
     pub fn draw_mesh(&mut self, mesh: &MeshID) -> Result<()> {
         todo!()
@@ -110,11 +148,16 @@ impl Drop for Backend {
     fn drop(&mut self) {
         unsafe {
             for (_idx, mesh) in self.vertex_buffers.drain() {
-                mesh.free(&mut self.core, &mut self.resource_pool);
+                mesh.free(&mut self.core, &mut self.resource_pool)
+                    .expect("failed to free mesh");
             }
             for (_idx, buff) in self.index_buffers.drain() {
                 buff.free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free buffer");
+            }
+            for (_idx, tex) in self.textures.drain() {
+                tex.free(&mut self.core, &mut self.resource_pool)
+                    .expect("failed to free textures");
             }
             self.command_pool.free(&mut self.core);
             self.resource_pool

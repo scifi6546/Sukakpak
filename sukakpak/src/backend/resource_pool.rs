@@ -1,9 +1,13 @@
-use super::{CommandPool, Core, PresentImage, VertexLayout};
+use super::{CommandPool, Core, PresentImage, VertexLayout, VertexLayoutDesc};
 use anyhow::Result;
-use ash::{version::DeviceV1_0, vk};
+use ash::{
+    version::{DeviceV1_0, InstanceV1_0},
+    vk,
+};
 use gpu_allocator::{
     AllocationCreateDesc, MemoryLocation, SubAllocation, VulkanAllocator, VulkanAllocatorCreateDesc,
 };
+use image::RgbaImage;
 use nalgebra::Vector2;
 mod descriptor_pool;
 use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool, ShaderStage};
@@ -38,6 +42,9 @@ impl ResourcePool {
                 .collect(),
             )?,
         })
+    }
+    pub fn get_vertex_description(&self) -> VertexLayoutDesc {
+        todo!()
     }
     pub fn allocate_vertex_buffer(
         &mut self,
@@ -191,6 +198,10 @@ impl ResourcePool {
             location: MemoryLocation::GpuOnly,
             linear: true,
         })?;
+        unsafe {
+            core.device
+                .bind_image_memory(image, allocation.memory(), allocation.offset())?
+        };
         Ok((image, allocation))
     }
     pub fn new_uniform(
@@ -286,6 +297,113 @@ impl ResourcePool {
             descriptor_pool,
         })
     }
+    pub fn allocate_texture(
+        &mut self,
+        core: &mut Core,
+        command_pool: &mut CommandPool,
+        image_data: &RgbaImage,
+    ) -> Result<TextureAllocation> {
+        let image_len = image_data.as_raw().len();
+        let (buffer, transfer_allocation) = self.create_buffer(
+            core,
+            image_len as u64,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::SharingMode::EXCLUSIVE,
+            MemoryLocation::CpuToGpu,
+        )?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                image_data.as_raw().as_ptr() as *const std::ffi::c_void,
+                transfer_allocation
+                    .mapped_ptr()
+                    .expect("failed to map texture pointer")
+                    .as_ptr(),
+                image_len,
+            );
+        }
+        let (image, image_allocation) = self.new_image(
+            core,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            Vector2::new(image_data.width(), image_data.height()),
+        )?;
+        TextureAllocation::transition_image_layout(
+            core,
+            command_pool,
+            &image,
+            vk::ImageAspectFlags::COLOR,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        );
+        TextureAllocation::copy_buffer_image(
+            core,
+            command_pool,
+            image,
+            buffer,
+            image_data.width(),
+            image_data.height(),
+        );
+        TextureAllocation::transition_image_layout(
+            core,
+            command_pool,
+            &image,
+            vk::ImageAspectFlags::COLOR,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        );
+        let view_info = vk::ImageViewCreateInfo::builder()
+            .image(image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .subresource_range(
+                *vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .base_mip_level(0)
+                    .level_count(1)
+                    .base_array_layer(0)
+                    .layer_count(1),
+            );
+        let image_view = unsafe { core.device.create_image_view(&view_info, None) }?;
+        let sampler_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .anisotropy_enable(true)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false)
+            .compare_enable(false)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .mip_lod_bias(0.0)
+            .min_lod(0.0)
+            .max_lod(0.0)
+            .max_anisotropy(
+                unsafe {
+                    core.instance
+                        .get_physical_device_properties(core.physical_device)
+                }
+                .limits
+                .max_sampler_anisotropy,
+            );
+        let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }
+            .expect("failed to create sampler");
+        Ok(TextureAllocation {
+            buffer,
+            descriptor_set: self
+                .descriptor_pool
+                .descriptors
+                .get(&DescriptorName::MeshTexture)
+                .unwrap()
+                .1,
+            image,
+            image_allocation,
+            image_view,
+            sampler,
+            transfer_allocation,
+        })
+    }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
         self.descriptor_pool.free(core)?;
         unsafe {
@@ -336,6 +454,43 @@ pub struct TextureAllocation {
     pub descriptor_set: vk::DescriptorSet,
 }
 impl TextureAllocation {
+    fn copy_buffer_image(
+        core: &mut Core,
+        command_queue: &mut CommandPool,
+        image: vk::Image,
+        buffer: vk::Buffer,
+        width: u32,
+        height: u32,
+    ) {
+        let region = vk::BufferImageCopy::builder()
+            .buffer_offset(0)
+            .buffer_row_length(0)
+            .buffer_image_height(0)
+            .image_subresource(
+                *vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .mip_level(0)
+                    .base_array_layer(0)
+                    .layer_count(1),
+            )
+            .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+            .image_extent(vk::Extent3D {
+                height,
+                width,
+                depth: 1,
+            })
+            .build();
+        unsafe {
+            let command_buffer = command_queue.create_onetime_buffer(core);
+            command_buffer.core.device.cmd_copy_buffer_to_image(
+                command_buffer.command_buffer[0],
+                buffer,
+                image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[region],
+            );
+        }
+    }
     pub fn transition_image_layout(
         core: &mut Core,
         command_pool: &mut CommandPool,
@@ -401,6 +556,17 @@ impl TextureAllocation {
                 &[barrier.build()],
             );
         }
+    }
+    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        unsafe {
+            core.device.destroy_sampler(self.sampler, None);
+            core.device.destroy_image_view(self.image_view, None);
+            resource_pool.free_allocation(self.image_allocation)?;
+            core.device.destroy_image(self.image, None);
+            resource_pool.free_allocation(self.transfer_allocation)?;
+            core.device.destroy_buffer(self.buffer, None);
+        }
+        Ok(())
     }
 }
 pub struct UniformAllocation {

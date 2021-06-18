@@ -57,7 +57,7 @@ impl<'a> ContextChild<'a> {
             quit: false,
         }
     }
-    pub fn build_meshes(&mut self, mesh: MeshAsset) -> Mesh {
+    pub fn build_meshes(&mut self, mesh: MeshAsset, texture: Texture) -> Mesh {
         Mesh {
             verticies: self
                 .context
@@ -69,9 +69,10 @@ impl<'a> ContextChild<'a> {
                 .backend
                 .allocate_indicies(mesh.indices)
                 .expect("failed to allocate indicies"),
+            texture,
         }
     }
-    pub fn build_texture(&mut self, image: &RgbaImage) -> Texture {
+    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {
         self.context.backend.allocate_texture(image)
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh) -> Result<()> {
@@ -120,8 +121,10 @@ mod tests {
     }
     impl Renderable for TriangleRenderable {
         fn init<'a>(context: &mut ContextChild<'a>) -> Self {
-            let triangle = context.build_meshes(MeshAsset::new_triangle());
-            let texture = context.build_texture(&RgbaImage::new(100, 100));
+            let texture = context
+                .build_texture(&RgbaImage::new(100, 100))
+                .expect("failed to create image");
+            let triangle = context.build_meshes(MeshAsset::new_triangle(), texture);
             Self {
                 triangle,
                 num_frames: 0,
@@ -130,7 +133,9 @@ mod tests {
         }
         fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
             if self.num_frames == 0 {
-                context.draw_mesh(&self.triangle);
+                context
+                    .draw_mesh(&self.triangle)
+                    .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {
                 context.quit();
@@ -146,21 +151,6 @@ mod tests {
         fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
             context.quit();
         }
-    }
-    #[test]
-    fn startup() {
-        //should start and stop without issue
-        Context::new::<EmptyRenderable>(CreateInfo {
-            default_size: Vector2::new(800, 800),
-            name: String::from("Basic Unit Test"),
-        });
-    }
-    #[test]
-    fn build_texture() {
-        Context::new::<BuildTexture>(CreateInfo {
-            default_size: Vector2::new(800, 800),
-            name: String::from("Basic Unit Test"),
-        });
     }
     #[test]
     fn draw_triangle() {
