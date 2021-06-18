@@ -19,16 +19,13 @@ pub struct GraphicsPipeline {
     // does not clear color bit on draw
     pub load_pipeline: RenderPipeline,
 }
-pub struct VertexLayoutDesc {
-    pub binding_description: vk::VertexInputBindingDescription,
-    pub input_description: Vec<vk::VertexInputAttributeDescription>,
-    pub layouts: Vec<vk::DescriptorSetLayout>,
-}
+
 impl GraphicsPipeline {
     pub fn new(
         core: &mut Core,
         shader_data: &ShaderDescription,
-        vertex_layout: &VertexLayoutDesc,
+        vertex_layout: &VertexBufferDesc,
+        descriptor_layouts: &[vk::DescriptorSetLayout],
         push_constants: &HashMap<String, PushConstantDesc>,
         screen_width: u32,
         screen_height: u32,
@@ -70,13 +67,13 @@ impl GraphicsPipeline {
         let binding_description = [vertex_layout.binding_description];
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(&binding_description)
-            .vertex_attribute_descriptions(&vertex_layout.input_description);
+            .vertex_attribute_descriptions(&vertex_layout.attributes);
         let ranges = push_constants
             .iter()
             .map(|(_key, push)| push.range)
             .collect::<Vec<_>>();
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&vertex_layout.layouts)
+            .set_layouts(descriptor_layouts)
             .push_constant_ranges(&ranges);
         let pipeline_layout = unsafe {
             core.device

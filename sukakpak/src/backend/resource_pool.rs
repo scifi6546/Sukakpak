@@ -1,4 +1,4 @@
-use super::{CommandPool, Core, PresentImage, VertexLayout, VertexLayoutDesc};
+use super::{CommandPool, Core, PresentImage, ShaderDescription, VertexLayout};
 use anyhow::Result;
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
@@ -11,10 +11,7 @@ use image::RgbaImage;
 use nalgebra::Vector2;
 mod descriptor_pool;
 use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool, ShaderStage};
-use std::{
-    collections::HashMap,
-    mem::{size_of, ManuallyDrop},
-};
+use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
     descriptor_pool: DescriptorPool,
@@ -42,9 +39,6 @@ impl ResourcePool {
                 .collect(),
             )?,
         })
-    }
-    pub fn get_vertex_description(&self) -> VertexLayoutDesc {
-        todo!()
     }
     pub fn allocate_vertex_buffer(
         &mut self,

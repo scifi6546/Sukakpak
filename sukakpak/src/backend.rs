@@ -12,7 +12,7 @@ use command_pool::CommandPool;
 use depth_buffer::DepthBuffer;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{GraphicsPipeline, VertexLayoutDesc};
+use pipeline::{GraphicsPipeline, ShaderDescription, VertexBufferDesc};
 use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
@@ -80,7 +80,16 @@ impl Backend {
             &mut resource_pool,
             create_info.default_size,
         )?;
-        let mut graphics_pipeline = GraphicsPipeline::new(&mut core, &pipeline::PUSH_SHADER);
+        let mut graphics_pipeline = GraphicsPipeline::new(
+            &mut core,
+            &pipeline::PUSH_SHADER,
+            &pipeline::PUSH_SHADER.vertex_buffer_desc,
+            todo!("descriptor layout"),
+            todo!("push constant"),
+            create_info.default_size.x,
+            create_info.default_size.y,
+            &depth_buffer,
+        );
 
         let framebuffer = Framebuffer::new(
             &mut core,
