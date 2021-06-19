@@ -14,10 +14,11 @@ use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool, ShaderStag
 use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
-    descriptor_pool: DescriptorPool,
+    texture_descriptor_pool: DescriptorPool,
+    uniform_descruptor_pool: DescriptorPool,
 }
 impl ResourcePool {
-    pub fn new(core: &Core) -> Result<Self> {
+    pub fn new(core: &Core, shader: &ShaderDescription) -> Result<Self> {
         Ok(Self {
             allocator: ManuallyDrop::new(VulkanAllocator::new(&VulkanAllocatorCreateDesc {
                 instance: core.instance.clone(),
@@ -25,18 +26,38 @@ impl ResourcePool {
                 physical_device: core.physical_device,
                 debug_settings: Default::default(),
             })),
-            descriptor_pool: DescriptorPool::new(
+            texture_descriptor_pool: DescriptorPool::new(
                 core,
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 [(
                     DescriptorName::MeshTexture,
                     DescriptorDesc {
-                        shader_stage: ShaderStage::Fragment,
-                        binding: 0,
+                        layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                            .binding(0)
+                            .descriptor_count(1)
+                            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                            .stage_flags(vk::ShaderStageFlags::FRAGMENT),
                     },
                 )]
                 .iter()
-                .copied()
+                .cloned()
                 .collect(),
+            )?,
+            uniform_descruptor_pool: DescriptorPool::new(
+                core,
+                vk::DescriptorType::UNIFORM_BUFFER,
+                shader
+                    .uniforms
+                    .into_iter()
+                    .map(|(k, uniform)| {
+                        (
+                            DescriptorName::Uniform(k.to_string()),
+                            DescriptorDesc {
+                                layout_binding: uniform.descriptor_set_layout_binding,
+                            },
+                        )
+                    })
+                    .collect(),
             )?,
         })
     }
@@ -386,7 +407,7 @@ impl ResourcePool {
         Ok(TextureAllocation {
             buffer,
             descriptor_set: self
-                .descriptor_pool
+                .texture_descriptor_pool
                 .descriptors
                 .get(&DescriptorName::MeshTexture)
                 .unwrap()
@@ -399,7 +420,7 @@ impl ResourcePool {
         })
     }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
-        self.descriptor_pool.free(core)?;
+        self.texture_descriptor_pool.free(core)?;
         unsafe {
             ManuallyDrop::drop(&mut self.allocator);
         }

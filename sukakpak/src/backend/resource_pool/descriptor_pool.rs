@@ -19,24 +19,28 @@ impl ShaderStage {
         }
     }
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum DescriptorName {
     MeshTexture,
+    Uniform(String),
 }
 #[derive(Clone, Copy)]
 pub struct DescriptorDesc {
-    pub shader_stage: ShaderStage,
-    pub binding: u32,
+    pub layout_binding: vk::DescriptorSetLayoutBinding,
 }
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
     pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
 }
 impl DescriptorPool {
-    pub fn new(core: &Core, descriptors: HashMap<DescriptorName, DescriptorDesc>) -> Result<Self> {
+    pub fn new(
+        core: &Core,
+        pool_type: vk::DescriptorType,
+        descriptors: HashMap<DescriptorName, DescriptorDesc>,
+    ) -> Result<Self> {
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
             .descriptor_count(descriptors.len() as u32)
-            .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)];
+            .ty(pool_type)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
             .max_sets(descriptors.len() as u32)
@@ -46,12 +50,8 @@ impl DescriptorPool {
         let descriptors = descriptors
             .iter()
             .map(|(name, descriptor)| {
-                (*name, {
-                    let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
-                        .binding(descriptor.binding)
-                        .descriptor_count(1)
-                        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                        .stage_flags(descriptor.shader_stage.to_vk())];
+                (name.clone(), {
+                    let layout_binding = [descriptor.layout_binding];
                     let layout_create_info =
                         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
                     let layouts = [unsafe {

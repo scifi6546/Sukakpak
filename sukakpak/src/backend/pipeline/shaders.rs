@@ -8,7 +8,7 @@ pub struct PushConstantDesc {
 }
 pub struct UniformDescription {
     pub size: usize,
-    descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding,
+    pub descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding,
 }
 impl UniformDescription {
     pub fn get_layouts(

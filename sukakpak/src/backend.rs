@@ -70,7 +70,7 @@ impl Backend {
             ))
             .build(&event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
-        let mut resource_pool = ResourcePool::new(&core)?;
+        let mut resource_pool = ResourcePool::new(&core, &pipeline::PUSH_SHADER)?;
         let mut command_pool = CommandPool::new(&mut core);
 
         let mut present_image = PresentImage::new(&mut core);
