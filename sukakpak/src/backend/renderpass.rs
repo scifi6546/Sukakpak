@@ -8,7 +8,7 @@ use nalgebra::{Matrix4, Vector2};
 use std::collections::HashMap;
 mod semaphore_buffer;
 use semaphore_buffer::SemaphoreBuffer;
-enum ClearOp {
+pub enum ClearOp {
     ClearColor,
     DoNotClear,
 }
@@ -92,7 +92,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer: &vk::Framebuffer,
+        framebuffer: &Framebuffer,
         screen_dimensions: Vector2<u32>,
         mesh: RenderMesh,
     ) {
@@ -152,22 +152,22 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer: &vk::Framebuffer,
+        framebuffer: &Framebuffer,
         dimensions: Vector2<u32>,
         clear_op: ClearOp,
-    ) {
+    ) -> Result<()> {
         if let Some(image_index) = self.image_index {
             unsafe {
                 core.device.begin_command_buffer(
                     self.command_buffers[image_index as usize],
                     &vk::CommandBufferBeginInfo::builder(),
-                );
+                )?;
                 let renderpass_info = vk::RenderPassBeginInfo::builder()
                     .render_pass(match clear_op {
                         ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
                         ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
                     })
-                    .framebuffer(*framebuffer)
+                    .framebuffer(framebuffer.framebuffers[image_index as usize])
                     .render_area(vk::Rect2D {
                         extent: vk::Extent2D {
                             width: dimensions.x,
@@ -201,10 +201,12 @@ impl RenderPass {
                         ClearOp::DoNotClear => graphics_pipeline.load_pipeline.graphics_pipeline,
                     },
                 );
+                Ok(())
             }
         } else {
-            self.acquire_next_image(core);
-            self.begin_renderpass(core, graphics_pipeline, framebuffer, dimensions, clear_op);
+            self.acquire_next_image(core)?;
+            self.begin_renderpass(core, graphics_pipeline, framebuffer, dimensions, clear_op)?;
+            Ok(())
         }
     }
     pub fn submit_draw() {

@@ -27,6 +27,10 @@ impl Context {
         };
 
         event_loop.run(move |event, _, control_flow| {
+            context
+                .backend
+                .begin_render()
+                .expect("failed to start rendering frame");
             let mut child = ContextChild::new(&mut context);
             render.render_frame(&mut child);
             if child.quit {

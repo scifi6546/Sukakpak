@@ -16,6 +16,7 @@ use pipeline::{GraphicsPipeline, ShaderDescription, VertexBufferDesc};
 use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
+use renderpass::{ClearOp, RenderPass};
 use resource_pool::{
     IndexBufferAllocation, ResourcePool, TextureAllocation, UniformAllocation,
     VertexBufferAllocation,
@@ -39,7 +40,9 @@ pub struct Backend {
     present_image: PresentImage,
     depth_buffer: DepthBuffer,
     framebuffer: Framebuffer,
+    renderpass: RenderPass,
     graphics_pipeline: GraphicsPipeline,
+    screen_dimensions: Vector2<u32>,
     core: Core,
 }
 pub struct VertexBufferID {
@@ -103,7 +106,8 @@ impl Backend {
             create_info.default_size.x,
             create_info.default_size.y,
         );
-
+        let renderpass = RenderPass::new(&mut core, &command_pool, &framebuffer);
+        let screen_dimensions = create_info.default_size;
         Ok(Self {
             window,
             core,
@@ -112,7 +116,9 @@ impl Backend {
             present_image,
             framebuffer,
             depth_buffer,
+            renderpass,
             graphics_pipeline,
+            screen_dimensions,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
             textures: Arena::new(),
@@ -156,6 +162,16 @@ impl Backend {
     pub fn draw_mesh(&mut self, mesh: &MeshID) -> Result<()> {
         todo!()
     }
+    /// begins rendering of frame
+    pub fn begin_render(&mut self) -> Result<()> {
+        self.renderpass.begin_renderpass(
+            &mut self.core,
+            &mut self.graphics_pipeline,
+            &mut self.framebuffer,
+            self.screen_dimensions,
+            ClearOp::ClearColor,
+        )
+    }
 }
 impl Drop for Backend {
     fn drop(&mut self) {
@@ -172,6 +188,7 @@ impl Drop for Backend {
                 tex.free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free textures");
             }
+            self.renderpass.free(&mut self.core);
             self.graphics_pipeline.free(&mut self.core);
             self.framebuffer.free(&mut self.core);
             self.present_image.free(&mut self.core);
