@@ -15,7 +15,7 @@ use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
     texture_descriptor_pool: DescriptorPool,
-    uniform_descruptor_pool: DescriptorPool,
+    uniform_descriptor_pool: DescriptorPool,
 }
 impl ResourcePool {
     pub fn new(core: &Core, shader: &ShaderDescription) -> Result<Self> {
@@ -43,7 +43,7 @@ impl ResourcePool {
                 .cloned()
                 .collect(),
             )?,
-            uniform_descruptor_pool: DescriptorPool::new(
+            uniform_descriptor_pool: DescriptorPool::new(
                 core,
                 vk::DescriptorType::UNIFORM_BUFFER,
                 shader
@@ -419,8 +419,17 @@ impl ResourcePool {
             transfer_allocation,
         })
     }
+    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSetLayout> {
+        self.texture_descriptor_pool
+            .get_descriptor_pools()
+            .iter()
+            .chain(self.uniform_descriptor_pool.get_descriptor_pools().iter())
+            .map(|layout| *layout)
+            .collect()
+    }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
         self.texture_descriptor_pool.free(core)?;
+        self.uniform_descriptor_pool.free(core)?;
         unsafe {
             ManuallyDrop::drop(&mut self.allocator);
         }

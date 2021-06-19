@@ -1,7 +1,7 @@
 use super::Core;
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 #[derive(Clone, Copy)]
 pub enum ShaderStage {
     Fragment,
@@ -38,12 +38,13 @@ impl DescriptorPool {
         pool_type: vk::DescriptorType,
         descriptors: HashMap<DescriptorName, DescriptorDesc>,
     ) -> Result<Self> {
+        let pool_size = max(descriptors.len(), 1) as u32;
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
-            .descriptor_count(descriptors.len() as u32)
+            .descriptor_count(pool_size)
             .ty(pool_type)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(descriptors.len() as u32)
+            .max_sets(pool_size)
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool =
             unsafe { core.device.create_descriptor_pool(&pool_create_info, None) }?;
@@ -76,7 +77,12 @@ impl DescriptorPool {
             descriptors,
         })
     }
-
+    pub fn get_descriptor_pools(&self) -> Vec<vk::DescriptorSetLayout> {
+        self.descriptors
+            .iter()
+            .map(|(_key, (layout, _set))| *layout)
+            .collect()
+    }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
         unsafe {
             for (_name, (layout, set)) in self.descriptors.iter() {

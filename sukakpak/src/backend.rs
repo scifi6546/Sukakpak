@@ -84,8 +84,12 @@ impl Backend {
             &mut core,
             &pipeline::PUSH_SHADER,
             &pipeline::PUSH_SHADER.vertex_buffer_desc,
-            todo!("descriptor layout"),
-            todo!("push constant"),
+            &resource_pool.get_descriptor_sets(),
+            &pipeline::PUSH_SHADER
+                .push_constants
+                .into_iter()
+                .map(|(k, v)| ((*k).to_string(), *v))
+                .collect(),
             create_info.default_size.x,
             create_info.default_size.y,
             &depth_buffer,
@@ -168,6 +172,12 @@ impl Drop for Backend {
                 tex.free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free textures");
             }
+            self.graphics_pipeline.free(&mut self.core);
+            self.framebuffer.free(&mut self.core);
+            self.present_image.free(&mut self.core);
+            self.depth_buffer
+                .free(&mut self.core, &mut self.resource_pool)
+                .expect("failed to free");
             self.command_pool.free(&mut self.core);
             self.resource_pool
                 .free(&mut self.core)

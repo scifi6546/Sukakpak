@@ -2,7 +2,7 @@ use super::Core;
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::{Matrix4, Vector3};
 use phf::phf_map;
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct PushConstantDesc {
     pub range: vk::PushConstantRange,
 }

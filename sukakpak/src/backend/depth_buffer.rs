@@ -80,11 +80,12 @@ impl DepthBuffer {
                 .layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
         )
     }
-    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         unsafe {
             core.device.destroy_image_view(self.view, None);
-            resource_pool.free_allocation(self.allocation);
+            resource_pool.free_allocation(self.allocation.clone())?;
             core.device.destroy_image(self.image, None);
+            Ok(())
         }
     }
 }
