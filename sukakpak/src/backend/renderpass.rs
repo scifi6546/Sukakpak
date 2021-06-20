@@ -210,16 +210,17 @@ impl RenderPass {
                 core.device
                     .reset_fences(&[self.fences[image_index as usize]])?;
                 let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
-                let wait_semaphore = if let Some(s) = submit_semaphore.start_semaphore {
-                    vec![s]
-                } else {
-                    vec![]
-                };
-                let submit_info = *vk::SubmitInfo::builder()
-                    .wait_semaphores(&wait_semaphore)
+                let command_buffers = [self.command_buffers[image_index as usize]];
+                let signal_semaphores = [submit_semaphore.finished_semaphore];
+                let submit_info = vk::SubmitInfo::builder()
                     .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-                    .command_buffers(&[self.command_buffers[image_index as usize]])
-                    .signal_semaphores(&[submit_semaphore.finished_semaphore]);
+                    .command_buffers(&command_buffers)
+                    .signal_semaphores(&signal_semaphores);
+                let submit_info = if let Some(semaphore) = submit_semaphore.start_semaphore {
+                    *submit_info.wait_semaphores(&semaphore)
+                } else {
+                    *submit_info
+                };
                 core.device.queue_submit(
                     core.present_queue,
                     &[submit_info],

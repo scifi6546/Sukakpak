@@ -23,7 +23,7 @@ impl SemaphoreBuffer {
             self.index += 1;
             Ok(SemaphoreGetter {
                 start_semaphore: if old_index >= 1 {
-                    Some(self.semaphores[old_index - 1])
+                    Some([self.semaphores[old_index - 1]])
                 } else {
                     None
                 },
@@ -40,7 +40,7 @@ impl SemaphoreBuffer {
             self.index += 1;
             Ok(SemaphoreGetter {
                 start_semaphore: if old_index >= 1 {
-                    Some(self.semaphores[old_index - 1])
+                    Some([self.semaphores[old_index - 1]])
                 } else {
                     None
                 },
@@ -69,6 +69,6 @@ impl SemaphoreBuffer {
     }
 }
 pub struct SemaphoreGetter {
-    pub start_semaphore: Option<vk::Semaphore>,
+    pub start_semaphore: Option<[vk::Semaphore; 1]>,
     pub finished_semaphore: vk::Semaphore,
 }
