@@ -419,11 +419,19 @@ impl ResourcePool {
             transfer_allocation,
         })
     }
-    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSetLayout> {
+    pub fn get_descriptor_set_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
         self.texture_descriptor_pool
-            .get_descriptor_pools()
+            .get_descriptor_layouts()
             .iter()
-            .chain(self.uniform_descriptor_pool.get_descriptor_pools().iter())
+            .chain(self.uniform_descriptor_pool.get_descriptor_layouts().iter())
+            .map(|layout| *layout)
+            .collect()
+    }
+    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSet> {
+        self.texture_descriptor_pool
+            .get_descriptor_sets()
+            .iter()
+            .chain(self.uniform_descriptor_pool.get_descriptor_sets().iter())
             .map(|layout| *layout)
             .collect()
     }

@@ -13,12 +13,12 @@ pub enum ClearOp {
     DoNotClear,
 }
 pub struct RenderMesh<'a> {
-    pub uniform_data: HashMap<String, &'a [u8]>,
+    //pub uniform_data: HashMap<String, &'a [u8]>,
     pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
     pub texture: &'a TextureAllocation,
-    pub offsets: OffsetData,
+    //pub offsets: OffsetData,
 }
 
 pub struct RenderCollectionMesh<'a> {
@@ -93,9 +93,11 @@ impl RenderPass {
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
         framebuffer: &Framebuffer,
+
+        descriptor_sets: &[vk::DescriptorSet],
         screen_dimensions: Vector2<u32>,
         mesh: RenderMesh,
-    ) {
+    ) -> Result<()> {
         if let Some(image_index) = self.image_index {
             unsafe {
                 core.device.cmd_bind_vertex_buffers(
@@ -115,10 +117,7 @@ impl RenderPass {
                     vk::PipelineBindPoint::GRAPHICS,
                     graphics_pipeline.pipeline_layout,
                     0,
-                    &[
-                        todo!("figure out uniform buffers"),
-                        todo!("figure out texture descriptor sets"),
-                    ],
+                    descriptor_sets,
                     &[],
                 );
                 core.device.cmd_draw_indexed(
@@ -130,22 +129,25 @@ impl RenderPass {
                     0,
                 );
             }
+            Ok(())
         } else {
-            self.acquire_next_image(core);
+            self.acquire_next_image(core)?;
             self.begin_renderpass(
                 core,
                 graphics_pipeline,
                 framebuffer,
                 screen_dimensions,
                 ClearOp::DoNotClear,
-            );
+            )?;
             self.draw_mesh(
                 core,
                 graphics_pipeline,
                 framebuffer,
+                descriptor_sets,
                 screen_dimensions,
                 mesh,
-            );
+            )?;
+            Ok(())
         }
     }
     pub fn begin_renderpass(
@@ -209,8 +211,52 @@ impl RenderPass {
             Ok(())
         }
     }
-    pub fn submit_draw() {
-        todo!()
+    pub fn submit_draw(&mut self, core: &mut Core) -> Result<()> {
+        if let Some(image_index) = self.image_index {
+            unsafe {
+                core.device
+                    .cmd_end_render_pass(self.command_buffers[image_index as usize]);
+                core.device
+                    .end_command_buffer(self.command_buffers[image_index as usize])?;
+                core.device
+                    .reset_fences(&[self.fences[image_index as usize]])?;
+                let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
+                let submit_info = *vk::SubmitInfo::builder()
+                    .wait_semaphores(&[submit_semaphore.start_semaphore])
+                    .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+                    .command_buffers(&[self.command_buffers[image_index as usize]])
+                    .signal_semaphores(&[submit_semaphore.finished_semaphore]);
+                core.device.queue_submit(
+                    core.present_queue,
+                    &[submit_info],
+                    self.fences[image_index as usize],
+                )?;
+            }
+
+            todo!()
+        } else {
+            self.acquire_next_image(core)?;
+            self.submit_draw(core)
+        }
+    }
+    pub fn swap_framebuffer(&mut self, core: &mut Core) -> Result<()> {
+        if let Some(image_index) = self.image_index {
+            let indices = [image_index];
+            let swapchain = [core.swapchain];
+            let wait_semaphore = [self.semaphore_buffer.last_semaphore()];
+            let present_info = vk::PresentInfoKHR::builder()
+                .wait_semaphores(&wait_semaphore)
+                .swapchains(&swapchain)
+                .image_indices(&indices);
+            unsafe {
+                core.swapchain_loader
+                    .queue_present(core.present_queue, &present_info)?;
+            }
+            Ok(())
+        } else {
+            self.acquire_next_image(core)?;
+            self.swap_framebuffer(core)
+        }
     }
     pub fn upload_uniform() {
         todo!()

@@ -1,9 +1,10 @@
 use super::Core;
+use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
 /// Buffer  contaning semaphores used to start draw calls
 pub struct SemaphoreBuffer {
     semaphores: Vec<vk::Semaphore>,
-    render_finished_semaphore: vk::Semaphore,
+    index: usize,
 }
 impl SemaphoreBuffer {
     pub fn new(
@@ -12,34 +13,36 @@ impl SemaphoreBuffer {
     ) -> Self {
         Self {
             semaphores: vec![starting_semaphore],
-            render_finished_semaphore,
+
+            index: 0,
         }
     }
-    // Gets semaphores needed for renderpass. Allocates new ones if they are needed
-    pub fn get_semaphores(&mut self, core: &mut Core, size: usize) -> Vec<SemaphoreGetter> {
-        let semaphore_create_info = vk::SemaphoreCreateInfo::builder().build();
-        for _i in self.semaphores.len()..size {
-            self.semaphores.push(
-                unsafe { core.device.create_semaphore(&semaphore_create_info, None) }
-                    .expect("failed to create device"),
-            );
-        }
-        let mut semaphores = (1..self.semaphores.len())
-            .map(|i| SemaphoreGetter {
-                start_semaphore: self.semaphores[i - 1],
-                finished_semaphore: self.semaphores[i],
+    pub fn get_semaphore(&mut self, core: &mut Core) -> Result<SemaphoreGetter> {
+        if self.index + 2 <= self.semaphores.len() {
+            let old_index = self.index;
+            self.index += 1;
+            Ok(SemaphoreGetter {
+                start_semaphore: self.semaphores[old_index],
+                finished_semaphore: self.semaphores[old_index + 1],
             })
-            .collect::<Vec<_>>();
-        let len = self.semaphores.len();
-        semaphores.push(SemaphoreGetter {
-            start_semaphore: self.semaphores[len - 1],
-            finished_semaphore: self.render_finished_semaphore,
-        });
-        assert_eq!(semaphores.len(), size);
-        return semaphores;
+        } else {
+            let len = (self.index + 1) - self.semaphores.len();
+            for _i in 0..len {
+                let create_info = vk::SemaphoreCreateInfo::builder().build();
+                self.semaphores
+                    .push(unsafe { core.device.create_semaphore(&create_info, None) }?);
+            }
+            let old_index = self.index;
+            self.index += 1;
+            Ok(SemaphoreGetter {
+                start_semaphore: self.semaphores[old_index],
+                finished_semaphore: self.semaphores[old_index + 1],
+            })
+        }
     }
-    pub fn render_finished_semaphore(&self) -> vk::Semaphore {
-        self.render_finished_semaphore
+    pub fn last_semaphore(&self) -> vk::Semaphore {
+        let len = self.semaphores.len();
+        self.semaphores[len - 1]
     }
     pub fn free(&mut self, core: &mut Core) {
         for (i, semaphore) in self.semaphores.iter().enumerate() {

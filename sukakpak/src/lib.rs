@@ -8,6 +8,7 @@ use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
+pub use nalgebra::Matrix4;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -36,6 +37,8 @@ impl Context {
             if child.quit {
                 *control_flow = ControlFlow::Exit
             }
+
+            context.backend.finish_render();
             match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -79,8 +82,8 @@ impl<'a> ContextChild<'a> {
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {
         self.context.backend.allocate_texture(image)
     }
-    pub fn draw_mesh(&mut self, mesh: &Mesh) -> Result<()> {
-        self.context.backend.draw_mesh(mesh)
+    pub fn draw_mesh(&mut self, transform: Matrix4<f32>, mesh: &Mesh) -> Result<()> {
+        self.context.backend.draw_mesh(transform, mesh)
     }
     pub fn build_framebuffer(&mut self) {
         todo!("build framebuffer")
@@ -138,7 +141,7 @@ mod tests {
         fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
             if self.num_frames == 0 {
                 context
-                    .draw_mesh(&self.triangle)
+                    .draw_mesh(Matrix4::identity(), &self.triangle)
                     .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {

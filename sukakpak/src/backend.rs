@@ -1,6 +1,6 @@
 use anyhow::Result;
 use image::RgbaImage;
-use nalgebra::Vector2;
+use nalgebra::{Matrix4, Vector2};
 mod command_pool;
 mod depth_buffer;
 mod framebuffer;
@@ -16,7 +16,7 @@ use pipeline::{GraphicsPipeline, ShaderDescription, VertexBufferDesc};
 use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
-use renderpass::{ClearOp, RenderPass};
+use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
     IndexBufferAllocation, ResourcePool, TextureAllocation, UniformAllocation,
     VertexBufferAllocation,
@@ -87,7 +87,7 @@ impl Backend {
             &mut core,
             &pipeline::PUSH_SHADER,
             &pipeline::PUSH_SHADER.vertex_buffer_desc,
-            &resource_pool.get_descriptor_sets(),
+            &resource_pool.get_descriptor_set_layouts(),
             &pipeline::PUSH_SHADER
                 .push_constants
                 .into_iter()
@@ -159,8 +159,24 @@ impl Backend {
             )?),
         })
     }
-    pub fn draw_mesh(&mut self, mesh: &MeshID) -> Result<()> {
-        todo!()
+    pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
+        let render_mesh = RenderMesh {
+            view_matrix,
+            vertex_buffer: self
+                .vertex_buffers
+                .get(mesh.verticies.buffer_index)
+                .unwrap(),
+            index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
+            texture: self.textures.get(mesh.texture.buffer_index).unwrap(),
+        };
+        self.renderpass.draw_mesh(
+            &mut self.core,
+            &self.graphics_pipeline,
+            &self.framebuffer,
+            &self.resource_pool.get_descriptor_sets(),
+            self.screen_dimensions,
+            render_mesh,
+        )
     }
     /// begins rendering of frame
     pub fn begin_render(&mut self) -> Result<()> {
@@ -171,6 +187,10 @@ impl Backend {
             self.screen_dimensions,
             ClearOp::ClearColor,
         )
+    }
+    pub fn finish_render(&mut self) -> Result<()> {
+        self.renderpass.submit_draw(&mut self.core)?;
+        self.renderpass.swap_framebuffer(&mut self.core)
     }
 }
 impl Drop for Backend {

@@ -28,11 +28,14 @@ pub enum DescriptorName {
 pub struct DescriptorDesc {
     pub layout_binding: vk::DescriptorSetLayoutBinding,
 }
+
+/// TODO: HANDLE REMAPPING
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
     pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
 }
 impl DescriptorPool {
+    const MAX_SETS: u32 = 100;
     pub fn new(
         core: &Core,
         pool_type: vk::DescriptorType,
@@ -44,7 +47,7 @@ impl DescriptorPool {
             .ty(pool_type)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(pool_size)
+            .max_sets(Self::MAX_SETS)
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool =
             unsafe { core.device.create_descriptor_pool(&pool_create_info, None) }?;
@@ -77,10 +80,16 @@ impl DescriptorPool {
             descriptors,
         })
     }
-    pub fn get_descriptor_pools(&self) -> Vec<vk::DescriptorSetLayout> {
+    pub fn get_descriptor_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
         self.descriptors
             .iter()
             .map(|(_key, (layout, _set))| *layout)
+            .collect()
+    }
+    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSet> {
+        self.descriptors
+            .iter()
+            .map(|(_key, (_layout, set))| *set)
             .collect()
     }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
