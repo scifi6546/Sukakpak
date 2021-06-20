@@ -18,12 +18,16 @@ impl SemaphoreBuffer {
         self.index = 0;
     }
     pub fn get_semaphore(&mut self, core: &mut Core) -> Result<SemaphoreGetter> {
-        if self.index + 2 <= self.semaphores.len() {
+        if self.index + 1 <= self.semaphores.len() {
             let old_index = self.index;
             self.index += 1;
             Ok(SemaphoreGetter {
-                start_semaphore: self.semaphores[old_index],
-                finished_semaphore: self.semaphores[old_index + 1],
+                start_semaphore: if old_index >= 1 {
+                    Some(self.semaphores[old_index - 1])
+                } else {
+                    None
+                },
+                finished_semaphore: self.semaphores[old_index],
             })
         } else {
             let len = (self.index + 2) - self.semaphores.len();
@@ -35,8 +39,12 @@ impl SemaphoreBuffer {
             let old_index = self.index;
             self.index += 1;
             Ok(SemaphoreGetter {
-                start_semaphore: self.semaphores[old_index],
-                finished_semaphore: self.semaphores[old_index + 1],
+                start_semaphore: if old_index >= 1 {
+                    Some(self.semaphores[old_index - 1])
+                } else {
+                    None
+                },
+                finished_semaphore: self.semaphores[old_index],
             })
         }
     }
@@ -61,6 +69,6 @@ impl SemaphoreBuffer {
     }
 }
 pub struct SemaphoreGetter {
-    pub start_semaphore: vk::Semaphore,
+    pub start_semaphore: Option<vk::Semaphore>,
     pub finished_semaphore: vk::Semaphore,
 }
