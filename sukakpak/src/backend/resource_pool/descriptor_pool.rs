@@ -29,6 +29,8 @@ pub enum DescriptorName {
 pub enum DescriptorError {
     #[error("Descriptor {0:?} not found")]
     DescriptorSetLayoutNotFound(DescriptorName),
+    #[error("Descriptor Pool Full")]
+    DescriptorPoolFull,
 }
 #[derive(Clone, Copy)]
 pub struct DescriptorDesc {
@@ -39,6 +41,7 @@ pub struct DescriptorDesc {
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
     pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, DescriptorDesc)>,
+    num_descriptors_allocated: usize,
 }
 impl DescriptorPool {
     const MAX_SETS: u32 = 100;
@@ -49,7 +52,7 @@ impl DescriptorPool {
     ) -> Result<Self> {
         let pool_size = max(descriptors.len(), 1) as u32;
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
-            .descriptor_count(pool_size)
+            .descriptor_count(Self::MAX_SETS)
             .ty(pool_type)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
@@ -76,6 +79,7 @@ impl DescriptorPool {
         Ok(Self {
             descriptor_pool,
             descriptors,
+            num_descriptors_allocated: 0,
         })
     }
     pub fn get_descriptor_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
@@ -89,6 +93,9 @@ impl DescriptorPool {
         core: &mut Core,
         descriptor_name: &DescriptorName,
     ) -> Result<Vec<vk::DescriptorSet>> {
+        if self.num_descriptors_allocated + 1 >= Self::MAX_SETS as usize {
+            return Err(anyhow!("{}", DescriptorError::DescriptorPoolFull));
+        }
         if let Some((layout, _desc)) = self.descriptors.get(descriptor_name) {
             let layouts = [*layout];
             let alloc_info = vk::DescriptorSetAllocateInfo::builder()

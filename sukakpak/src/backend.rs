@@ -48,9 +48,11 @@ pub struct Backend {
     screen_dimensions: Vector2<u32>,
     core: Core,
 }
+#[derive(Clone, Copy)]
 pub struct VertexBufferID {
     buffer_index: ArenaIndex,
 }
+#[derive(Clone, Copy)]
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
 }
@@ -58,6 +60,7 @@ pub struct IndexBufferID {
 pub struct TextureID {
     buffer_index: ArenaIndex,
 }
+#[derive(Clone, Copy)]
 pub struct MeshID {
     pub verticies: VertexBufferID,
     pub texture: TextureID,
