@@ -66,7 +66,13 @@ impl Core {
     ) -> Result<Self> {
         let entry = unsafe { ash::Entry::new() }?;
         let app_name = CString::new(create_info.name.clone())?;
-        let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+        cfg_if::cfg_if! {
+            if #[cfg(feature="no_validation")]{
+                let layer_names:[CString;0] = [];
+            }else{
+                let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+            }
+        }
         let layer_names_raw: Vec<*const i8> =
             layer_names.iter().map(|name| name.as_ptr()).collect();
         let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
@@ -162,7 +168,6 @@ impl Core {
                 .get_physical_device_surface_formats(physical_device, surface)
                 .unwrap()[0]
         };
-        println!("{:?}", surface_format);
 
         let surface_capabilities = unsafe {
             surface_loader
