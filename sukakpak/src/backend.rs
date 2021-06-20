@@ -169,11 +169,12 @@ impl Backend {
             index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
             texture: self.textures.get(mesh.texture.buffer_index).unwrap(),
         };
+        //todo handle uniform descriptors
         self.renderpass.draw_mesh(
             &mut self.core,
             &self.graphics_pipeline,
             &self.framebuffer,
-            &self.resource_pool.get_descriptor_sets(),
+            &[render_mesh.texture.descriptor_set],
             self.screen_dimensions,
             render_mesh,
         )

@@ -404,14 +404,32 @@ impl ResourcePool {
             );
         let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }
             .expect("failed to create sampler");
+        let descriptor_set = unsafe {
+            self.texture_descriptor_pool
+                .allocate_descriptor_set(core, &DescriptorName::MeshTexture)
+        }?[0];
+        let descriptor_image_info = [*vk::DescriptorImageInfo::builder()
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image_view(image_view)
+            .sampler(sampler)];
+        let descriptor_write = [*vk::WriteDescriptorSet::builder()
+            .dst_set(descriptor_set)
+            .dst_binding(
+                self.texture_descriptor_pool
+                    .get_descriptor_desc(&DescriptorName::MeshTexture)
+                    .unwrap()
+                    .layout_binding
+                    .binding,
+            )
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&descriptor_image_info)];
+        unsafe {
+            core.device.update_descriptor_sets(&descriptor_write, &[]);
+        }
         Ok(TextureAllocation {
             buffer,
-            descriptor_set: self
-                .texture_descriptor_pool
-                .descriptors
-                .get(&DescriptorName::MeshTexture)
-                .unwrap()
-                .1,
+            descriptor_set,
             image,
             image_allocation,
             image_view,
@@ -419,19 +437,12 @@ impl ResourcePool {
             transfer_allocation,
         })
     }
+    /// Allocates descriptor sets. pool provided by descriptor pool
     pub fn get_descriptor_set_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
         self.texture_descriptor_pool
             .get_descriptor_layouts()
             .iter()
             .chain(self.uniform_descriptor_pool.get_descriptor_layouts().iter())
-            .map(|layout| *layout)
-            .collect()
-    }
-    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSet> {
-        self.texture_descriptor_pool
-            .get_descriptor_sets()
-            .iter()
-            .chain(self.uniform_descriptor_pool.get_descriptor_sets().iter())
             .map(|layout| *layout)
             .collect()
     }

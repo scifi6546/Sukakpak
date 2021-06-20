@@ -26,7 +26,7 @@ impl SemaphoreBuffer {
                 finished_semaphore: self.semaphores[old_index + 1],
             })
         } else {
-            let len = (self.index + 1) - self.semaphores.len();
+            let len = (self.index + 2) - self.semaphores.len();
             for _i in 0..len {
                 let create_info = vk::SemaphoreCreateInfo::builder().build();
                 self.semaphores

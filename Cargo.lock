@@ -1431,6 +1431,7 @@ dependencies = [
  "image",
  "nalgebra 0.27.1",
  "phf",
+ "thiserror",
  "winit",
 ]
 

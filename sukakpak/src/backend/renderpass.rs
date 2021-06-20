@@ -232,8 +232,7 @@ impl RenderPass {
                     self.fences[image_index as usize],
                 )?;
             }
-
-            todo!()
+            Ok(())
         } else {
             self.acquire_next_image(core)?;
             self.submit_draw(core)

@@ -1,7 +1,8 @@
 use super::Core;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ash::{version::DeviceV1_0, vk};
 use std::{cmp::max, collections::HashMap};
+use thiserror::Error;
 #[derive(Clone, Copy)]
 pub enum ShaderStage {
     Fragment,
@@ -19,10 +20,15 @@ impl ShaderStage {
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum DescriptorName {
     MeshTexture,
     Uniform(String),
+}
+#[derive(Error, Debug)]
+pub enum DescriptorError {
+    #[error("Descriptor {0:?} not found")]
+    DescriptorSetLayoutNotFound(DescriptorName),
 }
 #[derive(Clone, Copy)]
 pub struct DescriptorDesc {
@@ -32,7 +38,7 @@ pub struct DescriptorDesc {
 /// TODO: HANDLE REMAPPING
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
-    pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, vk::DescriptorSet)>,
+    pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, DescriptorDesc)>,
 }
 impl DescriptorPool {
     const MAX_SETS: u32 = 100;
@@ -63,15 +69,7 @@ impl DescriptorPool {
                             .create_descriptor_set_layout(&layout_create_info, None)
                     }
                     .expect("failed to create descriptor_set")];
-                    let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-                        .descriptor_pool(descriptor_pool)
-                        .set_layouts(&layouts);
-                    let descriptor_set = unsafe {
-                        core.device
-                            .allocate_descriptor_sets(&descriptor_set_alloc_info)
-                    }
-                    .expect("failed to alloc descriptor set");
-                    (layouts[0], descriptor_set[0])
+                    (layouts[0], descriptor.clone())
                 })
             })
             .collect();
@@ -83,20 +81,38 @@ impl DescriptorPool {
     pub fn get_descriptor_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
         self.descriptors
             .iter()
-            .map(|(_key, (layout, _set))| *layout)
+            .map(|(_key, (layout, _desc))| *layout)
             .collect()
     }
-    pub fn get_descriptor_sets(&self) -> Vec<vk::DescriptorSet> {
-        self.descriptors
-            .iter()
-            .map(|(_key, (_layout, set))| *set)
-            .collect()
+    pub unsafe fn allocate_descriptor_set(
+        &mut self,
+        core: &mut Core,
+        descriptor_name: &DescriptorName,
+    ) -> Result<Vec<vk::DescriptorSet>> {
+        if let Some((layout, _desc)) = self.descriptors.get(descriptor_name) {
+            let layouts = [*layout];
+            let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+                .set_layouts(&layouts)
+                .descriptor_pool(self.descriptor_pool);
+            let sets = core.device.allocate_descriptor_sets(&alloc_info)?;
+            Ok(sets)
+        } else {
+            Err(anyhow!(
+                "{}",
+                DescriptorError::DescriptorSetLayoutNotFound(descriptor_name.clone())
+            ))
+        }
+    }
+    pub fn get_descriptor_desc(&self, name: &DescriptorName) -> Option<DescriptorDesc> {
+        if let Some((_layout, desc)) = self.descriptors.get(name) {
+            Some(desc.clone())
+        } else {
+            None
+        }
     }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
         unsafe {
-            for (_name, (layout, set)) in self.descriptors.iter() {
-                core.device
-                    .free_descriptor_sets(self.descriptor_pool, &[*set])?;
+            for (_name, (layout, _desc)) in self.descriptors.iter() {
                 core.device.destroy_descriptor_set_layout(*layout, None);
             }
             core.device
