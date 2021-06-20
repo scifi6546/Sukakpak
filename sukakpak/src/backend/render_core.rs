@@ -244,12 +244,10 @@ impl Core {
                 self.instance
                     .get_physical_device_format_properties(self.physical_device, *format)
             };
-            if tiling == vk::ImageTiling::LINEAR
-                && (properties.linear_tiling_features & features) == features
-            {
-                return *format;
-            } else if tiling == vk::ImageTiling::OPTIMAL
-                && (properties.optimal_tiling_features & features) == features
+            if (tiling == vk::ImageTiling::LINEAR
+                && (properties.linear_tiling_features & features) == features)
+                || (tiling == vk::ImageTiling::OPTIMAL
+                    && (properties.optimal_tiling_features & features) == features)
             {
                 return *format;
             };

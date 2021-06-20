@@ -7,10 +7,7 @@ pub struct SemaphoreBuffer {
     index: usize,
 }
 impl SemaphoreBuffer {
-    pub fn new(
-        starting_semaphore: vk::Semaphore,
-        render_finished_semaphore: vk::Semaphore,
-    ) -> Self {
+    pub fn new(starting_semaphore: vk::Semaphore) -> Self {
         Self {
             semaphores: vec![starting_semaphore],
 

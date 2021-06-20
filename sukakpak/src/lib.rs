@@ -1,9 +1,6 @@
 use anyhow::Result;
-use generational_arena::{Arena, Index as ArenaIndex};
 mod backend;
-use backend::{
-    Backend, IndexBufferID, MeshID as Mesh, TextureID as Texture, VertexBufferID, VertexLayout,
-};
+use backend::{Backend, MeshID as Mesh, TextureID as Texture, VertexLayout};
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
@@ -38,7 +35,10 @@ impl Context {
                 *control_flow = ControlFlow::Exit
             }
 
-            context.backend.finish_render();
+            context
+                .backend
+                .finish_render()
+                .expect("failed to swap framebuffer");
             match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -124,6 +124,7 @@ mod tests {
     struct TriangleRenderable {
         num_frames: usize,
         triangle: Mesh,
+        #[allow(dead_code)]
         texture: Texture,
     }
     impl Renderable for TriangleRenderable {
@@ -147,16 +148,6 @@ mod tests {
             } else {
                 context.quit();
             }
-        }
-    }
-    struct BuildTexture {}
-    impl Renderable for BuildTexture {
-        fn init<'a>(context: &mut ContextChild<'a>) -> Self {
-            context.build_texture(&RgbaImage::new(10, 10));
-            Self {}
-        }
-        fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
-            context.quit();
         }
     }
     #[test]

@@ -32,7 +32,6 @@ pub struct RenderPass {
     command_buffers: Vec<vk::CommandBuffer>,
     fences: Vec<vk::Fence>,
     semaphore_buffer: SemaphoreBuffer,
-    render_finished_semaphore: vk::Semaphore,
     image_available_semaphore: vk::Semaphore,
     image_index: Option<u32>,
     first_in_frame: bool,
@@ -65,17 +64,13 @@ impl RenderPass {
         let image_available_semaphore =
             unsafe { core.device.create_semaphore(&semaphore_create_info, None) }
                 .expect("failed to create semaphore");
-        let render_finished_semaphore =
-            unsafe { core.device.create_semaphore(&semaphore_create_info, None) }
-                .expect("failed to create semaphore");
-        let semaphore_buffer =
-            SemaphoreBuffer::new(image_available_semaphore, render_finished_semaphore);
+
+        let semaphore_buffer = SemaphoreBuffer::new(image_available_semaphore);
         Self {
             command_buffers,
             fences,
             semaphore_buffer,
             image_available_semaphore,
-            render_finished_semaphore,
             image_index: None,
             first_in_frame: false,
         }
@@ -282,8 +277,6 @@ impl RenderPass {
                 .wait_for_fences(&self.fences, true, 10000000)
                 .expect("failed to wait for fence");
             core.device.device_wait_idle().expect("failed to wait idle");
-            core.device
-                .destroy_semaphore(self.render_finished_semaphore, None);
             core.device
                 .destroy_semaphore(self.image_available_semaphore, None);
             self.semaphore_buffer.free(core);

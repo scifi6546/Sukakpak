@@ -27,6 +27,7 @@ pub struct BackendCreateInfo {
     pub name: String,
 }
 //layout of vertex
+#[allow(non_camel_case_types)]
 pub enum VertexLayout {
     XYZ_F32, //xyz vector with floating point components
 }
