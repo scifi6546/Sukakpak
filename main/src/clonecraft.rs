@@ -4,23 +4,33 @@ pub struct CloneCraft {
     triangle: Mesh,
     frame_counter: u64,
     #[allow(dead_code)]
-    texture: Texture,
+    red_texture: Texture,
+    #[allow(dead_code)]
+    blue_texture: Texture,
 }
 
 const CUBE_DIMENSIONS: usize = 10;
 impl sukakpak::Renderable for CloneCraft {
     fn init<'a>(context: &mut ContextChild<'a>) -> Self {
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
-        let texture = context
+        let red_texture = context
             .build_texture(&image)
             .expect("failed to create image");
-        let triangle = context.build_meshes(MeshAsset::new_cube(), texture);
+        let blue_texture = context
+            .build_texture(&image::ImageBuffer::from_pixel(
+                100,
+                100,
+                image::Rgba([0, 0, 255, 0]),
+            ))
+            .expect("failed to build texture");
+        let triangle = context.build_meshes(MeshAsset::new_cube(), red_texture);
         let camera_matrix = *na::Perspective3::new(1.0, 3.14 / 4.0, 1.0, 1000.0).as_matrix();
         Self {
             camera_matrix,
             triangle,
-            texture,
+            red_texture,
             frame_counter: 0,
+            blue_texture,
         }
     }
     fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
@@ -38,9 +48,14 @@ impl sukakpak::Renderable for CloneCraft {
                         * transorm_mat
                         * rot
                         * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
+                    let mut new_mesh = self.triangle.clone();
+                    new_mesh.texture = self.blue_texture;
+                    if y % 2 == 0 {
+                        new_mesh.texture = self.red_texture;
+                    }
 
                     context
-                        .draw_mesh(mat, &self.triangle)
+                        .draw_mesh(mat, &new_mesh)
                         .expect("failed to draw triangle");
                 }
             }
