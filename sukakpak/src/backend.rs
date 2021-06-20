@@ -12,7 +12,7 @@ use command_pool::CommandPool;
 use depth_buffer::DepthBuffer;
 use framebuffer::Framebuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{GraphicsPipeline, ShaderDescription, VertexBufferDesc};
+use pipeline::{GraphicsPipeline, ShaderDescription};
 use present_image::PresentImage;
 use render_core::Core;
 mod pipeline;
@@ -31,6 +31,7 @@ pub enum VertexLayout {
     XYZ_F32, //xyz vector with floating point components
 }
 pub struct Backend {
+    #[allow(dead_code)]
     window: winit::window::Window,
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,

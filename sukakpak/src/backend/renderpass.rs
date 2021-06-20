@@ -276,6 +276,7 @@ impl RenderPass {
         }
     }
     pub fn free(&mut self, core: &mut Core) {
+        self.wait_idle(core);
         unsafe {
             core.device
                 .wait_for_fences(&self.fences, true, 10000000)

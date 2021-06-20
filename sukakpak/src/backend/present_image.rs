@@ -6,7 +6,8 @@ pub struct PresentImage {
     pub present_image_views: Vec<vk::ImageView>,
 }
 impl PresentImage {
-    /// Gets Number of swapchain images in present images
+    /// Gets Number of swapchain images in present images.Backend
+    #[allow(dead_code)]
     pub fn num_swapchain_images(&self) -> usize {
         self.present_images.len()
     }

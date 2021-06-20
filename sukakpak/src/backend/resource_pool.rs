@@ -600,7 +600,7 @@ impl TextureAllocation {
             );
         }
     }
-    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         unsafe {
             core.device.destroy_sampler(self.sampler, None);
             core.device.destroy_image_view(self.image_view, None);
