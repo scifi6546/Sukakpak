@@ -29,8 +29,8 @@ pub struct BackendCreateInfo {
 //layout of vertex
 #[allow(non_camel_case_types)]
 pub enum VertexLayout {
-    XYZ_F32, //xyz vector with floating point components
-    XYZ_UV_F32,//xyz with uv
+    XYZ_F32,    //xyz vector with floating point components
+    XYZ_UV_F32, //xyz with uv
 }
 pub struct Backend {
     #[allow(dead_code)]
@@ -199,6 +199,7 @@ impl Backend {
 }
 impl Drop for Backend {
     fn drop(&mut self) {
+        self.renderpass.wait_idle(&mut self.core);
         unsafe {
             for (_idx, mesh) in self.vertex_buffers.drain() {
                 mesh.free(&mut self.core, &mut self.resource_pool)
