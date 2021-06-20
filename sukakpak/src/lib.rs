@@ -16,6 +16,7 @@ pub struct Context {
     backend: Backend,
 }
 impl Context {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
         let mut context = Context {
