@@ -1,7 +1,9 @@
+use super::VertexLayout;
 use nalgebra::{Vector2, Vector3};
 pub struct Mesh {
     pub verticies: Vec<u8>,
     pub indices: Vec<u32>,
+    pub vertex_layout: VertexLayout,
 }
 impl Mesh {
     pub fn new_triangle() -> Self {
@@ -41,6 +43,7 @@ impl From<EasyMesh> for Mesh {
         Mesh {
             verticies,
             indices: mesh.indices,
+            vertex_layout: VertexLayout::XYZ_UV_F32,
         }
     }
 }

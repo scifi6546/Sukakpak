@@ -78,6 +78,24 @@ impl ResourcePool {
                     .location(0)
                     .format(vk::Format::R32G32B32_SFLOAT)],
             ),
+            VertexLayout::XYZ_UV_F32 => (
+                *vk::VertexInputBindingDescription::builder()
+                    .binding(0)
+                    .stride(5 * size_of::<f32>() as u32)
+                    .input_rate(vk::VertexInputRate::VERTEX),
+                vec![
+                    *vk::VertexInputAttributeDescription::builder()
+                        .binding(0)
+                        .location(0)
+                        .format(vk::Format::R32G32B32_SFLOAT)
+                        .offset(0),
+                    *vk::VertexInputAttributeDescription::builder()
+                        .binding(0)
+                        .location(1)
+                        .format(vk::Format::R32G32_SFLOAT)
+                        .offset(3 * size_of::<f32>() as u32),
+                ],
+            ),
         };
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(mesh.len() as u64)
@@ -179,7 +197,7 @@ impl ResourcePool {
 
         unsafe {
             core.device
-                .bind_buffer_memory(buffer, allocation.memory(), 0)?;
+                .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())?;
         }
         Ok((buffer, allocation))
     }

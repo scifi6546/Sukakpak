@@ -30,6 +30,7 @@ pub struct BackendCreateInfo {
 #[allow(non_camel_case_types)]
 pub enum VertexLayout {
     XYZ_F32, //xyz vector with floating point components
+    XYZ_UV_F32,//xyz with uv
 }
 pub struct Backend {
     #[allow(dead_code)]

@@ -71,7 +71,7 @@ impl<'a> ContextChild<'a> {
             verticies: self
                 .context
                 .backend
-                .allocate_verticies(mesh.verticies, VertexLayout::XYZ_F32)
+                .allocate_verticies(mesh.verticies, mesh.vertex_layout)
                 .expect("failed to allocate mesh"),
             indicies: self
                 .context
