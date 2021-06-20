@@ -32,7 +32,7 @@ pub struct RenderPass {
     command_buffers: Vec<vk::CommandBuffer>,
     fences: Vec<vk::Fence>,
     semaphore_buffer: SemaphoreBuffer,
-    image_available_semaphore: vk::Semaphore,
+    image_available_semaphore: [vk::Semaphore; 1],
     image_index: Option<u32>,
     first_in_frame: bool,
 }
@@ -62,10 +62,12 @@ impl RenderPass {
             .collect();
         let semaphore_create_info = vk::SemaphoreCreateInfo::builder().build();
         let image_available_semaphore =
-            unsafe { core.device.create_semaphore(&semaphore_create_info, None) }
-                .expect("failed to create semaphore");
+            [
+                unsafe { core.device.create_semaphore(&semaphore_create_info, None) }
+                    .expect("failed to create semaphore"),
+            ];
 
-        let semaphore_buffer = SemaphoreBuffer::new(image_available_semaphore);
+        let semaphore_buffer = SemaphoreBuffer::new(image_available_semaphore[0]);
         Self {
             command_buffers,
             fences,
@@ -145,58 +147,55 @@ impl RenderPass {
         dimensions: Vector2<u32>,
         clear_op: ClearOp,
     ) -> Result<()> {
-        if let Some(image_index) = self.image_index {
-            unsafe {
-                core.device
-                    .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
-                core.device.begin_command_buffer(
-                    self.command_buffers[image_index as usize],
-                    &vk::CommandBufferBeginInfo::builder(),
-                )?;
-                let renderpass_info = vk::RenderPassBeginInfo::builder()
-                    .render_pass(match clear_op {
-                        ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
-                        ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
-                    })
-                    .framebuffer(framebuffer.framebuffers[image_index as usize])
-                    .render_area(vk::Rect2D {
-                        extent: vk::Extent2D {
-                            width: dimensions.x,
-                            height: dimensions.y,
-                        },
-                        offset: vk::Offset2D { x: 0, y: 0 },
-                    })
-                    .clear_values(&[
-                        vk::ClearValue {
-                            color: vk::ClearColorValue {
-                                float32: [0.1, 0.1, 0.1, 0.1],
-                            },
-                        },
-                        vk::ClearValue {
-                            depth_stencil: vk::ClearDepthStencilValue {
-                                depth: 1.0,
-                                stencil: 0,
-                            },
-                        },
-                    ]);
-                core.device.cmd_begin_render_pass(
-                    self.command_buffers[image_index as usize],
-                    &renderpass_info,
-                    vk::SubpassContents::INLINE,
-                );
-                core.device.cmd_bind_pipeline(
-                    self.command_buffers[image_index as usize],
-                    vk::PipelineBindPoint::GRAPHICS,
-                    match clear_op {
-                        ClearOp::ClearColor => graphics_pipeline.clear_pipeline.graphics_pipeline,
-                        ClearOp::DoNotClear => graphics_pipeline.load_pipeline.graphics_pipeline,
+        self.acquire_next_image(core)?;
+        let image_index = self.image_index.unwrap();
+        unsafe {
+            core.device
+                .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
+            core.device.begin_command_buffer(
+                self.command_buffers[image_index as usize],
+                &vk::CommandBufferBeginInfo::builder(),
+            )?;
+
+            let renderpass_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(match clear_op {
+                    ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
+                    ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
+                })
+                .framebuffer(framebuffer.framebuffers[image_index as usize])
+                .render_area(vk::Rect2D {
+                    extent: vk::Extent2D {
+                        width: dimensions.x,
+                        height: dimensions.y,
                     },
-                );
-                Ok(())
-            }
-        } else {
-            self.acquire_next_image(core)?;
-            self.begin_renderpass(core, graphics_pipeline, framebuffer, dimensions, clear_op)?;
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                })
+                .clear_values(&[
+                    vk::ClearValue {
+                        color: vk::ClearColorValue {
+                            float32: [0.1, 0.1, 0.1, 0.1],
+                        },
+                    },
+                    vk::ClearValue {
+                        depth_stencil: vk::ClearDepthStencilValue {
+                            depth: 1.0,
+                            stencil: 0,
+                        },
+                    },
+                ]);
+            core.device.cmd_begin_render_pass(
+                self.command_buffers[image_index as usize],
+                &renderpass_info,
+                vk::SubpassContents::INLINE,
+            );
+            core.device.cmd_bind_pipeline(
+                self.command_buffers[image_index as usize],
+                vk::PipelineBindPoint::GRAPHICS,
+                match clear_op {
+                    ClearOp::ClearColor => graphics_pipeline.clear_pipeline.graphics_pipeline,
+                    ClearOp::DoNotClear => graphics_pipeline.load_pipeline.graphics_pipeline,
+                },
+            );
             Ok(())
         }
     }
@@ -212,15 +211,12 @@ impl RenderPass {
                 let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
                 let command_buffers = [self.command_buffers[image_index as usize]];
                 let signal_semaphores = [submit_semaphore.finished_semaphore];
-                let submit_info = vk::SubmitInfo::builder()
+
+                let submit_info = *vk::SubmitInfo::builder()
                     .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
                     .command_buffers(&command_buffers)
-                    .signal_semaphores(&signal_semaphores);
-                let submit_info = if let Some(semaphore) = submit_semaphore.start_semaphore {
-                    *submit_info.wait_semaphores(&semaphore)
-                } else {
-                    *submit_info
-                };
+                    .signal_semaphores(&signal_semaphores)
+                    .wait_semaphores(&submit_semaphore.start_semaphore);
                 core.device.queue_submit(
                     core.present_queue,
                     &[submit_info],
@@ -262,7 +258,7 @@ impl RenderPass {
             core.swapchain_loader.acquire_next_image(
                 core.swapchain,
                 u64::MAX,
-                self.image_available_semaphore,
+                self.semaphore_buffer.first_semaphore(),
                 vk::Fence::null(),
             )
         }?;
@@ -285,7 +281,7 @@ impl RenderPass {
                 .expect("failed to wait for fence");
             core.device.device_wait_idle().expect("failed to wait idle");
             core.device
-                .destroy_semaphore(self.image_available_semaphore, None);
+                .destroy_semaphore(self.image_available_semaphore[0], None);
             self.semaphore_buffer.free(core);
             for fence in self.fences.iter() {
                 core.device.destroy_fence(*fence, None);

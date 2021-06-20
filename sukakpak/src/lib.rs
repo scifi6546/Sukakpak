@@ -140,7 +140,7 @@ mod tests {
             }
         }
         fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
-            if self.num_frames == 0 {
+            if self.num_frames <= 10_000 {
                 context
                     .draw_mesh(Matrix4::identity(), &self.triangle)
                     .expect("failed to draw triangle");

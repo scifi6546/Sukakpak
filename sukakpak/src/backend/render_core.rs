@@ -8,7 +8,7 @@ use ash::{
 };
 
 use std::ffi::{CStr, CString};
-const DO_BACKTRACE: bool = false;
+const DO_BACKTRACE: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -40,6 +40,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     if DO_BACKTRACE {
         println!("{:?}", backtrace::Backtrace::new());
     }
+    panic!();
     vk::FALSE
 }
 pub struct Core {
