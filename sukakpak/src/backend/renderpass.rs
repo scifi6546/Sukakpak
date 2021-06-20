@@ -240,6 +240,7 @@ impl RenderPass {
                 core.swapchain_loader
                     .queue_present(core.present_queue, &present_info)?;
             }
+            self.semaphore_buffer.reset();
             Ok(())
         } else {
             self.acquire_next_image(core)?;

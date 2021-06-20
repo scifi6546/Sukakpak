@@ -14,6 +14,9 @@ impl SemaphoreBuffer {
             index: 0,
         }
     }
+    pub fn reset(&mut self) {
+        self.index = 0;
+    }
     pub fn get_semaphore(&mut self, core: &mut Core) -> Result<SemaphoreGetter> {
         if self.index + 2 <= self.semaphores.len() {
             let old_index = self.index;
