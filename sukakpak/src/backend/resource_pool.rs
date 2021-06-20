@@ -10,7 +10,7 @@ use gpu_allocator::{
 use image::RgbaImage;
 use nalgebra::Vector2;
 mod descriptor_pool;
-use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool, ShaderStage};
+use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool};
 use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
@@ -468,7 +468,7 @@ pub struct VertexBufferAllocation {
     pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
-    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         resource_pool.allocator.free(self.allocation)?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
@@ -605,18 +605,4 @@ pub struct UniformAllocation {
     pub layouts: Vec<vk::DescriptorSetLayout>,
     pub buffers: Vec<(vk::Buffer, SubAllocation, vk::DescriptorSet)>,
     descriptor_pool: vk::DescriptorPool,
-}
-pub fn find_memorytype_index(
-    memory_req: &vk::MemoryRequirements,
-    memory_prop: &vk::PhysicalDeviceMemoryProperties,
-    flags: vk::MemoryPropertyFlags,
-) -> Option<u32> {
-    memory_prop.memory_types[..memory_prop.memory_type_count as _]
-        .iter()
-        .enumerate()
-        .find(|(index, memory_type)| {
-            (1 << index) & memory_req.memory_type_bits != 0
-                && memory_type.property_flags & flags == flags
-        })
-        .map(|(index, _memory_type)| index as _)
 }
