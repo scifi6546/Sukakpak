@@ -18,14 +18,6 @@ pub struct RenderMesh<'a> {
     pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
     pub texture: &'a TextureAllocation,
-    //pub offsets: OffsetData,
-}
-
-pub struct RenderCollectionMesh<'a> {
-    pub view_matrix: Matrix4<f32>,
-    pub vertex_buffer: &'a VertexBufferAllocation,
-    pub index_buffer: &'a IndexBufferAllocation,
-    pub texture: &'a TextureAllocation,
 }
 
 #[derive(Clone, Copy)]
@@ -160,6 +152,8 @@ impl RenderPass {
     ) -> Result<()> {
         if let Some(image_index) = self.image_index {
             unsafe {
+                core.device
+                    .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
                 core.device.begin_command_buffer(
                     self.command_buffers[image_index as usize],
                     &vk::CommandBufferBeginInfo::builder(),
