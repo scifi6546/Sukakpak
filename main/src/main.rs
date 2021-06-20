@@ -1,16 +1,22 @@
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
-use nalgebra::{Matrix4, Perspective3, Vector2, Vector3};
+use nalgebra::{Matrix4, Perspective3, Vector3};
 use renderer::{Context, UniformData, Vertex};
 use std::collections::HashMap;
+use sukakpak::{nalgebra::Vector2, CreateInfo};
+
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
 mod clonecraft;
 fn main() {
-    let context = sukakpak::Context::new::<clonecraft::CloneCraft>();
+    let context = sukakpak::Context::new::<clonecraft::CloneCraft>(CreateInfo {
+        default_size: Vector2::new(800, 800),
+        name: "clonecraft".to_string(),
+    });
     let event_loop = winit::event_loop::EventLoop::new();
     println!("building context");
+    /*
     let (mut context, textures) = Context::new(
         "Hello Context",
         &event_loop,
@@ -302,5 +308,5 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             _ => (),
         }
-    });
+    });*/
 }

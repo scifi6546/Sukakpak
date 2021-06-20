@@ -1,2 +1,2 @@
 [workspace]
-members = ["renderer","main","sukakpak","memory_allocator"]
+members = ["renderer","main","sukakpak"]

@@ -1,10 +1,12 @@
 use anyhow::Result;
 mod backend;
-use backend::{Backend, MeshID as Mesh, TextureID as Texture, VertexLayout};
+use backend::{Backend, VertexLayout};
+pub use backend::{MeshID as Mesh, TextureID as Texture};
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
+pub use nalgebra;
 pub use nalgebra::Matrix4;
 use winit::{
     event::{Event, WindowEvent},
@@ -129,8 +131,9 @@ mod tests {
     }
     impl Renderable for TriangleRenderable {
         fn init<'a>(context: &mut ContextChild<'a>) -> Self {
+            let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
             let texture = context
-                .build_texture(&RgbaImage::new(100, 100))
+                .build_texture(&image)
                 .expect("failed to create image");
             let triangle = context.build_meshes(MeshAsset::new_triangle(), texture);
             Self {
