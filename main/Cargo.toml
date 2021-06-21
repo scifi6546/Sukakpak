@@ -15,5 +15,5 @@ generational-arena = "0.2.8"
 backtrace = "0.3.59"
 phf = { version = "0.8", features = ["macros"] }
 renderer = {path = "../renderer"}
-sukakpak = {path = "../sukakpak", features = ["no_validation"]}
-#sukakpak = {path = "../sukakpak", features = []}
+#sukakpak = {path = "../sukakpak", features = ["no_validation"]}
+sukakpak = {path = "../sukakpak", features = []}
