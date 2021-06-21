@@ -35,12 +35,6 @@ impl Context {
                     event: WindowEvent::CloseRequested,
                     ..
                 } => *control_flow = ControlFlow::Exit,
-                Event::WindowEvent {
-                    event: WindowEvent::Resized(new_size),
-                    ..
-                } => {
-                    updated_screen_size = Some(na::Vector2::new(new_size.width, new_size.height));
-                }
                 _ => (),
             }
             if let Some(size) = updated_screen_size {
