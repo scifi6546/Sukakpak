@@ -240,7 +240,7 @@ impl RenderPass {
             self.submit_draw(core)
         }
     }
-    pub fn swap_framebuffer(&mut self, core: &mut Core) -> Result<()> {
+    pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         if let Some(image_index) = self.image_index {
             let indices = [image_index];
             let swapchain = [core.swapchain];
@@ -264,7 +264,7 @@ impl RenderPass {
         todo!()
     }
     //aquires new image index and populates self.image_index
-    pub fn acquire_next_image(&mut self, core: &mut Core) -> Result<()> {
+    pub fn acquire_next_image(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         let (image_index, _) = unsafe {
             core.swapchain_loader.acquire_next_image(
                 core.swapchain,

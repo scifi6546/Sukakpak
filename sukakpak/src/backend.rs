@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ash::vk;
 use image::RgbaImage;
 use nalgebra::{Matrix4, Vector2};
 mod command_pool;
@@ -197,7 +198,23 @@ impl Backend {
     }
     pub fn finish_render(&mut self) -> Result<()> {
         self.renderpass.submit_draw(&mut self.core)?;
-        self.renderpass.swap_framebuffer(&mut self.core)
+        let r = self.renderpass.swap_framebuffer(&mut self.core);
+        if let Err(r) = r {
+            if r == vk::Result::ERROR_OUT_OF_DATE_KHR {
+                let new_size = self.window.inner_size();
+                let new_size = Vector2::new(new_size.width, new_size.height);
+                println!("out of date khr");
+                self.resize_renderer(new_size)?;
+                Ok(())
+            } else if r == vk::Result::SUBOPTIMAL_KHR {
+                println!("sub optimal khr");
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("Vk result: {}", r))
+            }
+        } else {
+            Ok(())
+        }
     }
     pub fn resize_renderer(&mut self, new_size: Vector2<u32>) -> Result<()> {
         if new_size == self.screen_dimensions {
@@ -228,6 +245,8 @@ impl Backend {
                 new_size.y,
                 &self.depth_buffer,
             );
+            self.present_image.free(&mut self.core);
+            self.present_image = PresentImage::new(&mut self.core);
             self.framebuffer.free(&mut self.core);
 
             self.framebuffer = Framebuffer::new(
@@ -238,7 +257,7 @@ impl Backend {
                 new_size.x,
                 new_size.y,
             );
-            self.resource_pool.free(&mut self.core)?;
+            // self.resource_pool.free(&mut self.core)?;
             self.renderpass =
                 RenderPass::new(&mut self.core, &self.command_pool, &self.framebuffer);
             self.screen_dimensions = new_size;
