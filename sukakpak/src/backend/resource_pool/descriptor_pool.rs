@@ -50,7 +50,6 @@ impl DescriptorPool {
         pool_type: vk::DescriptorType,
         descriptors: HashMap<DescriptorName, DescriptorDesc>,
     ) -> Result<Self> {
-        let pool_size = max(descriptors.len(), 1) as u32;
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
             .descriptor_count(Self::MAX_SETS)
             .ty(pool_type)];
