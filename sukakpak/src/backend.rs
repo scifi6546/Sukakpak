@@ -199,6 +199,52 @@ impl Backend {
         self.renderpass.submit_draw(&mut self.core)?;
         self.renderpass.swap_framebuffer(&mut self.core)
     }
+    pub fn resize_renderer(&mut self, new_size: Vector2<u32>) -> Result<()> {
+        if new_size == self.screen_dimensions {
+            Ok(())
+        } else {
+            self.renderpass.wait_idle(&mut self.core);
+            self.core.update_swapchain_resolution(new_size)?;
+            self.depth_buffer
+                .free(&mut self.core, &mut self.resource_pool)?;
+            self.depth_buffer = DepthBuffer::new(
+                &mut self.core,
+                &mut self.command_pool,
+                &mut self.resource_pool,
+                new_size,
+            )?;
+            self.graphics_pipeline.free(&mut self.core);
+            self.graphics_pipeline = GraphicsPipeline::new(
+                &mut self.core,
+                &pipeline::PUSH_SHADER,
+                &pipeline::PUSH_SHADER.vertex_buffer_desc,
+                &self.resource_pool.get_descriptor_set_layouts(),
+                &pipeline::PUSH_SHADER
+                    .push_constants
+                    .into_iter()
+                    .map(|(k, v)| ((*k).to_string(), *v))
+                    .collect(),
+                new_size.x,
+                new_size.y,
+                &self.depth_buffer,
+            );
+            self.framebuffer.free(&mut self.core);
+
+            self.framebuffer = Framebuffer::new(
+                &mut self.core,
+                &mut self.present_image,
+                &mut self.graphics_pipeline,
+                &mut self.depth_buffer,
+                new_size.x,
+                new_size.y,
+            );
+            self.resource_pool.free(&mut self.core)?;
+            self.renderpass =
+                RenderPass::new(&mut self.core, &self.command_pool, &self.framebuffer);
+            self.screen_dimensions = new_size;
+            Ok(())
+        }
+    }
 }
 impl Drop for Backend {
     fn drop(&mut self) {

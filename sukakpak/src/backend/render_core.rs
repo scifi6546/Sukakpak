@@ -6,9 +6,10 @@ use ash::{
     version::{DeviceV1_0, EntryV1_0, InstanceV1_0},
     vk,
 };
+use nalgebra as na;
 
 use std::ffi::{CStr, CString};
-const DO_BACKTRACE: bool = true;
+const DO_BACKTRACE: bool = false;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -40,7 +41,6 @@ unsafe extern "system" fn vulkan_debug_callback(
     if DO_BACKTRACE {
         println!("{:?}", backtrace::Backtrace::new());
     }
-    panic!();
     vk::FALSE
 }
 pub struct Core {
@@ -55,6 +55,11 @@ pub struct Core {
     pub swapchain: vk::SwapchainKHR,
     pub swapchain_loader: Swapchain,
     pub surface_format: vk::SurfaceFormatKHR,
+    //Swapchain Info
+    pre_transform: vk::SurfaceTransformFlagsKHR,
+    swapchain_image_count: u32,
+    present_mode: vk::PresentModeKHR,
+    //end swapchain info
     surface: vk::SurfaceKHR,
     surface_loader: AshSurface,
     debug_utils_loader: DebugUtils,
@@ -174,11 +179,11 @@ impl Core {
                 .get_physical_device_surface_capabilities(physical_device, surface)
                 .unwrap()
         };
-        let mut desired_image_count = surface_capabilities.min_image_count + 1;
+        let mut swapchain_image_count = surface_capabilities.min_image_count + 1;
         if surface_capabilities.max_image_count > 0
-            && desired_image_count > surface_capabilities.max_image_count
+            && swapchain_image_count > surface_capabilities.max_image_count
         {
-            desired_image_count = surface_capabilities.max_image_count;
+            swapchain_image_count = surface_capabilities.max_image_count;
         }
         let surface_resolution = match surface_capabilities.current_extent.width {
             std::u32::MAX => vk::Extent2D {
@@ -209,7 +214,7 @@ impl Core {
         let swapchain_loader = Swapchain::new(&instance, &device);
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
             .surface(surface)
-            .min_image_count(desired_image_count)
+            .min_image_count(swapchain_image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
             .image_extent(surface_resolution)
@@ -237,7 +242,35 @@ impl Core {
             surface,
             debug_utils_loader,
             queue_family_index,
+            pre_transform,
+            swapchain_image_count,
+            present_mode,
         })
+    }
+    pub fn update_swapchain_resolution(&mut self, new_size: na::Vector2<u32>) -> Result<()> {
+        let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+            .surface(self.surface)
+            .min_image_count(self.swapchain_image_count)
+            .image_color_space(self.surface_format.color_space)
+            .image_format(self.surface_format.format)
+            .image_extent(vk::Extent2D {
+                width: new_size.x,
+                height: new_size.y,
+            })
+            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .pre_transform(self.pre_transform)
+            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            .present_mode(self.present_mode)
+            .clipped(true)
+            .image_array_layers(1);
+        self.swapchain = unsafe {
+            self.swapchain_loader
+                .create_swapchain(&swapchain_create_info, None)
+        }
+        .unwrap();
+
+        Ok(())
     }
     pub fn find_supported_format(
         &self,

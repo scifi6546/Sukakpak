@@ -7,6 +7,7 @@ mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
+use nalgebra as na;
 pub use nalgebra::Matrix4;
 use winit::{
     event::{Event, WindowEvent},
@@ -28,6 +29,26 @@ impl Context {
         };
 
         event_loop.run(move |event, _, control_flow| {
+            let mut updated_screen_size: Option<na::Vector2<u32>> = None;
+            match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(new_size),
+                    ..
+                } => {
+                    updated_screen_size = Some(na::Vector2::new(new_size.width, new_size.height));
+                }
+                _ => (),
+            }
+            if let Some(size) = updated_screen_size {
+                context
+                    .backend
+                    .resize_renderer(size)
+                    .expect("failed to resize");
+            }
             context
                 .backend
                 .begin_render()
@@ -42,13 +63,6 @@ impl Context {
                 .backend
                 .finish_render()
                 .expect("failed to swap framebuffer");
-            match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                _ => (),
-            }
         });
     }
 }
