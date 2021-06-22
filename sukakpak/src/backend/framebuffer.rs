@@ -1,16 +1,16 @@
 use super::{Core, DepthBuffer, GraphicsPipeline, PresentImage};
 use ash::{version::DeviceV1_0, vk};
-pub struct Framebuffer {
+use nalgebra::Vector2;
+pub struct ColorBuffer {
     pub framebuffers: Vec<vk::Framebuffer>,
 }
-impl Framebuffer {
+impl ColorBuffer {
     pub fn new(
         core: &mut Core,
         present_images: &mut PresentImage,
         pipeline: &mut GraphicsPipeline,
         depth_buffer: &DepthBuffer,
-        width: u32,
-        height: u32,
+        resolution: Vector2<u32>,
     ) -> Self {
         let framebuffers: Vec<vk::Framebuffer> = present_images
             .present_image_views
@@ -20,8 +20,8 @@ impl Framebuffer {
                 let create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(pipeline.clear_pipeline.renderpass)
                     .attachments(&attachments)
-                    .width(width)
-                    .height(height)
+                    .width(resolution.x)
+                    .height(resolution.y)
                     .layers(1);
                 unsafe {
                     core.device

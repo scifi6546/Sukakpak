@@ -1,5 +1,5 @@
 use super::{
-    CommandPool, Core, Framebuffer, GraphicsPipeline, IndexBufferAllocation, TextureAllocation,
+    ColorBuffer, CommandPool, Core, GraphicsPipeline, IndexBufferAllocation, TextureAllocation,
     UniformAllocation, VertexBufferAllocation,
 };
 use anyhow::Result;
@@ -34,12 +34,11 @@ pub struct RenderPass {
     semaphore_buffer: SemaphoreBuffer,
     image_available_semaphore: [vk::Semaphore; 1],
     image_index: Option<u32>,
-    first_in_frame: bool,
 }
 impl RenderPass {
-    pub fn new(core: &mut Core, command_pool: &CommandPool, framebuffers: &Framebuffer) -> Self {
+    pub fn new(core: &mut Core, command_pool: &CommandPool, color_buffers: &ColorBuffer) -> Self {
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(framebuffers.framebuffers.len() as u32)
+            .command_buffer_count(color_buffers.framebuffers.len() as u32)
             .command_pool(command_pool.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY);
         let command_buffers = unsafe {
@@ -74,14 +73,13 @@ impl RenderPass {
             semaphore_buffer,
             image_available_semaphore,
             image_index: None,
-            first_in_frame: false,
         }
     }
     pub fn draw_mesh(
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer: &Framebuffer,
+        color_buffer: &ColorBuffer,
 
         descriptor_sets: &[vk::DescriptorSet],
         screen_dimensions: Vector2<u32>,
@@ -135,14 +133,14 @@ impl RenderPass {
             self.begin_renderpass(
                 core,
                 graphics_pipeline,
-                framebuffer,
+                color_buffer,
                 screen_dimensions,
                 ClearOp::DoNotClear,
             )?;
             self.draw_mesh(
                 core,
                 graphics_pipeline,
-                framebuffer,
+                color_buffer,
                 descriptor_sets,
                 screen_dimensions,
                 mesh,
@@ -150,30 +148,49 @@ impl RenderPass {
             Ok(())
         }
     }
+    /// begins rendering a frame, builds renderpass with selected frame
+    pub unsafe fn begin_frame(
+        &mut self,
+        core: &mut Core,
+        graphics_pipeline: &GraphicsPipeline,
+        color_buffer: &ColorBuffer,
+        dimensions: Vector2<u32>,
+    ) -> Result<()> {
+        self.acquire_next_image(core)?;
+        let image_index = self.image_index.unwrap();
+        core.device
+            .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
+        core.device.begin_command_buffer(
+            self.command_buffers[image_index as usize],
+            &vk::CommandBufferBeginInfo::builder(),
+        )?;
+        self.begin_renderpass(
+            core,
+            graphics_pipeline,
+            color_buffer,
+            dimensions,
+            ClearOp::ClearColor,
+        )
+    }
+
     pub fn begin_renderpass(
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer: &Framebuffer,
+        color_buffer: &ColorBuffer,
         dimensions: Vector2<u32>,
         clear_op: ClearOp,
     ) -> Result<()> {
-        self.acquire_next_image(core)?;
-        let image_index = self.image_index.unwrap();
+        let image_index = self
+            .image_index
+            .expect("invalid usage frame should be started with begin frame");
         unsafe {
-            core.device
-                .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
-            core.device.begin_command_buffer(
-                self.command_buffers[image_index as usize],
-                &vk::CommandBufferBeginInfo::builder(),
-            )?;
-
             let renderpass_info = vk::RenderPassBeginInfo::builder()
                 .render_pass(match clear_op {
                     ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
                     ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
                 })
-                .framebuffer(framebuffer.framebuffers[image_index as usize])
+                .framebuffer(color_buffer.framebuffers[image_index as usize])
                 .render_area(vk::Rect2D {
                     extent: vk::Extent2D {
                         width: dimensions.x,
@@ -254,6 +271,7 @@ impl RenderPass {
                     .queue_present(core.present_queue, &present_info)?;
             }
             self.semaphore_buffer.reset();
+            self.image_index = None;
             Ok(())
         } else {
             self.acquire_next_image(core)?;

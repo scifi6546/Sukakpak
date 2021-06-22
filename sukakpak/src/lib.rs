@@ -1,7 +1,9 @@
 use anyhow::Result;
 mod backend;
 use backend::{Backend, VertexLayout};
-pub use backend::{MeshID as Mesh, TextureID as Texture};
+pub use backend::{
+    BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, TextureID as Texture,
+};
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
@@ -66,7 +68,6 @@ pub struct ContextChild<'a> {
     quit: bool,
 }
 
-pub struct FrameBuffer {}
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
 impl<'a> ContextChild<'a> {
     fn new(context: &'a mut Context) -> Self {
@@ -96,11 +97,11 @@ impl<'a> ContextChild<'a> {
     pub fn draw_mesh(&mut self, transform: Matrix4<f32>, mesh: &Mesh) -> Result<()> {
         self.context.backend.draw_mesh(transform, mesh)
     }
-    pub fn build_framebuffer(&mut self) {
-        todo!("build framebuffer")
+    pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
+        self.context.backend.build_framebuffer(resolution)
     }
-    pub fn bind_framebuffer(&mut self) {
-        todo!("bind framebuffer")
+    pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
+        self.context.backend.bind_framebuffer(bound_framebuffer)
     }
     pub fn update_uniform(&mut self) {
         todo!("update uniform")

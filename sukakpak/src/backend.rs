@@ -11,7 +11,7 @@ mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
 use depth_buffer::DepthBuffer;
-use framebuffer::Framebuffer;
+use framebuffer::ColorBuffer;
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{GraphicsPipeline, ShaderDescription};
 use present_image::PresentImage;
@@ -39,11 +39,12 @@ pub struct Backend {
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
     textures: Arena<TextureAllocation>,
+    framebuffer_arena: Arena<UserFramebuffer>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
     present_image: PresentImage,
     depth_buffer: DepthBuffer,
-    framebuffer: Framebuffer,
+    color_buffer: ColorBuffer,
     renderpass: RenderPass,
     graphics_pipeline: GraphicsPipeline,
     screen_dimensions: Vector2<u32>,
@@ -66,6 +67,20 @@ pub struct MeshID {
     pub verticies: VertexBufferID,
     pub texture: TextureID,
     pub indicies: IndexBufferID,
+}
+
+struct UserFramebuffer {
+    color_buffer: ColorBuffer,
+    depth_buffer: DepthBuffer,
+}
+#[derive(Clone, Copy)]
+pub struct FramebufferID {
+    buffer_index: ArenaIndex,
+}
+#[derive(Clone, Copy)]
+pub enum BoundFramebuffer {
+    ScreenFramebuffer,
+    UserFramebuffer(FramebufferID),
 }
 impl Backend {
     pub fn new(
@@ -105,15 +120,14 @@ impl Backend {
             &depth_buffer,
         );
 
-        let framebuffer = Framebuffer::new(
+        let color_buffer = ColorBuffer::new(
             &mut core,
             &mut present_image,
             &mut graphics_pipeline,
             &mut depth_buffer,
-            create_info.default_size.x,
-            create_info.default_size.y,
+            create_info.default_size,
         );
-        let renderpass = RenderPass::new(&mut core, &command_pool, &framebuffer);
+        let renderpass = RenderPass::new(&mut core, &command_pool, &color_buffer);
         let screen_dimensions = create_info.default_size;
         Ok(Self {
             window,
@@ -121,16 +135,18 @@ impl Backend {
             resource_pool,
             command_pool,
             present_image,
-            framebuffer,
+            color_buffer,
             depth_buffer,
             renderpass,
             graphics_pipeline,
             screen_dimensions,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
+            framebuffer_arena: Arena::new(),
             textures: Arena::new(),
         })
     }
+
     pub fn allocate_verticies(
         &mut self,
         mesh: Vec<u8>,
@@ -166,6 +182,37 @@ impl Backend {
             )?),
         })
     }
+    pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
+        let depth_buffer = DepthBuffer::new(
+            &mut self.core,
+            &mut self.command_pool,
+            &mut self.resource_pool,
+            resolution,
+        )?;
+        let color_buffer = ColorBuffer::new(
+            &mut self.core,
+            &mut self.present_image,
+            &mut self.graphics_pipeline,
+            &depth_buffer,
+            resolution,
+        );
+        Ok(FramebufferID {
+            buffer_index: self.framebuffer_arena.insert(UserFramebuffer {
+                depth_buffer,
+                color_buffer,
+            }),
+        })
+    }
+    pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
+        let framebuffer = match framebuffer_id {
+            &BoundFramebuffer::ScreenFramebuffer => todo!(),
+            &BoundFramebuffer::UserFramebuffer(id) => {
+                self.framebuffer_arena.get(id.buffer_index).unwrap()
+            }
+        };
+
+        todo!()
+    }
     pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
         let render_mesh = RenderMesh {
             view_matrix,
@@ -180,7 +227,7 @@ impl Backend {
         self.renderpass.draw_mesh(
             &mut self.core,
             &self.graphics_pipeline,
-            &self.framebuffer,
+            &self.color_buffer,
             &[render_mesh.texture.descriptor_set],
             self.screen_dimensions,
             render_mesh,
@@ -188,13 +235,14 @@ impl Backend {
     }
     /// begins rendering of frame
     pub fn begin_render(&mut self) -> Result<()> {
-        self.renderpass.begin_renderpass(
-            &mut self.core,
-            &mut self.graphics_pipeline,
-            &mut self.framebuffer,
-            self.screen_dimensions,
-            ClearOp::ClearColor,
-        )
+        unsafe {
+            self.renderpass.begin_frame(
+                &mut self.core,
+                &mut self.graphics_pipeline,
+                &mut self.color_buffer,
+                self.screen_dimensions,
+            )
+        }
     }
     pub fn finish_render(&mut self) -> Result<()> {
         self.renderpass.submit_draw(&mut self.core)?;
@@ -247,19 +295,18 @@ impl Backend {
             );
             self.present_image.free(&mut self.core);
             self.present_image = PresentImage::new(&mut self.core);
-            self.framebuffer.free(&mut self.core);
+            self.color_buffer.free(&mut self.core);
 
-            self.framebuffer = Framebuffer::new(
+            self.color_buffer = ColorBuffer::new(
                 &mut self.core,
                 &mut self.present_image,
                 &mut self.graphics_pipeline,
                 &mut self.depth_buffer,
-                new_size.x,
-                new_size.y,
+                new_size,
             );
             // self.resource_pool.free(&mut self.core)?;
             self.renderpass =
-                RenderPass::new(&mut self.core, &self.command_pool, &self.framebuffer);
+                RenderPass::new(&mut self.core, &self.command_pool, &self.color_buffer);
             self.screen_dimensions = new_size;
             Ok(())
         }
@@ -283,7 +330,7 @@ impl Drop for Backend {
             }
             self.renderpass.free(&mut self.core);
             self.graphics_pipeline.free(&mut self.core);
-            self.framebuffer.free(&mut self.core);
+            self.color_buffer.free(&mut self.core);
             self.present_image.free(&mut self.core);
             self.depth_buffer
                 .free(&mut self.core, &mut self.resource_pool)
