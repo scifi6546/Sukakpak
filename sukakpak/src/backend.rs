@@ -39,12 +39,11 @@ pub struct Backend {
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
     textures: Arena<TextureAllocation>,
-    framebuffer_arena: Arena<UserFramebuffer>,
+    framebuffer_arena: Arena<Framebuffer>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
     present_image: PresentImage,
-    depth_buffer: DepthBuffer,
-    color_buffer: ColorBuffer,
+    main_framebuffer: Framebuffer,
     renderpass: RenderPass,
     graphics_pipeline: GraphicsPipeline,
     screen_dimensions: Vector2<u32>,
@@ -69,9 +68,15 @@ pub struct MeshID {
     pub indicies: IndexBufferID,
 }
 
-struct UserFramebuffer {
+struct Framebuffer {
     color_buffer: ColorBuffer,
     depth_buffer: DepthBuffer,
+}
+impl Framebuffer {
+    unsafe fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
+        self.color_buffer.free(core);
+        self.depth_buffer.free(core, resource_pool);
+    }
 }
 #[derive(Clone, Copy)]
 pub struct FramebufferID {
@@ -128,6 +133,10 @@ impl Backend {
             create_info.default_size,
         );
         let renderpass = RenderPass::new(&mut core, &command_pool, &color_buffer);
+        let main_framebuffer = Framebuffer {
+            color_buffer,
+            depth_buffer,
+        };
         let screen_dimensions = create_info.default_size;
         Ok(Self {
             window,
@@ -135,8 +144,7 @@ impl Backend {
             resource_pool,
             command_pool,
             present_image,
-            color_buffer,
-            depth_buffer,
+            main_framebuffer,
             renderpass,
             graphics_pipeline,
             screen_dimensions,
@@ -197,7 +205,7 @@ impl Backend {
             resolution,
         );
         Ok(FramebufferID {
-            buffer_index: self.framebuffer_arena.insert(UserFramebuffer {
+            buffer_index: self.framebuffer_arena.insert(Framebuffer {
                 depth_buffer,
                 color_buffer,
             }),
@@ -227,7 +235,7 @@ impl Backend {
         self.renderpass.draw_mesh(
             &mut self.core,
             &self.graphics_pipeline,
-            &self.color_buffer,
+            &self.main_framebuffer.color_buffer,
             &[render_mesh.texture.descriptor_set],
             self.screen_dimensions,
             render_mesh,
@@ -239,7 +247,7 @@ impl Backend {
             self.renderpass.begin_frame(
                 &mut self.core,
                 &mut self.graphics_pipeline,
-                &mut self.color_buffer,
+                &mut self.main_framebuffer.color_buffer,
                 self.screen_dimensions,
             )
         }
@@ -270,14 +278,16 @@ impl Backend {
         } else {
             self.renderpass.wait_idle(&mut self.core);
             self.core.update_swapchain_resolution(new_size)?;
-            self.depth_buffer
+            self.main_framebuffer
+                .depth_buffer
                 .free(&mut self.core, &mut self.resource_pool)?;
-            self.depth_buffer = DepthBuffer::new(
+            let mut depth_buffer = DepthBuffer::new(
                 &mut self.core,
                 &mut self.command_pool,
                 &mut self.resource_pool,
                 new_size,
             )?;
+
             self.graphics_pipeline.free(&mut self.core);
             self.graphics_pipeline = GraphicsPipeline::new(
                 &mut self.core,
@@ -291,22 +301,29 @@ impl Backend {
                     .collect(),
                 new_size.x,
                 new_size.y,
-                &self.depth_buffer,
+                &depth_buffer,
             );
             self.present_image.free(&mut self.core);
             self.present_image = PresentImage::new(&mut self.core);
-            self.color_buffer.free(&mut self.core);
+            self.main_framebuffer.color_buffer.free(&mut self.core);
 
-            self.color_buffer = ColorBuffer::new(
+            let color_buffer = ColorBuffer::new(
                 &mut self.core,
                 &mut self.present_image,
                 &mut self.graphics_pipeline,
-                &mut self.depth_buffer,
+                &mut depth_buffer,
                 new_size,
             );
+            self.main_framebuffer = Framebuffer {
+                depth_buffer,
+                color_buffer,
+            };
             // self.resource_pool.free(&mut self.core)?;
-            self.renderpass =
-                RenderPass::new(&mut self.core, &self.command_pool, &self.color_buffer);
+            self.renderpass = RenderPass::new(
+                &mut self.core,
+                &self.command_pool,
+                &self.main_framebuffer.color_buffer,
+            );
             self.screen_dimensions = new_size;
             Ok(())
         }
@@ -330,11 +347,9 @@ impl Drop for Backend {
             }
             self.renderpass.free(&mut self.core);
             self.graphics_pipeline.free(&mut self.core);
-            self.color_buffer.free(&mut self.core);
+            self.main_framebuffer
+                .free(&mut self.core, &mut self.resource_pool);
             self.present_image.free(&mut self.core);
-            self.depth_buffer
-                .free(&mut self.core, &mut self.resource_pool)
-                .expect("failed to free");
             self.command_pool.free(&mut self.core);
             self.resource_pool
                 .free(&mut self.core)
