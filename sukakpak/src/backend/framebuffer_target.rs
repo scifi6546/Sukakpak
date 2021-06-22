@@ -1,18 +1,18 @@
-use super::{Core, DepthBuffer, GraphicsPipeline, PresentImage};
+use super::{ColorBuffer, Core, DepthBuffer, GraphicsPipeline};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Vector2;
-pub struct ColorBuffer {
+pub struct FrameBufferTarget {
     pub framebuffers: Vec<vk::Framebuffer>,
 }
-impl ColorBuffer {
+impl FrameBufferTarget {
     pub fn new(
         core: &mut Core,
-        present_images: &mut PresentImage,
+        color_buffer: &mut ColorBuffer,
         pipeline: &mut GraphicsPipeline,
         depth_buffer: &DepthBuffer,
         resolution: Vector2<u32>,
     ) -> Self {
-        let framebuffers: Vec<vk::Framebuffer> = present_images
+        let framebuffers: Vec<vk::Framebuffer> = color_buffer
             .present_image_views
             .iter()
             .map(|image_view| {

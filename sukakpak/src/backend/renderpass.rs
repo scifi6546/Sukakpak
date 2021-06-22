@@ -1,6 +1,6 @@
 use super::{
-    ColorBuffer, CommandPool, Core, GraphicsPipeline, IndexBufferAllocation, TextureAllocation,
-    UniformAllocation, VertexBufferAllocation,
+    CommandPool, Core, FrameBufferTarget, GraphicsPipeline, IndexBufferAllocation,
+    TextureAllocation, UniformAllocation, VertexBufferAllocation,
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
@@ -36,9 +36,13 @@ pub struct RenderPass {
     image_index: Option<u32>,
 }
 impl RenderPass {
-    pub fn new(core: &mut Core, command_pool: &CommandPool, color_buffers: &ColorBuffer) -> Self {
+    pub fn new(
+        core: &mut Core,
+        command_pool: &CommandPool,
+        framebuffer_target: &FrameBufferTarget,
+    ) -> Self {
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(color_buffers.framebuffers.len() as u32)
+            .command_buffer_count(framebuffer_target.framebuffers.len() as u32)
             .command_pool(command_pool.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY);
         let command_buffers = unsafe {
@@ -79,7 +83,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        color_buffer: &ColorBuffer,
+        color_buffer: &FrameBufferTarget,
 
         descriptor_sets: &[vk::DescriptorSet],
         screen_dimensions: Vector2<u32>,
@@ -153,7 +157,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        color_buffer: &ColorBuffer,
+        framebuffer_target: &FrameBufferTarget,
         dimensions: Vector2<u32>,
     ) -> Result<()> {
         self.acquire_next_image(core)?;
@@ -167,7 +171,7 @@ impl RenderPass {
         self.begin_renderpass(
             core,
             graphics_pipeline,
-            color_buffer,
+            framebuffer_target,
             dimensions,
             ClearOp::ClearColor,
         )
@@ -177,7 +181,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        color_buffer: &ColorBuffer,
+        framebuffer_target: &FrameBufferTarget,
         dimensions: Vector2<u32>,
         clear_op: ClearOp,
     ) -> Result<()> {
@@ -190,7 +194,7 @@ impl RenderPass {
                     ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
                     ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
                 })
-                .framebuffer(color_buffer.framebuffers[image_index as usize])
+                .framebuffer(framebuffer_target.framebuffers[image_index as usize])
                 .render_area(vk::Rect2D {
                     extent: vk::Extent2D {
                         width: dimensions.x,
@@ -297,7 +301,7 @@ impl RenderPass {
     pub fn wait_idle(&mut self, core: &mut Core) {
         unsafe {
             core.device
-                .wait_for_fences(&self.fences, true, 10000000)
+                .wait_for_fences(&self.fences, true, u64::MAX)
                 .expect("failed to wait for fence");
             core.device.device_wait_idle().expect("failed to wait idle");
         }

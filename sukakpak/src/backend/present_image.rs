@@ -1,11 +1,11 @@
 use super::Core;
 use ash::version::DeviceV1_0;
 use ash::vk;
-pub struct PresentImage {
+pub struct ColorBuffer {
     pub present_images: Vec<vk::Image>,
     pub present_image_views: Vec<vk::ImageView>,
 }
-impl PresentImage {
+impl ColorBuffer {
     /// Gets Number of swapchain images in present images.Backend
     #[allow(dead_code)]
     pub fn num_swapchain_images(&self) -> usize {

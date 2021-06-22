@@ -1,4 +1,4 @@
-use super::{CommandPool, Core, PresentImage, ShaderDescription, VertexLayout};
+use super::{ColorBuffer, CommandPool, Core, ShaderDescription, VertexLayout};
 use anyhow::Result;
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
@@ -240,7 +240,7 @@ impl ResourcePool {
     pub fn new_uniform(
         &mut self,
         core: &mut Core,
-        present_images: &PresentImage,
+        color_buffer: &ColorBuffer,
         data: Vec<u8>,
     ) -> Result<UniformAllocation> {
         let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
@@ -253,20 +253,20 @@ impl ResourcePool {
             let t = core
                 .device
                 .create_descriptor_set_layout(&layout_info, None)?;
-            (0..present_images.num_swapchain_images())
+            (0..color_buffer.num_swapchain_images())
                 .map(|_| t.clone())
                 .collect::<Vec<_>>()
         };
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
-            .descriptor_count(present_images.num_swapchain_images() as u32)
+            .descriptor_count(color_buffer.num_swapchain_images() as u32)
             .ty(vk::DescriptorType::UNIFORM_BUFFER)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(present_images.num_swapchain_images() as u32)
+            .max_sets(color_buffer.num_swapchain_images() as u32)
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool =
             unsafe { core.device.create_descriptor_pool(&pool_create_info, None) }?;
-        let mut buffer_memory = (0..present_images.num_swapchain_images())
+        let mut buffer_memory = (0..color_buffer.num_swapchain_images())
             .map(|_| {
                 self.create_buffer(
                     core,
