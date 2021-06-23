@@ -422,6 +422,23 @@ impl ResourcePool {
             );
         let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }
             .expect("failed to create sampler");
+        let descriptor_set = self.get_texture_descriptor(core, image_view, sampler)?;
+        Ok(TextureAllocation {
+            buffer,
+            descriptor_set,
+            image,
+            image_allocation,
+            image_view,
+            sampler,
+            transfer_allocation,
+        })
+    }
+    pub fn get_texture_descriptor(
+        &mut self,
+        core: &mut Core,
+        image_view: vk::ImageView,
+        sampler: vk::Sampler,
+    ) -> Result<vk::DescriptorSet> {
         let descriptor_set = unsafe {
             self.texture_descriptor_pool
                 .allocate_descriptor_set(core, &DescriptorName::MeshTexture)
@@ -445,15 +462,7 @@ impl ResourcePool {
         unsafe {
             core.device.update_descriptor_sets(&descriptor_write, &[]);
         }
-        Ok(TextureAllocation {
-            buffer,
-            descriptor_set,
-            image,
-            image_allocation,
-            image_view,
-            sampler,
-            transfer_allocation,
-        })
+        Ok(descriptor_set)
     }
     /// Allocates descriptor sets. pool provided by descriptor pool
     pub fn get_descriptor_set_layouts(&self) -> Vec<vk::DescriptorSetLayout> {

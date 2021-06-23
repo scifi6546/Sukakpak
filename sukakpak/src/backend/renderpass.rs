@@ -1,5 +1,5 @@
 use super::{
-    CommandPool, Core, FrameBufferTarget, GraphicsPipeline, IndexBufferAllocation,
+    CommandPool, Core, FrameBufferTarget, Framebuffer, GraphicsPipeline, IndexBufferAllocation,
     TextureAllocation, UniformAllocation, VertexBufferAllocation,
 };
 use anyhow::Result;
@@ -17,7 +17,6 @@ pub struct RenderMesh<'a> {
     pub view_matrix: Matrix4<f32>,
     pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
-    pub texture: &'a TextureAllocation,
 }
 
 #[derive(Clone, Copy)]
@@ -83,7 +82,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        color_buffer: &FrameBufferTarget,
+        framebuffer: &Framebuffer,
 
         descriptor_sets: &[vk::DescriptorSet],
         screen_dimensions: Vector2<u32>,
@@ -137,14 +136,14 @@ impl RenderPass {
             self.begin_renderpass(
                 core,
                 graphics_pipeline,
-                color_buffer,
+                framebuffer,
                 screen_dimensions,
                 ClearOp::DoNotClear,
             )?;
             self.draw_mesh(
                 core,
                 graphics_pipeline,
-                color_buffer,
+                framebuffer,
                 descriptor_sets,
                 screen_dimensions,
                 mesh,
@@ -157,7 +156,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer_target: &FrameBufferTarget,
+        framebuffer: &Framebuffer,
         dimensions: Vector2<u32>,
     ) -> Result<()> {
         self.acquire_next_image(core)?;
@@ -171,7 +170,7 @@ impl RenderPass {
         self.begin_renderpass(
             core,
             graphics_pipeline,
-            framebuffer_target,
+            framebuffer,
             dimensions,
             ClearOp::ClearColor,
         )
@@ -181,7 +180,7 @@ impl RenderPass {
         &mut self,
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
-        framebuffer_target: &FrameBufferTarget,
+        framebuffer: &Framebuffer,
         dimensions: Vector2<u32>,
         clear_op: ClearOp,
     ) -> Result<()> {
@@ -194,11 +193,11 @@ impl RenderPass {
                     ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
                     ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
                 })
-                .framebuffer(framebuffer_target.framebuffers[image_index as usize])
+                .framebuffer(framebuffer.framebuffer_target.framebuffers[image_index as usize])
                 .render_area(vk::Rect2D {
                     extent: vk::Extent2D {
-                        width: dimensions.x,
-                        height: dimensions.y,
+                        width: framebuffer.resolution.x,
+                        height: framebuffer.resolution.y,
                     },
                     offset: vk::Offset2D { x: 0, y: 0 },
                 })
@@ -229,6 +228,15 @@ impl RenderPass {
                 },
             );
             Ok(())
+        }
+    }
+    pub unsafe fn end_renderpass(&mut self, core: &mut Core) -> Result<()> {
+        if let Some(image_index) = self.image_index {
+            core.device
+                .cmd_end_render_pass(self.command_buffers[image_index as usize]);
+            Ok(())
+        } else {
+            panic!("renderpass should be started first")
         }
     }
     pub fn submit_draw(&mut self, core: &mut Core) -> Result<()> {
@@ -297,6 +305,14 @@ impl RenderPass {
         }?;
         self.image_index = Some(image_index);
         Ok(())
+    }
+    pub fn get_image_index(&mut self, core: &mut Core) -> Result<usize> {
+        if let Some(idx) = self.image_index {
+            Ok(idx as usize)
+        } else {
+            self.acquire_next_image(core)?;
+            self.get_image_index(core)
+        }
     }
     pub fn wait_idle(&mut self, core: &mut Core) {
         unsafe {

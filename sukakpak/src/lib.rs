@@ -2,7 +2,8 @@ use anyhow::Result;
 mod backend;
 use backend::{Backend, VertexLayout};
 pub use backend::{
-    BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, TextureID as Texture,
+    BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, MeshTexture,
+    TextureID as Texture,
 };
 use image::RgbaImage;
 mod mesh;
@@ -88,7 +89,7 @@ impl<'a> ContextChild<'a> {
                 .backend
                 .allocate_indicies(mesh.indices)
                 .expect("failed to allocate indicies"),
-            texture,
+            texture: MeshTexture::RegularTexture(texture),
         }
     }
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {

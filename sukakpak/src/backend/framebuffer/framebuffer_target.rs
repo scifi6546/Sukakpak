@@ -7,8 +7,8 @@ pub struct FrameBufferTarget {
 impl FrameBufferTarget {
     pub fn new(
         core: &mut Core,
-        color_buffer: &mut ColorBuffer,
         pipeline: &mut GraphicsPipeline,
+        color_buffer: &ColorBuffer,
         depth_buffer: &DepthBuffer,
         resolution: Vector2<u32>,
     ) -> Self {

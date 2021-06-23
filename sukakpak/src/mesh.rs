@@ -26,6 +26,30 @@ impl Mesh {
         }
         .into()
     }
+    pub fn new_plane() -> Self {
+        EasyMesh {
+            vertices: vec![
+                Vertex {
+                    position: Vector3::new(0.0, 0.0, 0.0),
+                    uv: Vector2::new(0.0, 0.0),
+                },
+                Vertex {
+                    position: Vector3::new(1.0, 0.0, 0.0),
+                    uv: Vector2::new(1.0, 0.0),
+                },
+                Vertex {
+                    position: Vector3::new(1.0, 1.0, 0.0),
+                    uv: Vector2::new(1.0, 1.0),
+                },
+                Vertex {
+                    position: Vector3::new(0.0, 1.0, 0.0),
+                    uv: Vector2::new(0.0, 1.0),
+                },
+            ],
+            indices: vec![1, 2, 0, 2, 3, 0],
+        }
+        .into()
+    }
     pub fn new_cube() -> Self {
         EasyMesh {
             vertices: vec![

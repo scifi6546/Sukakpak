@@ -41,6 +41,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     if DO_BACKTRACE {
         println!("{:?}", backtrace::Backtrace::new());
     }
+    panic!();
     vk::FALSE
 }
 pub struct Core {

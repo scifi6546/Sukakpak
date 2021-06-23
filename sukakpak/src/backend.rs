@@ -3,18 +3,16 @@ use ash::vk;
 use image::RgbaImage;
 use nalgebra::{Matrix4, Vector2};
 mod command_pool;
-mod depth_buffer;
-mod framebuffer_target;
-mod present_image;
+mod framebuffer;
 mod render_core;
 mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
-use depth_buffer::DepthBuffer;
-use framebuffer_target::FrameBufferTarget;
+use framebuffer::{
+    AttachmentType, ColorBuffer, DepthBuffer, FrameBufferTarget, Framebuffer, TextureAttachment,
+};
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{GraphicsPipeline, ShaderDescription};
-use present_image::ColorBuffer;
 use render_core::Core;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
@@ -42,7 +40,6 @@ pub struct Backend {
     framebuffer_arena: Arena<Framebuffer>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
-    color_buffer: ColorBuffer,
     main_framebuffer: Framebuffer,
     renderpass: RenderPass,
     graphics_pipeline: GraphicsPipeline,
@@ -62,20 +59,22 @@ pub struct TextureID {
     buffer_index: ArenaIndex,
 }
 #[derive(Clone, Copy)]
+pub enum MeshTexture {
+    RegularTexture(TextureID),
+    Framebuffer(FramebufferID),
+}
+#[derive(Clone, Copy)]
 pub struct MeshID {
     pub verticies: VertexBufferID,
-    pub texture: TextureID,
+    pub texture: MeshTexture,
     pub indicies: IndexBufferID,
 }
-
-struct Framebuffer {
-    framebuffer_target: FrameBufferTarget,
-    depth_buffer: DepthBuffer,
-}
-impl Framebuffer {
-    unsafe fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
-        self.framebuffer_target.free(core);
-        self.depth_buffer.free(core, resource_pool);
+impl MeshID {
+    pub fn bind_texture(&mut self, tex: TextureID) {
+        self.texture = MeshTexture::RegularTexture(tex);
+    }
+    pub fn bind_framebuffer(&mut self, fb: FramebufferID) {
+        self.texture = MeshTexture::Framebuffer(fb);
     }
 }
 #[derive(Clone, Copy)]
@@ -102,14 +101,14 @@ impl Backend {
         let mut core = Core::new(&window, &create_info)?;
         let mut resource_pool = ResourcePool::new(&core, &pipeline::PUSH_SHADER)?;
         let mut command_pool = CommandPool::new(&mut core);
-
-        let mut color_buffer = ColorBuffer::new(&mut core);
-        let mut depth_buffer = DepthBuffer::new(
+        let texture_attachment = TextureAttachment::new(
             &mut core,
             &mut command_pool,
             &mut resource_pool,
+            AttachmentType::Swapchain,
             create_info.default_size,
         )?;
+
         let mut graphics_pipeline = GraphicsPipeline::new(
             &mut core,
             &pipeline::PUSH_SHADER,
@@ -122,28 +121,28 @@ impl Backend {
                 .collect(),
             create_info.default_size.x,
             create_info.default_size.y,
-            &depth_buffer,
+            &texture_attachment.depth_buffer,
         );
 
-        let framebuffer_target = FrameBufferTarget::new(
+        let main_framebuffer = Framebuffer::new(
             &mut core,
-            &mut color_buffer,
             &mut graphics_pipeline,
-            &mut depth_buffer,
+            &mut command_pool,
+            &mut resource_pool,
+            texture_attachment,
             create_info.default_size,
+        )?;
+        let renderpass = RenderPass::new(
+            &mut core,
+            &command_pool,
+            &main_framebuffer.framebuffer_target,
         );
-        let renderpass = RenderPass::new(&mut core, &command_pool, &framebuffer_target);
-        let main_framebuffer = Framebuffer {
-            framebuffer_target,
-            depth_buffer,
-        };
         let screen_dimensions = create_info.default_size;
         Ok(Self {
             window,
             core,
             resource_pool,
             command_pool,
-            color_buffer,
             main_framebuffer,
             renderpass,
             graphics_pipeline,
@@ -191,37 +190,57 @@ impl Backend {
         })
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
-        let depth_buffer = DepthBuffer::new(
+        let texture_attachment = TextureAttachment::new(
             &mut self.core,
             &mut self.command_pool,
             &mut self.resource_pool,
+            AttachmentType::UserFramebuffer,
             resolution,
         )?;
-        let framebuffer_target = FrameBufferTarget::new(
-            &mut self.core,
-            &mut self.color_buffer,
-            &mut self.graphics_pipeline,
-            &depth_buffer,
-            resolution,
-        );
         Ok(FramebufferID {
-            buffer_index: self.framebuffer_arena.insert(Framebuffer {
-                depth_buffer,
-                framebuffer_target,
-            }),
+            buffer_index: self.framebuffer_arena.insert(Framebuffer::new(
+                &mut self.core,
+                &mut self.graphics_pipeline,
+                &mut self.command_pool,
+                &mut self.resource_pool,
+                texture_attachment,
+                resolution,
+            )?),
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
         let framebuffer = match framebuffer_id {
-            &BoundFramebuffer::ScreenFramebuffer => todo!(),
+            &BoundFramebuffer::ScreenFramebuffer => &self.main_framebuffer,
             &BoundFramebuffer::UserFramebuffer(id) => {
                 self.framebuffer_arena.get(id.buffer_index).unwrap()
             }
         };
-
-        todo!()
+        unsafe {
+            self.renderpass.end_renderpass(&mut self.core)?;
+            self.renderpass.begin_renderpass(
+                &mut self.core,
+                &mut self.graphics_pipeline,
+                &framebuffer,
+                self.screen_dimensions,
+                ClearOp::ClearColor,
+            )?;
+        }
+        Ok(())
     }
     pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
+        let texture_descriptor_set = match mesh.texture {
+            MeshTexture::RegularTexture(texture) => {
+                self.textures
+                    .get(texture.buffer_index)
+                    .unwrap()
+                    .descriptor_set
+            }
+            MeshTexture::Framebuffer(fb) => self
+                .framebuffer_arena
+                .get(fb.buffer_index)
+                .unwrap()
+                .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?),
+        };
         let render_mesh = RenderMesh {
             view_matrix,
             vertex_buffer: self
@@ -229,14 +248,13 @@ impl Backend {
                 .get(mesh.verticies.buffer_index)
                 .unwrap(),
             index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
-            texture: self.textures.get(mesh.texture.buffer_index).unwrap(),
         };
         //todo handle uniform descriptors
         self.renderpass.draw_mesh(
             &mut self.core,
             &self.graphics_pipeline,
-            &self.main_framebuffer.framebuffer_target,
-            &[render_mesh.texture.descriptor_set],
+            &self.main_framebuffer,
+            &[texture_descriptor_set],
             self.screen_dimensions,
             render_mesh,
         )
@@ -247,7 +265,7 @@ impl Backend {
             self.renderpass.begin_frame(
                 &mut self.core,
                 &mut self.graphics_pipeline,
-                &mut self.main_framebuffer.framebuffer_target,
+                &mut self.main_framebuffer,
                 self.screen_dimensions,
             )
         }
@@ -278,14 +296,13 @@ impl Backend {
         } else {
             self.renderpass.wait_idle(&mut self.core);
             self.core.update_swapchain_resolution(new_size)?;
-            unsafe {
-                self.main_framebuffer
-                    .free(&mut self.core, &mut self.resource_pool);
-            }
-            let mut depth_buffer = DepthBuffer::new(
+            self.main_framebuffer
+                .free(&mut self.core, &mut self.resource_pool)?;
+            let texture_attachment = TextureAttachment::new(
                 &mut self.core,
                 &mut self.command_pool,
                 &mut self.resource_pool,
+                AttachmentType::Swapchain,
                 new_size,
             )?;
 
@@ -302,22 +319,17 @@ impl Backend {
                     .collect(),
                 new_size.x,
                 new_size.y,
-                &depth_buffer,
+                &texture_attachment.depth_buffer,
             );
-            self.color_buffer.free(&mut self.core);
-            self.color_buffer = ColorBuffer::new(&mut self.core);
 
-            let framebuffer_target = FrameBufferTarget::new(
+            self.main_framebuffer = Framebuffer::new(
                 &mut self.core,
-                &mut self.color_buffer,
                 &mut self.graphics_pipeline,
-                &mut depth_buffer,
+                &mut self.command_pool,
+                &mut self.resource_pool,
+                texture_attachment,
                 new_size,
-            );
-            self.main_framebuffer = Framebuffer {
-                depth_buffer,
-                framebuffer_target,
-            };
+            )?;
             self.renderpass.free(&mut self.core);
             self.renderpass = RenderPass::new(
                 &mut self.core,
@@ -348,8 +360,8 @@ impl Drop for Backend {
             self.renderpass.free(&mut self.core);
             self.graphics_pipeline.free(&mut self.core);
             self.main_framebuffer
-                .free(&mut self.core, &mut self.resource_pool);
-            self.color_buffer.free(&mut self.core);
+                .free(&mut self.core, &mut self.resource_pool)
+                .expect("failed to drop framebuffer");
             self.command_pool.free(&mut self.core);
             self.resource_pool
                 .free(&mut self.core)
