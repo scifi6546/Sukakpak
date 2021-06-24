@@ -1,6 +1,6 @@
 use super::{CommandPool, Core, ResourcePool, TextureAllocation};
 use anyhow::Result;
-use ash::version::{DeviceV1_0, InstanceV1_0};
+use ash::version::DeviceV1_0;
 use ash::vk;
 use gpu_allocator::SubAllocation;
 use nalgebra::Vector2;

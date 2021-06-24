@@ -128,8 +128,6 @@ impl Backend {
         let main_framebuffer = Framebuffer::new(
             &mut core,
             &mut graphics_pipeline,
-            &mut command_pool,
-            &mut resource_pool,
             texture_attachment,
             create_info.default_size,
         )?;
@@ -191,26 +189,13 @@ impl Backend {
         })
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
-        let texture_attachment = TextureAttachment::new(
-            &mut self.core,
-            &mut self.command_pool,
-            &mut self.resource_pool,
-            AttachmentType::UserFramebuffer,
-            resolution,
-        )?;
-        let framebuffer = Framebuffer::new(
-            &mut self.core,
-            &mut self.graphics_pipeline,
-            &mut self.command_pool,
-            &mut self.resource_pool,
-            texture_attachment,
-            resolution,
-        )?;
         Ok(FramebufferID {
             buffer_index: self.framebuffer_arena.insert(AttachableFramebuffer::new(
                 &mut self.core,
+                &mut self.command_pool,
+                &mut self.graphics_pipeline,
                 &mut self.resource_pool,
-                framebuffer,
+                resolution,
             )?),
         })
     }
@@ -333,8 +318,6 @@ impl Backend {
             self.main_framebuffer = Framebuffer::new(
                 &mut self.core,
                 &mut self.graphics_pipeline,
-                &mut self.command_pool,
-                &mut self.resource_pool,
                 texture_attachment,
                 new_size,
             )?;

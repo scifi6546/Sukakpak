@@ -53,8 +53,6 @@ impl Framebuffer {
     pub fn new(
         core: &mut Core,
         pipeline: &mut GraphicsPipeline,
-        command_pool: &mut CommandPool,
-        resource_pool: &mut ResourcePool,
         texture_attachment: TextureAttachment,
         resolution: Vector2<u32>,
     ) -> Result<Self> {
@@ -85,9 +83,20 @@ pub struct AttachableFramebuffer {
 impl AttachableFramebuffer {
     pub fn new(
         core: &mut Core,
+        command_pool: &mut CommandPool,
+        graphics_pipeline: &mut GraphicsPipeline,
         resource_pool: &mut ResourcePool,
-        framebuffer: Framebuffer,
+        resolution: Vector2<u32>,
     ) -> Result<Self> {
+        let texture_attachment = TextureAttachment::new(
+            core,
+            command_pool,
+            resource_pool,
+            AttachmentType::UserFramebuffer,
+            resolution,
+        )?;
+        let framebuffer =
+            Framebuffer::new(core, graphics_pipeline, texture_attachment, resolution)?;
         let sampler_info = vk::SamplerCreateInfo::builder()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)

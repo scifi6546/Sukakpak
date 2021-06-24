@@ -619,7 +619,7 @@ impl TextureAllocation {
             )
         } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::GENERAL
         {
-            barrier.src_access_mask = vk::AccessFlags::SHADER_WRITE;
+            barrier.src_access_mask = vk::AccessFlags::empty();
             barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
             (
                 vk::PipelineStageFlags::FRAGMENT_SHADER,
