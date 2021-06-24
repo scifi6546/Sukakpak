@@ -422,7 +422,12 @@ impl ResourcePool {
             );
         let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }
             .expect("failed to create sampler");
-        let descriptor_set = self.get_texture_descriptor(core, image_view, sampler)?;
+        let descriptor_set = self.get_texture_descriptor(
+            core,
+            image_view,
+            sampler,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        )?;
         Ok(TextureAllocation {
             buffer,
             descriptor_set,
@@ -438,13 +443,14 @@ impl ResourcePool {
         core: &mut Core,
         image_view: vk::ImageView,
         sampler: vk::Sampler,
+        layout: vk::ImageLayout,
     ) -> Result<vk::DescriptorSet> {
         let descriptor_set = unsafe {
             self.texture_descriptor_pool
                 .allocate_descriptor_set(core, &DescriptorName::MeshTexture)
         }?[0];
         let descriptor_image_info = [*vk::DescriptorImageInfo::builder()
-            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image_layout(layout)
             .image_view(image_view)
             .sampler(sampler)];
         let descriptor_write = [*vk::WriteDescriptorSet::builder()

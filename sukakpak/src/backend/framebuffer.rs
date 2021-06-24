@@ -119,7 +119,7 @@ impl AttachableFramebuffer {
             .iter()
             .map(|view| {
                 resource_pool
-                    .get_texture_descriptor(core, *view, sampler)
+                    .get_texture_descriptor(core, *view, sampler, vk::ImageLayout::GENERAL)
                     .expect("failed to get descriptor")
             })
             .collect();
