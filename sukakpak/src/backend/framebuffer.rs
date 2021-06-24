@@ -25,7 +25,13 @@ impl TextureAttachment {
         attachment_type: AttachmentType,
         resolution: Vector2<u32>,
     ) -> Result<Self> {
-        let color_buffer = ColorBuffer::new(core, resource_pool, attachment_type)?;
+        let color_buffer = ColorBuffer::new(
+            core,
+            command_pool,
+            resource_pool,
+            attachment_type,
+            Some(resolution),
+        )?;
         let depth_buffer = DepthBuffer::new(core, command_pool, resource_pool, resolution)?;
         Ok(Self {
             color_buffer,
@@ -64,9 +70,6 @@ impl Framebuffer {
             resolution,
             framebuffer_target,
         })
-    }
-    pub fn get_descriptor_set(&self, image_index: usize) -> vk::DescriptorSet {
-        self.texture_attachment.color_buffer.descriptor_sets[image_index]
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.framebuffer_target.free(core);
@@ -125,5 +128,11 @@ impl AttachableFramebuffer {
             sampler,
             descriptor_sets,
         })
+    }
+    pub fn get_framebuffer(&self) -> &Framebuffer {
+        &self.framebuffer
+    }
+    pub fn get_descriptor_set(&self, image_index: usize) -> vk::DescriptorSet {
+        self.descriptor_sets[image_index]
     }
 }

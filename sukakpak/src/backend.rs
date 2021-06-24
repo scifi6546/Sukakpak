@@ -9,7 +9,8 @@ mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
 use framebuffer::{
-    AttachmentType, ColorBuffer, DepthBuffer, FrameBufferTarget, Framebuffer, TextureAttachment,
+    AttachableFramebuffer, AttachmentType, ColorBuffer, DepthBuffer, FrameBufferTarget,
+    Framebuffer, TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{GraphicsPipeline, ShaderDescription};
@@ -37,7 +38,7 @@ pub struct Backend {
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
     textures: Arena<TextureAllocation>,
-    framebuffer_arena: Arena<Framebuffer>,
+    framebuffer_arena: Arena<AttachableFramebuffer>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
     main_framebuffer: Framebuffer,
@@ -197,23 +198,30 @@ impl Backend {
             AttachmentType::UserFramebuffer,
             resolution,
         )?;
+        let framebuffer = Framebuffer::new(
+            &mut self.core,
+            &mut self.graphics_pipeline,
+            &mut self.command_pool,
+            &mut self.resource_pool,
+            texture_attachment,
+            resolution,
+        )?;
         Ok(FramebufferID {
-            buffer_index: self.framebuffer_arena.insert(Framebuffer::new(
+            buffer_index: self.framebuffer_arena.insert(AttachableFramebuffer::new(
                 &mut self.core,
-                &mut self.graphics_pipeline,
-                &mut self.command_pool,
                 &mut self.resource_pool,
-                texture_attachment,
-                resolution,
+                framebuffer,
             )?),
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
         let framebuffer = match framebuffer_id {
             &BoundFramebuffer::ScreenFramebuffer => &self.main_framebuffer,
-            &BoundFramebuffer::UserFramebuffer(id) => {
-                self.framebuffer_arena.get(id.buffer_index).unwrap()
-            }
+            &BoundFramebuffer::UserFramebuffer(id) => self
+                .framebuffer_arena
+                .get(id.buffer_index)
+                .unwrap()
+                .get_framebuffer(),
         };
         unsafe {
             self.renderpass.end_renderpass(&mut self.core)?;

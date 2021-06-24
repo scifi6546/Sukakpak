@@ -42,7 +42,7 @@ impl sukakpak::Renderable for CloneCraft {
         let mut green_cube = triangle.clone();
         green_cube.bind_texture(green_texture);
         let mut plane = context.build_meshes(MeshAsset::new_plane(), red_texture);
-        //plane.bind_framebuffer(framebuffer);
+        plane.bind_framebuffer(framebuffer);
         let camera_matrix = *na::Perspective3::new(1.0, 3.14 / 4.0, 1.0, 1000.0).as_matrix();
         Self {
             camera_matrix,
