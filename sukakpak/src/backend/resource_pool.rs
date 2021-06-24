@@ -611,6 +611,14 @@ impl TextureAllocation {
                 vk::PipelineStageFlags::TOP_OF_PIPE,
                 vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
             )
+        } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::GENERAL
+        {
+            barrier.src_access_mask = vk::AccessFlags::SHADER_WRITE;
+            barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
+            (
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+            )
         } else {
             panic!("unsupported layout transition")
         };

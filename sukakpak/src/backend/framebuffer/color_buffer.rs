@@ -54,7 +54,7 @@ impl ColorBuffer {
                             &image,
                             vk::ImageAspectFlags::COLOR,
                             vk::ImageLayout::UNDEFINED,
-                            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                            vk::ImageLayout::GENERAL,
                         );
                         (image, Some(suballoc))
                     })
