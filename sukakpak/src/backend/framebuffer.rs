@@ -40,7 +40,7 @@ impl TextureAttachment {
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.depth_buffer.free(core, resource_pool)?;
-        self.color_buffer.free(core);
+        self.color_buffer.free(core, resource_pool);
         Ok(())
     }
 }
@@ -69,6 +69,9 @@ impl Framebuffer {
             framebuffer_target,
         })
     }
+    pub fn num_swapchain_images(&self) -> usize {
+        self.texture_attachment.color_buffer.num_swapchain_images()
+    }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.framebuffer_target.free(core);
         self.texture_attachment.free(core, resource_pool)?;
@@ -81,6 +84,7 @@ pub struct AttachableFramebuffer {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
 }
 impl AttachableFramebuffer {
+    pub const IMAGE_LAYOUT: vk::ImageLayout = vk::ImageLayout::GENERAL;
     pub fn new(
         core: &mut Core,
         command_pool: &mut CommandPool,
@@ -128,7 +132,7 @@ impl AttachableFramebuffer {
             .iter()
             .map(|view| {
                 resource_pool
-                    .get_texture_descriptor(core, *view, sampler, vk::ImageLayout::GENERAL)
+                    .get_texture_descriptor(core, *view, sampler, Self::IMAGE_LAYOUT)
                     .expect("failed to get descriptor")
             })
             .collect();
@@ -143,5 +147,12 @@ impl AttachableFramebuffer {
     }
     pub fn get_descriptor_set(&self, image_index: usize) -> vk::DescriptorSet {
         self.descriptor_sets[image_index]
+    }
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        unsafe {
+            core.device.destroy_sampler(self.sampler, None);
+            self.framebuffer.free(core, resource_pool)?;
+        }
+        Ok(())
     }
 }

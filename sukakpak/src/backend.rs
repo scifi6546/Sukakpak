@@ -13,8 +13,9 @@ use framebuffer::{
     Framebuffer, TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{GraphicsPipeline, ShaderDescription};
+use pipeline::{GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
+use std::collections::HashMap;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
@@ -32,6 +33,7 @@ pub enum VertexLayout {
     XYZ_F32,    //xyz vector with floating point components
     XYZ_UV_F32, //xyz with uv
 }
+const MAIN_SHADER: ShaderDescription = pipeline::PUSH_SHADER;
 pub struct Backend {
     #[allow(dead_code)]
     window: winit::window::Window,
@@ -43,8 +45,11 @@ pub struct Backend {
     resource_pool: ResourcePool,
     main_framebuffer: Framebuffer,
     renderpass: RenderPass,
-    graphics_pipeline: GraphicsPipeline,
+    uniforms: HashMap<String, UniformAllocation>,
+    main_graphics_pipeline: GraphicsPipeline,
+    framebuffer_pipeline: GraphicsPipeline,
     screen_dimensions: Vector2<u32>,
+
     core: Core,
 }
 #[derive(Clone, Copy)]
@@ -110,12 +115,13 @@ impl Backend {
             create_info.default_size,
         )?;
 
-        let mut graphics_pipeline = GraphicsPipeline::new(
+        let format = core.surface_format.format;
+        let mut main_graphics_pipeline = GraphicsPipeline::new(
             &mut core,
-            &pipeline::PUSH_SHADER,
-            &pipeline::PUSH_SHADER.vertex_buffer_desc,
+            &MAIN_SHADER,
+            &MAIN_SHADER.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &pipeline::PUSH_SHADER
+            &MAIN_SHADER
                 .push_constants
                 .into_iter()
                 .map(|(k, v)| ((*k).to_string(), *v))
@@ -123,11 +129,30 @@ impl Backend {
             create_info.default_size.x,
             create_info.default_size.y,
             &texture_attachment.depth_buffer,
+            format,
+            PipelineType::Present,
+        );
+        let framebuffer_pipeline = GraphicsPipeline::new(
+            &mut core,
+            &MAIN_SHADER,
+            &MAIN_SHADER.vertex_buffer_desc,
+            &resource_pool.get_descriptor_set_layouts(),
+            &MAIN_SHADER
+                .push_constants
+                .into_iter()
+                .map(|(k, v)| ((*k).to_string(), *v))
+                .collect(),
+            create_info.default_size.x,
+            create_info.default_size.y,
+            &texture_attachment.depth_buffer,
+            //todo allow custom framebuffer formats
+            format,
+            PipelineType::OffScreen,
         );
 
         let main_framebuffer = Framebuffer::new(
             &mut core,
-            &mut graphics_pipeline,
+            &mut main_graphics_pipeline,
             texture_attachment,
             create_info.default_size,
         )?;
@@ -137,6 +162,25 @@ impl Backend {
             &main_framebuffer.framebuffer_target,
         );
         let screen_dimensions = create_info.default_size;
+        let uniforms = MAIN_SHADER
+            .uniforms
+            .into_iter()
+            .map(|(name, desc)| {
+                let data = vec![0u8; desc.size];
+                (
+                    name.to_string(),
+                    resource_pool
+                        .allocate_uniform(
+                            &mut core,
+                            main_framebuffer.num_swapchain_images() as u32,
+                            data,
+                            desc.descriptor_set_layout_binding,
+                        )
+                        .expect("failed to allocate uniform"),
+                )
+            })
+            .collect();
+
         Ok(Self {
             window,
             core,
@@ -144,8 +188,10 @@ impl Backend {
             command_pool,
             main_framebuffer,
             renderpass,
-            graphics_pipeline,
+            main_graphics_pipeline,
+            framebuffer_pipeline,
             screen_dimensions,
+            uniforms,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
             framebuffer_arena: Arena::new(),
@@ -193,26 +239,30 @@ impl Backend {
             buffer_index: self.framebuffer_arena.insert(AttachableFramebuffer::new(
                 &mut self.core,
                 &mut self.command_pool,
-                &mut self.graphics_pipeline,
+                &mut self.framebuffer_pipeline,
                 &mut self.resource_pool,
                 resolution,
             )?),
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
-        let framebuffer = match framebuffer_id {
-            &BoundFramebuffer::ScreenFramebuffer => &self.main_framebuffer,
-            &BoundFramebuffer::UserFramebuffer(id) => self
-                .framebuffer_arena
-                .get(id.buffer_index)
-                .unwrap()
-                .get_framebuffer(),
+        let (pipeline, framebuffer) = match framebuffer_id {
+            &BoundFramebuffer::ScreenFramebuffer => {
+                (&mut self.main_graphics_pipeline, &self.main_framebuffer)
+            }
+            &BoundFramebuffer::UserFramebuffer(id) => (
+                &mut self.framebuffer_pipeline,
+                self.framebuffer_arena
+                    .get(id.buffer_index)
+                    .unwrap()
+                    .get_framebuffer(),
+            ),
         };
         unsafe {
             self.renderpass.end_renderpass(&mut self.core)?;
             self.renderpass.begin_renderpass(
                 &mut self.core,
-                &mut self.graphics_pipeline,
+                pipeline,
                 &framebuffer,
                 self.screen_dimensions,
                 ClearOp::ClearColor,
@@ -221,18 +271,21 @@ impl Backend {
         Ok(())
     }
     pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
-        let texture_descriptor_set = match mesh.texture {
-            MeshTexture::RegularTexture(texture) => {
+        let (pipeline, texture_descriptor_set) = match mesh.texture {
+            MeshTexture::RegularTexture(texture) => (
+                &mut self.main_graphics_pipeline,
                 self.textures
                     .get(texture.buffer_index)
                     .unwrap()
-                    .descriptor_set
-            }
-            MeshTexture::Framebuffer(fb) => self
-                .framebuffer_arena
-                .get(fb.buffer_index)
-                .unwrap()
-                .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?),
+                    .descriptor_set,
+            ),
+            MeshTexture::Framebuffer(fb) => (
+                &mut self.framebuffer_pipeline,
+                self.framebuffer_arena
+                    .get(fb.buffer_index)
+                    .unwrap()
+                    .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?),
+            ),
         };
         let render_mesh = RenderMesh {
             view_matrix,
@@ -242,12 +295,18 @@ impl Backend {
                 .unwrap(),
             index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
         };
-        //todo handle uniform descriptors
+        let mut descriptor_sets = self
+            .uniforms
+            .iter()
+            .map(|(_name, uni)| uni.buffers.iter().map(|(_buff, _all, set)| *set))
+            .flatten()
+            .collect::<Vec<_>>();
+        descriptor_sets.push(texture_descriptor_set);
         self.renderpass.draw_mesh(
             &mut self.core,
-            &self.graphics_pipeline,
+            pipeline,
             &self.main_framebuffer,
-            &[texture_descriptor_set],
+            &descriptor_sets,
             self.screen_dimensions,
             render_mesh,
         )
@@ -257,7 +316,7 @@ impl Backend {
         unsafe {
             self.renderpass.begin_frame(
                 &mut self.core,
-                &mut self.graphics_pipeline,
+                &mut self.main_graphics_pipeline,
                 &mut self.main_framebuffer,
                 self.screen_dimensions,
             )
@@ -299,8 +358,9 @@ impl Backend {
                 new_size,
             )?;
 
-            self.graphics_pipeline.free(&mut self.core);
-            self.graphics_pipeline = GraphicsPipeline::new(
+            self.main_graphics_pipeline.free(&mut self.core);
+            let format = self.core.surface_format.format;
+            self.main_graphics_pipeline = GraphicsPipeline::new(
                 &mut self.core,
                 &pipeline::PUSH_SHADER,
                 &pipeline::PUSH_SHADER.vertex_buffer_desc,
@@ -313,11 +373,13 @@ impl Backend {
                 new_size.x,
                 new_size.y,
                 &texture_attachment.depth_buffer,
+                format,
+                PipelineType::Present,
             );
 
             self.main_framebuffer = Framebuffer::new(
                 &mut self.core,
-                &mut self.graphics_pipeline,
+                &mut self.main_graphics_pipeline,
                 texture_attachment,
                 new_size,
             )?;
@@ -348,11 +410,17 @@ impl Drop for Backend {
                 tex.free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free textures");
             }
+            for (_idx, mut fb) in self.framebuffer_arena.drain() {
+                fb.free(&mut self.core, &mut self.resource_pool)
+                    .expect("failed to free");
+            }
             self.renderpass.free(&mut self.core);
-            self.graphics_pipeline.free(&mut self.core);
+            self.main_graphics_pipeline.free(&mut self.core);
+            self.framebuffer_pipeline.free(&mut self.core);
             self.main_framebuffer
                 .free(&mut self.core, &mut self.resource_pool)
                 .expect("failed to drop framebuffer");
+
             self.command_pool.free(&mut self.core);
             self.resource_pool
                 .free(&mut self.core)

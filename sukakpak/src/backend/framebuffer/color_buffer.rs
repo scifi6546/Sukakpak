@@ -7,8 +7,9 @@ use nalgebra::Vector2;
 pub struct ColorBuffer {
     pub present_images: Vec<(vk::Image, Option<SubAllocation>)>,
     pub present_image_views: Vec<vk::ImageView>,
+    attachment_type: AttachmentType,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum AttachmentType {
     Swapchain,
     UserFramebuffer,
@@ -88,14 +89,23 @@ impl ColorBuffer {
         Ok(Self {
             present_images,
             present_image_views,
+            attachment_type,
         })
     }
     /// clears resources, warning once called object is in invalid state
-    pub fn free(&mut self, core: &mut Core) {
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
         unsafe {
             core.device.device_wait_idle().expect("failed to wait");
             for view in self.present_image_views.iter() {
                 core.device.destroy_image_view(*view, None);
+            }
+            if self.attachment_type == AttachmentType::UserFramebuffer {
+                for (image, suballoc) in self.present_images.drain(..) {
+                    if let Some(alloc) = suballoc {
+                        core.device.destroy_image(image, None);
+                        resource_pool.free_allocation(alloc);
+                    }
+                }
             }
         }
     }

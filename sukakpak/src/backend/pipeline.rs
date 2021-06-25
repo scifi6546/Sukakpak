@@ -5,6 +5,7 @@ use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
 pub use shaders::{
     PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc, PUSH_SHADER,
+    UNIFORM_SHADER,
 };
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
@@ -19,7 +20,10 @@ pub struct GraphicsPipeline {
     // does not clear color bit on draw
     pub load_pipeline: RenderPipeline,
 }
-
+pub enum PipelineType {
+    Present,
+    OffScreen,
+}
 impl GraphicsPipeline {
     pub fn new(
         core: &mut Core,
@@ -30,6 +34,8 @@ impl GraphicsPipeline {
         screen_width: u32,
         screen_height: u32,
         depth_buffer: &DepthBuffer,
+        color_buffer_format: vk::Format,
+        pipeline_type: PipelineType,
     ) -> Self {
         let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data))
             .expect("failed to create shader");
@@ -90,6 +96,12 @@ impl GraphicsPipeline {
             screen_height,
             vk::AttachmentLoadOp::CLEAR,
             depth_buffer,
+            color_buffer_format,
+            vk::ImageLayout::UNDEFINED,
+            match pipeline_type {
+                PipelineType::Present => vk::ImageLayout::PRESENT_SRC_KHR,
+                PipelineType::OffScreen => vk::ImageLayout::GENERAL,
+            },
         );
         let load_pipeline = Self::build_render_pipeline(
             core,
@@ -100,6 +112,15 @@ impl GraphicsPipeline {
             screen_height,
             vk::AttachmentLoadOp::LOAD,
             depth_buffer,
+            color_buffer_format,
+            match pipeline_type {
+                PipelineType::Present => vk::ImageLayout::PRESENT_SRC_KHR,
+                PipelineType::OffScreen => vk::ImageLayout::GENERAL,
+            },
+            match pipeline_type {
+                PipelineType::Present => vk::ImageLayout::PRESENT_SRC_KHR,
+                PipelineType::OffScreen => vk::ImageLayout::GENERAL,
+            },
         );
         GraphicsPipeline {
             fragment_shader,
@@ -118,8 +139,13 @@ impl GraphicsPipeline {
         screen_height: u32,
         load_op: vk::AttachmentLoadOp,
         depth_buffer: &DepthBuffer,
+        format: vk::Format,
+        //initial layout is ignored if load_op is set to clear
+        initial_layout: vk::ImageLayout,
+        final_layout: vk::ImageLayout,
     ) -> RenderPipeline {
-        let renderpass = Self::build_renderpass(core, load_op, depth_buffer);
+        let renderpass =
+            Self::build_renderpass(core, load_op, depth_buffer, initial_layout, final_layout);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -195,6 +221,8 @@ impl GraphicsPipeline {
         core: &mut Core,
         load_op: vk::AttachmentLoadOp,
         depth_buffer: &DepthBuffer,
+        initial_layout: vk::ImageLayout,
+        final_layout: vk::ImageLayout,
     ) -> vk::RenderPass {
         let (depth_attachment, depth_attachment_ref) = depth_buffer.get_attachment(load_op);
         let color_attachment = [vk::AttachmentDescription::builder()
@@ -207,9 +235,9 @@ impl GraphicsPipeline {
             .initial_layout(if load_op == vk::AttachmentLoadOp::CLEAR {
                 vk::ImageLayout::UNDEFINED
             } else {
-                vk::ImageLayout::PRESENT_SRC_KHR
+                initial_layout
             })
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .final_layout(final_layout)
             .build()];
         let color_attachment_refs = [vk::AttachmentReference::builder()
             .attachment(0)

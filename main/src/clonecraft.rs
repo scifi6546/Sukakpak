@@ -13,8 +13,25 @@ pub struct CloneCraft {
     #[allow(dead_code)]
     blue_texture: Texture,
 }
+impl CloneCraft {
+    fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>) {
+        let transorm_mat = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0));
 
-const CUBE_DIMENSIONS: usize = 10;
+        let rot = na::Matrix4::from_euler_angles(
+            self.frame_counter as f32 / 1213.0,
+            self.frame_counter as f32 / 1000.0,
+            0.0,
+        );
+        let mat = self.camera_matrix
+            * transorm_mat
+            * rot
+            * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
+        context
+            .draw_mesh(mat, &self.triangle)
+            .expect("failed to draw triangle");
+    }
+}
+const CUBE_DIMENSIONS: usize = 1;
 impl sukakpak::Renderable for CloneCraft {
     fn init<'a>(context: &mut ContextChild<'a>) -> Self {
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
@@ -59,20 +76,7 @@ impl sukakpak::Renderable for CloneCraft {
         context
             .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.framebuffer))
             .expect("failed to bind");
-        for x in 0..2 {
-            for y in 0..2 {
-                for z in 0..2 {
-                    let transform_mat = na::Matrix4::new_translation(&na::Vector3::new(
-                        x as f32,
-                        y as f32,
-                        z as f32 - 100.0,
-                    ));
-                    context
-                        .draw_mesh(transform_mat, &self.green_cube)
-                        .expect("failed to draw");
-                }
-            }
-        }
+        self.draw_rotating_cube(context);
         context
             .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)
             .expect("failed to bind");
@@ -108,14 +112,7 @@ impl sukakpak::Renderable for CloneCraft {
                 }
             }
         }
-        let mat = self.camera_matrix
-            * transorm_mat
-            * rot
-            * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
-
-        context
-            .draw_mesh(mat, &self.triangle)
-            .expect("failed to draw triangle");
+        //self.draw_rotating_cube(context);
         context
             .draw_mesh(
                 self.camera_matrix

@@ -237,36 +237,33 @@ impl ResourcePool {
         };
         Ok((image, allocation))
     }
-    pub fn new_uniform(
+    pub fn allocate_uniform(
         &mut self,
         core: &mut Core,
-        color_buffer: &ColorBuffer,
+        num_swapchain_images: u32,
         data: Vec<u8>,
+        layout_binding: vk::DescriptorSetLayoutBinding,
     ) -> Result<UniformAllocation> {
-        let layout_binding = [*vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)];
+        let layout_binding = [layout_binding];
         let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
         let layouts = unsafe {
             let t = core
                 .device
                 .create_descriptor_set_layout(&layout_info, None)?;
-            (0..color_buffer.num_swapchain_images())
+            (0..num_swapchain_images)
                 .map(|_| t.clone())
                 .collect::<Vec<_>>()
         };
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
-            .descriptor_count(color_buffer.num_swapchain_images() as u32)
+            .descriptor_count(num_swapchain_images)
             .ty(vk::DescriptorType::UNIFORM_BUFFER)];
         let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(color_buffer.num_swapchain_images() as u32)
+            .max_sets(num_swapchain_images)
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool =
             unsafe { core.device.create_descriptor_pool(&pool_create_info, None) }?;
-        let mut buffer_memory = (0..color_buffer.num_swapchain_images())
+        let mut buffer_memory = (0..num_swapchain_images)
             .map(|_| {
                 self.create_buffer(
                     core,

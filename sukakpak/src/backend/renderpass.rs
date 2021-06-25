@@ -1,6 +1,6 @@
 use super::{
     CommandPool, Core, FrameBufferTarget, Framebuffer, GraphicsPipeline, IndexBufferAllocation,
-    TextureAllocation, UniformAllocation, VertexBufferAllocation,
+    UniformAllocation, VertexBufferAllocation,
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
