@@ -33,7 +33,7 @@ pub enum VertexLayout {
     XYZ_F32,    //xyz vector with floating point components
     XYZ_UV_F32, //xyz with uv
 }
-const MAIN_SHADER: ShaderDescription = pipeline::PUSH_SHADER;
+const MAIN_SHADER: ShaderDescription = pipeline::UNIFORM_SHADER;
 pub struct Backend {
     #[allow(dead_code)]
     window: winit::window::Window,
@@ -105,7 +105,7 @@ impl Backend {
             ))
             .build(&event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
-        let mut resource_pool = ResourcePool::new(&core, &pipeline::PUSH_SHADER)?;
+        let mut resource_pool = ResourcePool::new(&core, &MAIN_SHADER)?;
         let mut command_pool = CommandPool::new(&mut core);
         let texture_attachment = TextureAttachment::new(
             &mut core,
@@ -362,10 +362,10 @@ impl Backend {
             let format = self.core.surface_format.format;
             self.main_graphics_pipeline = GraphicsPipeline::new(
                 &mut self.core,
-                &pipeline::PUSH_SHADER,
-                &pipeline::PUSH_SHADER.vertex_buffer_desc,
+                &MAIN_SHADER,
+                &MAIN_SHADER.vertex_buffer_desc,
                 &self.resource_pool.get_descriptor_set_layouts(),
-                &pipeline::PUSH_SHADER
+                &MAIN_SHADER
                     .push_constants
                     .into_iter()
                     .map(|(k, v)| ((*k).to_string(), *v))
