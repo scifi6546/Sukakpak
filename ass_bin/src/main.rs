@@ -1,6 +1,6 @@
-use ass_lib::load_directory;
+use ass_lib::{load_directory, AssembledSpirv};
 use clap::{App, Arg};
-use std::path::Path;
+use std::{convert::TryInto, path::Path};
 fn main() {
     let matches = App::new("Sukakpak Shader Assembler")
         .version("0.1")
@@ -17,4 +17,5 @@ fn main() {
         .get_matches();
     let path = matches.value_of("path").unwrap();
     let shader = load_directory(Path::new(path)).expect("failed to load directory");
+    let assembled: AssembledSpirv = shader.try_into().expect("");
 }

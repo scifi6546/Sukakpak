@@ -40,8 +40,7 @@ impl TextureAttachment {
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.depth_buffer.free(core, resource_pool)?;
-        self.color_buffer.free(core, resource_pool);
-        Ok(())
+        self.color_buffer.free(core, resource_pool)
     }
 }
 pub struct Framebuffer {

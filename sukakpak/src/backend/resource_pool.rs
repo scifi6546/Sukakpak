@@ -48,7 +48,7 @@ impl ResourcePool {
                 vk::DescriptorType::UNIFORM_BUFFER,
                 shader
                     .uniforms
-                    .into_iter()
+                    .iter()
                     .map(|(k, uniform)| {
                         (
                             DescriptorName::Uniform(k.to_string()),

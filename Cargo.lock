@@ -862,6 +862,7 @@ dependencies = [
  "log",
  "num-traits",
  "pp-rs",
+ "spirv_headers",
  "thiserror",
 ]
 
@@ -1547,6 +1548,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spirv_headers"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f5b132530b1ac069df335577e3581765995cba5a13995cdbbdbc8fb057c532c"
+dependencies = [
+ "bitflags",
+ "num-traits",
+]
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1565,12 +1576,12 @@ dependencies = [
  "anyhow",
  "ash",
  "ash-window",
+ "ass_lib",
  "backtrace",
  "cfg-if 1.0.0",
  "generational-arena",
  "gpu-allocator",
  "image",
- "naga",
  "nalgebra 0.27.1",
  "phf",
  "thiserror",

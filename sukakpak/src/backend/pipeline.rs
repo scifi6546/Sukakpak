@@ -4,8 +4,7 @@ use ash::{util::*, vk};
 use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
 pub use shaders::{
-    PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc, PUSH_SHADER,
-    UNIFORM_SHADER,
+    push_shader, PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc,
 };
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,

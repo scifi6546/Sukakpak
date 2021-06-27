@@ -1,9 +1,33 @@
 use anyhow::Result;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{fs::File, io::Read, path::Path};
+use std::{convert::TryFrom, fs::File, io::Read, path::Path};
 pub struct Shader {
     vertex_shader: Module,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SpirvModule {
+    stage: ShaderStage,
+    data: Vec<u32>,
+    entry_point: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PushConstant {
+    offset: u32,
+    size: u32,
+    stage: ShaderStage,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AssembledSpirv {
+    vertex_shader: SpirvModule,
+    fragment_shader: SpirvModule,
+    push_constants: Vec<PushConstant>,
+}
+impl TryFrom<Shader> for AssembledSpirv {
+    type Error = ();
+    fn try_from(shader: Shader) -> std::result::Result<Self, Self::Error> {
+        todo!()
+    }
 }
 use naga::{front::glsl, Module};
 #[derive(Deserialize, Debug)]
@@ -12,6 +36,7 @@ pub struct ShaderConfig {
 }
 #[derive(Deserialize, Debug)]
 pub struct ModuleConfig {
+    path: String,
     entry_point: EntryPoint,
 }
 #[derive(Deserialize, Debug)]
@@ -19,52 +44,38 @@ pub struct EntryPoint {
     name: String,
     stage: ShaderStage,
 }
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ShaderStage {
     Vertex,
     Fragment,
 }
+
 pub fn load_directory(path: &Path) -> Result<Shader> {
     let config: ShaderConfig = {
         let config_file = File::open(path.join("config.json"))?;
         serde_json::from_reader(config_file)?
     };
-    let mut file = File::open(path.join("shader.vert"))?;
+    let mut file = File::open(path.join(config.vertex_shader.path))?;
     let mut frag_str = String::new();
     file.read_to_string(&mut frag_str)?;
+    let entry_points = [config.vertex_shader.entry_point]
+        .iter()
+        .map(|e| {
+            (
+                e.name.clone(),
+                match e.stage {
+                    ShaderStage::Fragment => naga::ShaderStage::Fragment,
+                    ShaderStage::Vertex => naga::ShaderStage::Vertex,
+                },
+            )
+        })
+        .collect();
     let vertex_shader = glsl::parse_str(
         &frag_str,
         &glsl::Options {
-            entry_points: naga::FastHashMap::default(),
+            entry_points,
             defines: naga::FastHashMap::default(),
         },
     )?;
     Ok(Shader { vertex_shader })
-}
-#[cfg(test)]
-mod tests {
-    const PUSH: &str = "#version 450
-    layout(push_constant) uniform constants{
-        mat4 proj;
-    } ubo;
-    layout(location=0) in vec3 pos;
-    layout(location=1) in vec2 uv;
-    layout(location=0) out vec2 o_uv;
-    void main(){
-        gl_Position = ubo.proj*vec4(pos,1.0);
-        o_uv = uv;
-    }
-    ";
-    #[test]
-    fn it_works() {
-        naga::front::glsl::parse_str(
-            PUSH,
-            &naga::front::glsl::Options {
-                entry_points: naga::FastHashMap::default(),
-                defines: naga::FastHashMap::default(),
-            },
-        )
-        .expect("parsed");
-        assert_eq!(2 + 2, 4);
-    }
 }

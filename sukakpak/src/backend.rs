@@ -13,7 +13,7 @@ use framebuffer::{
     Framebuffer, TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{GraphicsPipeline, PipelineType, ShaderDescription};
+use pipeline::{push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
 use std::collections::HashMap;
 mod pipeline;
@@ -33,7 +33,6 @@ pub enum VertexLayout {
     XYZ_F32,    //xyz vector with floating point components
     XYZ_UV_F32, //xyz with uv
 }
-const MAIN_SHADER: ShaderDescription = pipeline::PUSH_SHADER;
 pub struct Backend {
     #[allow(dead_code)]
     window: winit::window::Window,
@@ -49,7 +48,7 @@ pub struct Backend {
     main_graphics_pipeline: GraphicsPipeline,
     framebuffer_pipeline: GraphicsPipeline,
     screen_dimensions: Vector2<u32>,
-
+    main_shader: ShaderDescription,
     core: Core,
 }
 #[derive(Clone, Copy)]
@@ -97,6 +96,7 @@ impl Backend {
         create_info: BackendCreateInfo,
         event_loop: &winit::event_loop::EventLoop<()>,
     ) -> Result<Self> {
+        let main_shader = push_shader();
         let window = winit::window::WindowBuilder::new()
             .with_title(create_info.name.clone())
             .with_inner_size(winit::dpi::LogicalSize::new(
@@ -105,7 +105,7 @@ impl Backend {
             ))
             .build(&event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
-        let mut resource_pool = ResourcePool::new(&core, &MAIN_SHADER)?;
+        let mut resource_pool = ResourcePool::new(&core, &main_shader)?;
         let mut command_pool = CommandPool::new(&mut core);
         let texture_attachment = TextureAttachment::new(
             &mut core,
@@ -118,13 +118,13 @@ impl Backend {
         let format = core.surface_format.format;
         let mut main_graphics_pipeline = GraphicsPipeline::new(
             &mut core,
-            &MAIN_SHADER,
-            &MAIN_SHADER.vertex_buffer_desc,
+            &main_shader,
+            &main_shader.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &MAIN_SHADER
+            &main_shader
                 .push_constants
-                .into_iter()
-                .map(|(k, v)| ((*k).to_string(), *v))
+                .iter()
+                .map(|(k, v)| (k.clone(), *v))
                 .collect(),
             create_info.default_size.x,
             create_info.default_size.y,
@@ -134,13 +134,13 @@ impl Backend {
         );
         let framebuffer_pipeline = GraphicsPipeline::new(
             &mut core,
-            &MAIN_SHADER,
-            &MAIN_SHADER.vertex_buffer_desc,
+            &main_shader,
+            &main_shader.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &MAIN_SHADER
+            &main_shader
                 .push_constants
-                .into_iter()
-                .map(|(k, v)| ((*k).to_string(), *v))
+                .iter()
+                .map(|(k, v)| (k.clone(), *v))
                 .collect(),
             create_info.default_size.x,
             create_info.default_size.y,
@@ -162,9 +162,9 @@ impl Backend {
             &main_framebuffer.framebuffer_target,
         );
         let screen_dimensions = create_info.default_size;
-        let uniforms = MAIN_SHADER
+        let uniforms = main_shader
             .uniforms
-            .into_iter()
+            .iter()
             .map(|(name, desc)| {
                 let data = vec![0u8; desc.size];
                 (
@@ -183,6 +183,7 @@ impl Backend {
 
         Ok(Self {
             window,
+            main_shader,
             core,
             resource_pool,
             command_pool,
@@ -362,12 +363,13 @@ impl Backend {
             let format = self.core.surface_format.format;
             self.main_graphics_pipeline = GraphicsPipeline::new(
                 &mut self.core,
-                &MAIN_SHADER,
-                &MAIN_SHADER.vertex_buffer_desc,
+                &self.main_shader,
+                &self.main_shader.vertex_buffer_desc,
                 &self.resource_pool.get_descriptor_set_layouts(),
-                &MAIN_SHADER
+                &self
+                    .main_shader
                     .push_constants
-                    .into_iter()
+                    .iter()
                     .map(|(k, v)| ((*k).to_string(), *v))
                     .collect(),
                 new_size.x,

@@ -32,7 +32,7 @@ impl Context {
         };
 
         event_loop.run(move |event, _, control_flow| {
-            let mut updated_screen_size: Option<na::Vector2<u32>> = None;
+            let updated_screen_size: Option<na::Vector2<u32>> = None;
             match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,

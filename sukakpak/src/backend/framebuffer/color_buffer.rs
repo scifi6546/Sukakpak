@@ -93,7 +93,7 @@ impl ColorBuffer {
         })
     }
     /// clears resources, warning once called object is in invalid state
-    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) {
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         unsafe {
             core.device.device_wait_idle().expect("failed to wait");
             for view in self.present_image_views.iter() {
@@ -103,10 +103,11 @@ impl ColorBuffer {
                 for (image, suballoc) in self.present_images.drain(..) {
                     if let Some(alloc) = suballoc {
                         core.device.destroy_image(image, None);
-                        resource_pool.free_allocation(alloc);
+                        resource_pool.free_allocation(alloc)?;
                     }
                 }
             }
+            Ok(())
         }
     }
 }

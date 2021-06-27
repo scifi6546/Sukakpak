@@ -1,0 +1,9 @@
+{
+    "vertex_shader": {
+        "path": "shader.vert",
+        "entry_point": {
+            "name": "main",
+            "stage": "Vertex"
+        }
+    }
+}
