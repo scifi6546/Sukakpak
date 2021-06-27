@@ -31,7 +31,7 @@ impl CloneCraft {
             .expect("failed to draw triangle");
     }
 }
-const CUBE_DIMENSIONS: usize = 1;
+const CUBE_DIMENSIONS: usize = 10;
 impl sukakpak::Renderable for CloneCraft {
     fn init<'a>(context: &mut ContextChild<'a>) -> Self {
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));

@@ -99,7 +99,7 @@ pub const UNIFORM_SHADER: ShaderDescription = ShaderDescription {
     "color"=>UniformDescription {
                 size: std::mem::size_of::<Vector3<f32>>(),
                 descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding {
-                    binding: 1,
+                    binding: 0,
                     descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: 1,
                     stage_flags: vk::ShaderStageFlags::FRAGMENT,

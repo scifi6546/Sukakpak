@@ -102,12 +102,13 @@ impl RenderPass {
                     0,
                     vk::IndexType::UINT32,
                 );
+
                 core.device.cmd_bind_descriptor_sets(
                     self.command_buffers[image_index as usize],
                     vk::PipelineBindPoint::GRAPHICS,
                     graphics_pipeline.pipeline_layout,
                     0,
-                    descriptor_sets,
+                    &descriptor_sets,
                     &[],
                 );
                 let matrix_ptr = mesh.view_matrix.as_ptr() as *const u8;

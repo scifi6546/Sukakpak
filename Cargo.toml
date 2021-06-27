@@ -1,2 +1,2 @@
 [workspace]
-members = ["renderer","main","sukakpak"]
+members = ["renderer","main","sukakpak","ass_lib","ass_bin"]

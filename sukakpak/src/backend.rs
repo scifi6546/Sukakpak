@@ -33,7 +33,7 @@ pub enum VertexLayout {
     XYZ_F32,    //xyz vector with floating point components
     XYZ_UV_F32, //xyz with uv
 }
-const MAIN_SHADER: ShaderDescription = pipeline::UNIFORM_SHADER;
+const MAIN_SHADER: ShaderDescription = pipeline::PUSH_SHADER;
 pub struct Backend {
     #[allow(dead_code)]
     window: winit::window::Window,

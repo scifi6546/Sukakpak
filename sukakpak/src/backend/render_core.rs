@@ -9,7 +9,7 @@ use ash::{
 use nalgebra as na;
 
 use std::ffi::{CStr, CString};
-const DO_BACKTRACE: bool = false;
+const DO_BACKTRACE: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
