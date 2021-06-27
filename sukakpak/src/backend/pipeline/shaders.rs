@@ -10,7 +10,6 @@ pub struct UniformDescription {
     pub descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding,
 }
 pub struct ShaderDescription {
-    pub uniforms: HashMap<String, UniformDescription>,
     pub push_constants: HashMap<String, PushConstantDesc>,
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: &'static [u8],
@@ -23,7 +22,6 @@ pub struct VertexBufferDesc {
 }
 pub fn push_shader() -> ShaderDescription {
     ShaderDescription {
-        uniforms: HashMap::new(),
         push_constants: [(
             "view".to_string(),
             PushConstantDesc {

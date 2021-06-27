@@ -44,7 +44,6 @@ pub struct Backend {
     resource_pool: ResourcePool,
     main_framebuffer: Framebuffer,
     renderpass: RenderPass,
-    uniforms: HashMap<String, UniformAllocation>,
     main_graphics_pipeline: GraphicsPipeline,
     framebuffer_pipeline: GraphicsPipeline,
     screen_dimensions: Vector2<u32>,
@@ -162,24 +161,6 @@ impl Backend {
             &main_framebuffer.framebuffer_target,
         );
         let screen_dimensions = create_info.default_size;
-        let uniforms = main_shader
-            .uniforms
-            .iter()
-            .map(|(name, desc)| {
-                let data = vec![0u8; desc.size];
-                (
-                    name.to_string(),
-                    resource_pool
-                        .allocate_uniform(
-                            &mut core,
-                            main_framebuffer.num_swapchain_images() as u32,
-                            data,
-                            desc.descriptor_set_layout_binding,
-                        )
-                        .expect("failed to allocate uniform"),
-                )
-            })
-            .collect();
 
         Ok(Self {
             window,
@@ -192,7 +173,6 @@ impl Backend {
             main_graphics_pipeline,
             framebuffer_pipeline,
             screen_dimensions,
-            uniforms,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
             framebuffer_arena: Arena::new(),
@@ -296,18 +276,12 @@ impl Backend {
                 .unwrap(),
             index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
         };
-        let mut descriptor_sets = self
-            .uniforms
-            .iter()
-            .map(|(_name, uni)| uni.buffers.iter().map(|(_buff, _all, set)| *set))
-            .flatten()
-            .collect::<Vec<_>>();
-        descriptor_sets.push(texture_descriptor_set);
+        let descriptor_set = [texture_descriptor_set];
         self.renderpass.draw_mesh(
             &mut self.core,
             pipeline,
             &self.main_framebuffer,
-            &descriptor_sets,
+            &descriptor_set,
             self.screen_dimensions,
             render_mesh,
         )
