@@ -1,29 +1,11 @@
 use super::Core;
 use anyhow::{anyhow, Result};
 use ash::{version::DeviceV1_0, vk};
-use std::{cmp::max, collections::HashMap};
+use std::collections::HashMap;
 use thiserror::Error;
-#[derive(Clone, Copy)]
-pub enum ShaderStage {
-    Fragment,
-    Vertex,
-    FragmentAndVertex,
-}
-impl ShaderStage {
-    fn to_vk(&self) -> vk::ShaderStageFlags {
-        match self {
-            Self::Fragment => vk::ShaderStageFlags::FRAGMENT,
-            Self::Vertex => vk::ShaderStageFlags::VERTEX,
-            Self::FragmentAndVertex => {
-                vk::ShaderStageFlags::FRAGMENT | vk::ShaderStageFlags::VERTEX
-            }
-        }
-    }
-}
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum DescriptorName {
     MeshTexture,
-    Uniform(String),
 }
 #[derive(Error, Debug)]
 pub enum DescriptorError {

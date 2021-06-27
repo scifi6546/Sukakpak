@@ -10,6 +10,7 @@ use nalgebra as na;
 
 use std::ffi::{CStr, CString};
 const DO_BACKTRACE: bool = true;
+const PANIC: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -41,12 +42,17 @@ unsafe extern "system" fn vulkan_debug_callback(
     if DO_BACKTRACE {
         println!("{:?}", backtrace::Backtrace::new());
     }
-    panic!();
+    if PANIC {
+        panic!();
+    }
+
     vk::FALSE
 }
 pub struct Core {
     pub physical_device: vk::PhysicalDevice,
     pub device: ash::Device,
+    //good idea to keep this around
+    #[allow(dead_code)]
     entry: ash::Entry,
     pub instance: ash::Instance,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties,

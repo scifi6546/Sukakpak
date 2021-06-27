@@ -5,10 +5,6 @@ use std::collections::HashMap;
 pub struct PushConstantDesc {
     pub range: vk::PushConstantRange,
 }
-pub struct UniformDescription {
-    pub size: usize,
-    pub descriptor_set_layout_binding: vk::DescriptorSetLayoutBinding,
-}
 pub struct ShaderDescription {
     pub push_constants: HashMap<String, PushConstantDesc>,
     pub vertex_buffer_desc: VertexBufferDesc,

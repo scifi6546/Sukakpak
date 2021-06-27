@@ -9,18 +9,16 @@ mod renderpass;
 mod resource_pool;
 use command_pool::CommandPool;
 use framebuffer::{
-    AttachableFramebuffer, AttachmentType, ColorBuffer, DepthBuffer, FrameBufferTarget,
-    Framebuffer, TextureAttachment,
+    AttachableFramebuffer, AttachmentType, DepthBuffer, FrameBufferTarget, Framebuffer,
+    TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
-use std::collections::HashMap;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
-    IndexBufferAllocation, ResourcePool, TextureAllocation, UniformAllocation,
-    VertexBufferAllocation,
+    IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
 
 pub struct BackendCreateInfo {
@@ -114,7 +112,6 @@ impl Backend {
             create_info.default_size,
         )?;
 
-        let format = core.surface_format.format;
         let mut main_graphics_pipeline = GraphicsPipeline::new(
             &mut core,
             &main_shader,
@@ -128,7 +125,6 @@ impl Backend {
             create_info.default_size.x,
             create_info.default_size.y,
             &texture_attachment.depth_buffer,
-            format,
             PipelineType::Present,
         );
         let framebuffer_pipeline = GraphicsPipeline::new(
@@ -145,7 +141,6 @@ impl Backend {
             create_info.default_size.y,
             &texture_attachment.depth_buffer,
             //todo allow custom framebuffer formats
-            format,
             PipelineType::OffScreen,
         );
 
@@ -245,7 +240,6 @@ impl Backend {
                 &mut self.core,
                 pipeline,
                 &framebuffer,
-                self.screen_dimensions,
                 ClearOp::ClearColor,
             )?;
         }
@@ -293,7 +287,6 @@ impl Backend {
                 &mut self.core,
                 &mut self.main_graphics_pipeline,
                 &mut self.main_framebuffer,
-                self.screen_dimensions,
             )
         }
     }
@@ -334,7 +327,6 @@ impl Backend {
             )?;
 
             self.main_graphics_pipeline.free(&mut self.core);
-            let format = self.core.surface_format.format;
             self.main_graphics_pipeline = GraphicsPipeline::new(
                 &mut self.core,
                 &self.main_shader,
@@ -349,7 +341,6 @@ impl Backend {
                 new_size.x,
                 new_size.y,
                 &texture_attachment.depth_buffer,
-                format,
                 PipelineType::Present,
             );
 

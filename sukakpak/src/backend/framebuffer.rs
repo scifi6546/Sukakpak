@@ -68,9 +68,6 @@ impl Framebuffer {
             framebuffer_target,
         })
     }
-    pub fn num_swapchain_images(&self) -> usize {
-        self.texture_attachment.color_buffer.num_swapchain_images()
-    }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.framebuffer_target.free(core);
         self.texture_attachment.free(core, resource_pool)?;

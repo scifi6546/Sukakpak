@@ -3,9 +3,7 @@ use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
-pub use shaders::{
-    push_shader, PushConstantDesc, ShaderDescription, UniformDescription, VertexBufferDesc,
-};
+pub use shaders::{push_shader, PushConstantDesc, ShaderDescription, VertexBufferDesc};
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
@@ -33,7 +31,7 @@ impl GraphicsPipeline {
         screen_width: u32,
         screen_height: u32,
         depth_buffer: &DepthBuffer,
-        color_buffer_format: vk::Format,
+
         pipeline_type: PipelineType,
     ) -> Self {
         let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data))
@@ -95,7 +93,6 @@ impl GraphicsPipeline {
             screen_height,
             vk::AttachmentLoadOp::CLEAR,
             depth_buffer,
-            color_buffer_format,
             vk::ImageLayout::UNDEFINED,
             match pipeline_type {
                 PipelineType::Present => vk::ImageLayout::PRESENT_SRC_KHR,
@@ -111,7 +108,6 @@ impl GraphicsPipeline {
             screen_height,
             vk::AttachmentLoadOp::LOAD,
             depth_buffer,
-            color_buffer_format,
             match pipeline_type {
                 PipelineType::Present => vk::ImageLayout::PRESENT_SRC_KHR,
                 PipelineType::OffScreen => vk::ImageLayout::GENERAL,
@@ -138,7 +134,6 @@ impl GraphicsPipeline {
         screen_height: u32,
         load_op: vk::AttachmentLoadOp,
         depth_buffer: &DepthBuffer,
-        format: vk::Format,
         //initial layout is ignored if load_op is set to clear
         initial_layout: vk::ImageLayout,
         final_layout: vk::ImageLayout,

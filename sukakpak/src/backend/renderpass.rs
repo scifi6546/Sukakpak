@@ -1,6 +1,6 @@
 use super::{
     CommandPool, Core, FrameBufferTarget, Framebuffer, GraphicsPipeline, IndexBufferAllocation,
-    UniformAllocation, VertexBufferAllocation,
+    VertexBufferAllocation,
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
@@ -134,13 +134,7 @@ impl RenderPass {
             Ok(())
         } else {
             self.acquire_next_image(core)?;
-            self.begin_renderpass(
-                core,
-                graphics_pipeline,
-                framebuffer,
-                screen_dimensions,
-                ClearOp::DoNotClear,
-            )?;
+            self.begin_renderpass(core, graphics_pipeline, framebuffer, ClearOp::DoNotClear)?;
             self.draw_mesh(
                 core,
                 graphics_pipeline,
@@ -158,7 +152,6 @@ impl RenderPass {
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
         framebuffer: &Framebuffer,
-        dimensions: Vector2<u32>,
     ) -> Result<()> {
         self.acquire_next_image(core)?;
         let image_index = self.image_index.unwrap();
@@ -168,13 +161,7 @@ impl RenderPass {
             self.command_buffers[image_index as usize],
             &vk::CommandBufferBeginInfo::builder(),
         )?;
-        self.begin_renderpass(
-            core,
-            graphics_pipeline,
-            framebuffer,
-            dimensions,
-            ClearOp::ClearColor,
-        )
+        self.begin_renderpass(core, graphics_pipeline, framebuffer, ClearOp::ClearColor)
     }
 
     pub fn begin_renderpass(
@@ -182,7 +169,6 @@ impl RenderPass {
         core: &mut Core,
         graphics_pipeline: &GraphicsPipeline,
         framebuffer: &Framebuffer,
-        dimensions: Vector2<u32>,
         clear_op: ClearOp,
     ) -> Result<()> {
         let image_index = self
@@ -290,9 +276,6 @@ impl RenderPass {
             self.acquire_next_image(core)?;
             self.swap_framebuffer(core)
         }
-    }
-    pub fn upload_uniform() {
-        todo!()
     }
     //aquires new image index and populates self.image_index
     pub fn acquire_next_image(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {

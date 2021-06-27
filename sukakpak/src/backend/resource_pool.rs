@@ -1,4 +1,4 @@
-use super::{ColorBuffer, CommandPool, Core, ShaderDescription, VertexLayout};
+use super::{CommandPool, Core, ShaderDescription, VertexLayout};
 use anyhow::Result;
 use ash::{
     version::{DeviceV1_0, InstanceV1_0},
@@ -219,96 +219,6 @@ impl ResourcePool {
                 .bind_image_memory(image, allocation.memory(), allocation.offset())?
         };
         Ok((image, allocation))
-    }
-    pub fn allocate_uniform(
-        &mut self,
-        core: &mut Core,
-        num_swapchain_images: u32,
-        data: Vec<u8>,
-        layout_binding: vk::DescriptorSetLayoutBinding,
-    ) -> Result<UniformAllocation> {
-        let layout_binding = [layout_binding];
-        let layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
-        let layouts = unsafe {
-            let t = core
-                .device
-                .create_descriptor_set_layout(&layout_info, None)?;
-            (0..num_swapchain_images)
-                .map(|_| t.clone())
-                .collect::<Vec<_>>()
-        };
-        let pool_sizes = [*vk::DescriptorPoolSize::builder()
-            .descriptor_count(num_swapchain_images)
-            .ty(vk::DescriptorType::UNIFORM_BUFFER)];
-        let pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&pool_sizes)
-            .max_sets(num_swapchain_images)
-            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
-        let descriptor_pool =
-            unsafe { core.device.create_descriptor_pool(&pool_create_info, None) }?;
-        let mut buffer_memory = (0..num_swapchain_images)
-            .map(|_| {
-                self.create_buffer(
-                    core,
-                    data.len() as u64,
-                    vk::BufferUsageFlags::UNIFORM_BUFFER,
-                    vk::SharingMode::EXCLUSIVE,
-                    MemoryLocation::CpuToGpu,
-                )
-                .expect("failed to create buffer")
-            })
-            .collect::<Vec<_>>();
-        let descriptor_set_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(&layouts);
-        let descriptor_sets = unsafe {
-            core.device
-                .allocate_descriptor_sets(&descriptor_set_alloc_info)
-        }?;
-        let buffer_info: Vec<[vk::DescriptorBufferInfo; 1]> = buffer_memory
-            .iter()
-            .map(|(buffer, _)| {
-                [vk::DescriptorBufferInfo::builder()
-                    .buffer(*buffer)
-                    .offset(0)
-                    .range(data.len() as u64)
-                    .build()]
-            })
-            .collect();
-        for i in 0..descriptor_sets.len() {
-            let write = [*vk::WriteDescriptorSet::builder()
-                .dst_set(descriptor_sets[i])
-                .dst_binding(0)
-                .dst_array_element(0)
-                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-                .buffer_info(&buffer_info[i])];
-            unsafe {
-                core.device.update_descriptor_sets(&write, &[]);
-            }
-        }
-        for (_buffer, allocation) in buffer_memory.iter() {
-            let len = data.len();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    data.as_ptr() as *const std::ffi::c_void,
-                    allocation
-                        .mapped_ptr()
-                        .expect("failed to map memory")
-                        .as_ptr(),
-                    len,
-                );
-            }
-        }
-        let buffers = buffer_memory
-            .drain(..)
-            .zip(descriptor_sets)
-            .map(|((buffer, memory), descriptor_set)| (buffer, memory, descriptor_set))
-            .collect();
-        Ok(UniformAllocation {
-            layouts,
-            buffers,
-            descriptor_pool,
-        })
     }
     pub fn allocate_texture(
         &mut self,
@@ -630,9 +540,4 @@ impl TextureAllocation {
         }
         Ok(())
     }
-}
-pub struct UniformAllocation {
-    pub layouts: Vec<vk::DescriptorSetLayout>,
-    pub buffers: Vec<(vk::Buffer, SubAllocation, vk::DescriptorSet)>,
-    descriptor_pool: vk::DescriptorPool,
 }
