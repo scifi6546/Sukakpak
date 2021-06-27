@@ -10,7 +10,8 @@ use gpu_allocator::{
 use image::RgbaImage;
 use nalgebra::Vector2;
 mod descriptor_pool;
-use descriptor_pool::{DescriptorDesc, DescriptorName, DescriptorPool};
+use descriptor_pool::DescriptorPool;
+pub use descriptor_pool::{DescriptorDesc, DescriptorName};
 use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
@@ -28,19 +29,7 @@ impl ResourcePool {
             texture_descriptor_pool: DescriptorPool::new(
                 core,
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                [(
-                    DescriptorName::MeshTexture,
-                    DescriptorDesc {
-                        layout_binding: *vk::DescriptorSetLayoutBinding::builder()
-                            .binding(0)
-                            .descriptor_count(1)
-                            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                            .stage_flags(vk::ShaderStageFlags::FRAGMENT),
-                    },
-                )]
-                .iter()
-                .cloned()
-                .collect(),
+                &shader.textures,
             )?,
         })
     }

@@ -30,7 +30,7 @@ impl DescriptorPool {
     pub fn new(
         core: &Core,
         pool_type: vk::DescriptorType,
-        descriptors: HashMap<DescriptorName, DescriptorDesc>,
+        descriptors: &HashMap<DescriptorName, DescriptorDesc>,
     ) -> Result<Self> {
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
             .descriptor_count(Self::MAX_SETS)

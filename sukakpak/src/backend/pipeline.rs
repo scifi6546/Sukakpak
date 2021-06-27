@@ -1,4 +1,4 @@
-use super::{Core, DepthBuffer};
+use super::{Core, DepthBuffer, DescriptorDesc, DescriptorName};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use std::{collections::HashMap, ffi::CString, io::Cursor};

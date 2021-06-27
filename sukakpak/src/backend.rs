@@ -18,7 +18,8 @@ use render_core::Core;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
-    IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
+    DescriptorDesc, DescriptorName, IndexBufferAllocation, ResourcePool, TextureAllocation,
+    VertexBufferAllocation,
 };
 
 pub struct BackendCreateInfo {

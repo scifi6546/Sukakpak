@@ -1,3 +1,4 @@
+use super::{DescriptorDesc, DescriptorName};
 use ash::vk;
 use nalgebra::{Matrix4, Vector3};
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ pub struct ShaderDescription {
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: &'static [u8],
     pub fragment_shader_data: &'static [u8],
+    pub textures: HashMap<DescriptorName, DescriptorDesc>,
 }
 
 pub struct VertexBufferDesc {
@@ -18,6 +20,19 @@ pub struct VertexBufferDesc {
 }
 pub fn push_shader() -> ShaderDescription {
     ShaderDescription {
+        textures: [(
+            DescriptorName::MeshTexture,
+            DescriptorDesc {
+                layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                    .binding(0)
+                    .descriptor_count(1)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+            },
+        )]
+        .iter()
+        .cloned()
+        .collect(),
         push_constants: [(
             "view".to_string(),
             PushConstantDesc {
