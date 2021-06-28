@@ -118,11 +118,7 @@ impl Backend {
             &main_shader,
             &main_shader.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &main_shader
-                .push_constants
-                .iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect(),
+            &main_shader.push_constants,
             create_info.default_size.x,
             create_info.default_size.y,
             &texture_attachment.depth_buffer,
@@ -133,11 +129,7 @@ impl Backend {
             &main_shader,
             &main_shader.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &main_shader
-                .push_constants
-                .iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect(),
+            &main_shader.push_constants,
             create_info.default_size.x,
             create_info.default_size.y,
             &texture_attachment.depth_buffer,
@@ -333,12 +325,7 @@ impl Backend {
                 &self.main_shader,
                 &self.main_shader.vertex_buffer_desc,
                 &self.resource_pool.get_descriptor_set_layouts(),
-                &self
-                    .main_shader
-                    .push_constants
-                    .iter()
-                    .map(|(k, v)| ((*k).to_string(), *v))
-                    .collect(),
+                &self.main_shader.push_constants,
                 new_size.x,
                 new_size.y,
                 &texture_attachment.depth_buffer,

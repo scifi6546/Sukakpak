@@ -1,5 +1,6 @@
 use super::{DescriptorDesc, DescriptorName};
 use ash::vk;
+use ass_lib::{AssembledSpirv, ShaderStage};
 use nalgebra::{Matrix4, Vector3};
 use std::collections::HashMap;
 #[derive(Clone, Copy)]
@@ -7,7 +8,7 @@ pub struct PushConstantDesc {
     pub range: vk::PushConstantRange,
 }
 pub struct ShaderDescription {
-    pub push_constants: HashMap<String, PushConstantDesc>,
+    pub push_constants: Vec<PushConstantDesc>,
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: &'static [u8],
     pub fragment_shader_data: &'static [u8],
@@ -17,6 +18,31 @@ pub struct ShaderDescription {
 pub struct VertexBufferDesc {
     pub binding_description: vk::VertexInputBindingDescription,
     pub attributes: &'static [vk::VertexInputAttributeDescription],
+}
+impl From<AssembledSpirv> for ShaderDescription {
+    fn from(spv: AssembledSpirv) -> Self {
+        let push_constants = spv
+            .push_constants
+            .iter()
+            .map(|constant| PushConstantDesc {
+                range: vk::PushConstantRange {
+                    offset: constant.offset,
+                    size: constant.size,
+                    stage_flags: match constant.stage {
+                        ShaderStage::Fragment => vk::ShaderStageFlags::FRAGMENT,
+                        ShaderStage::Vertex => vk::ShaderStageFlags::VERTEX,
+                    },
+                },
+            })
+            .collect();
+        Self {
+            push_constants,
+            vertex_buffer_desc: todo!(),
+            vertex_shader_data: todo!(),
+            fragment_shader_data: todo!(),
+            textures: todo!(),
+        }
+    }
 }
 pub fn push_shader() -> ShaderDescription {
     ShaderDescription {
@@ -33,19 +59,13 @@ pub fn push_shader() -> ShaderDescription {
         .iter()
         .cloned()
         .collect(),
-        push_constants: [(
-            "view".to_string(),
-            PushConstantDesc {
-                range: vk::PushConstantRange {
-                    offset: 0,
-                    size: std::mem::size_of::<Matrix4<f32>>() as u32,
-                    stage_flags: vk::ShaderStageFlags::VERTEX,
-                },
+        push_constants: vec![PushConstantDesc {
+            range: vk::PushConstantRange {
+                offset: 0,
+                size: std::mem::size_of::<Matrix4<f32>>() as u32,
+                stage_flags: vk::ShaderStageFlags::VERTEX,
             },
-        )]
-        .iter()
-        .cloned()
-        .collect(),
+        }],
         vertex_buffer_desc: VertexBufferDesc {
             binding_description: vk::VertexInputBindingDescription {
                 binding: 0,

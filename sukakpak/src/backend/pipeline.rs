@@ -27,7 +27,7 @@ impl GraphicsPipeline {
         shader_data: &ShaderDescription,
         vertex_layout: &VertexBufferDesc,
         descriptor_layouts: &[vk::DescriptorSetLayout],
-        push_constants: &HashMap<String, PushConstantDesc>,
+        push_constants: &[PushConstantDesc],
         screen_width: u32,
         screen_height: u32,
         depth_buffer: &DepthBuffer,
@@ -73,7 +73,7 @@ impl GraphicsPipeline {
             .vertex_attribute_descriptions(&vertex_layout.attributes);
         let ranges = push_constants
             .iter()
-            .map(|(_key, push)| push.range)
+            .map(|push| push.range)
             .collect::<Vec<_>>();
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(descriptor_layouts)

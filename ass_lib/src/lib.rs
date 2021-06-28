@@ -13,15 +13,15 @@ pub struct SpirvModule {
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PushConstant {
-    offset: u32,
-    size: u32,
-    stage: ShaderStage,
+    pub offset: u32,
+    pub size: u32,
+    pub stage: ShaderStage,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AssembledSpirv {
-    vertex_shader: SpirvModule,
-    fragment_shader: SpirvModule,
-    push_constants: Vec<PushConstant>,
+    pub vertex_shader: SpirvModule,
+    pub fragment_shader: SpirvModule,
+    pub push_constants: Vec<PushConstant>,
 }
 impl TryFrom<Shader> for AssembledSpirv {
     type Error = ();
@@ -77,5 +77,7 @@ pub fn load_directory(path: &Path) -> Result<Shader> {
             defines: naga::FastHashMap::default(),
         },
     )?;
+    println!("{:?}", vertex_shader.global_variables);
+    println!("\n\n{:?}", vertex_shader.types);
     Ok(Shader { vertex_shader })
 }
