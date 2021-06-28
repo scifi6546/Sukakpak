@@ -9,7 +9,27 @@ pub struct Shader {
 pub struct SpirvModule {
     stage: ShaderStage,
     data: Vec<u32>,
+    data_in: Vec<(Type, Location)>,
     entry_point: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Type {
+    Scalar(ScalarType),
+    Vec2(ScalarType),
+    Vec3(ScalarType),
+    Vec4(ScalarType),
+    Mat2(ScalarType),
+    Mat3(ScalarType),
+    Mat4(ScalarType),
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ScalarType {
+    F32,
+    F64,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Location {
+    location: u32,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PushConstant {
