@@ -6,11 +6,17 @@ pub struct Shader {
     vertex_shader: Module,
 }
 #[derive(Serialize, Deserialize, Debug)]
+pub struct AssembledSpirv {
+    pub vertex_shader: SpirvModule,
+    pub fragment_shader: SpirvModule,
+    pub push_constants: Vec<PushConstant>,
+}
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SpirvModule {
-    stage: ShaderStage,
-    data: Vec<u32>,
-    data_in: Vec<(Type, Location)>,
-    entry_point: String,
+    pub stage: ShaderStage,
+    pub data: Vec<u32>,
+    pub data_in: Vec<(Type, Location)>,
+    pub entry_point: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Type {
@@ -37,12 +43,7 @@ pub struct PushConstant {
     pub size: u32,
     pub stage: ShaderStage,
 }
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AssembledSpirv {
-    pub vertex_shader: SpirvModule,
-    pub fragment_shader: SpirvModule,
-    pub push_constants: Vec<PushConstant>,
-}
+
 impl TryFrom<Shader> for AssembledSpirv {
     type Error = ();
     fn try_from(shader: Shader) -> std::result::Result<Self, Self::Error> {
