@@ -1,6 +1,10 @@
 {
     "vertex_shader": {
         "path": "shader.vert",
+        "info": {
+            "stage": "Vertex",
+            "vertex_input_binding": 0
+        },
         "entry_point": {
             "name": "main",
             "stage": "Vertex"

@@ -4,6 +4,7 @@ use serde_json;
 use std::{collections::HashMap, convert::TryFrom, fs::File, io::Read, path::Path};
 pub struct Shader {
     vertex_shader: Module,
+    vertex_info: ShaderDescription,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AssembledSpirv {
@@ -20,7 +21,7 @@ pub struct Texture {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpirvModule {
     pub stage: ShaderStage,
-    pub binding: u32,
+    pub vertex_input_binding: u32,
     pub data: Vec<u32>,
     pub data_in: Vec<(Type, Location)>,
     pub entry_point: String,
@@ -40,6 +41,7 @@ impl Type {
         todo!()
     }
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScalarType {
     F32,
@@ -55,22 +57,80 @@ pub struct PushConstant {
     pub size: u32,
     pub stage: ShaderStage,
 }
-
+//info for shader description that accompanies shader module
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShaderDescription {
+    stage: ShaderStage,
+    vertex_input_binding: u32,
+}
 impl TryFrom<Shader> for AssembledSpirv {
-    type Error = ();
+    type Error = anyhow::Error;
     fn try_from(shader: Shader) -> std::result::Result<Self, Self::Error> {
-        todo!()
+        Ok(AssembledSpirv {
+            vertex_shader: Shader::get_module(shader.vertex_shader, shader.vertex_info)?,
+            fragment_shader: todo!(),
+            push_constants: todo!(),
+            textures: todo!(),
+        })
     }
 }
 impl Shader {
-    fn get_module(module: naga::Module, stage: ShaderStage) -> SpirvModule {
-        SpirvModule {
-            stage,
-            binding: todo!(),
-            data: todo!(),
-            data_in: todo!(),
-            entry_point: todo!(),
-        }
+    fn get_module(module: naga::Module, info: ShaderDescription) -> Result<SpirvModule> {
+        let mut validator = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::PUSH_CONSTANT,
+        );
+        let module_info = validator.validate(&module)?;
+        let data = naga::back::spv::write_vec(
+            &module,
+            &module_info,
+            &naga::back::spv::Options {
+                lang_version: (1, 5),
+                flags: naga::back::spv::WriterFlags::empty(),
+                capabilities: None,
+            },
+        )?;
+        Ok(SpirvModule {
+            stage: info.stage,
+            vertex_input_binding: info.vertex_input_binding,
+            data,
+            data_in: module
+                .entry_points
+                .iter()
+                .next()
+                .expect("no entry points in shader")
+                .function
+                .arguments
+                .iter()
+                .filter(|arg| arg.binding.is_some())
+                .map(|arg| {
+                    (
+                        Self::naga_type_to_type(&module.types[arg.ty]),
+                        Location {
+                            location: match arg.binding.clone().expect("location found") {
+                                naga::Binding::Location { location, .. } => location,
+                                _ => todo!(),
+                            },
+                        },
+                    )
+                })
+                .collect(),
+            entry_point: module
+                .entry_points
+                .iter()
+                .next()
+                .expect("no entry points in shader")
+                .name
+                .clone(),
+        })
+    }
+    fn naga_type_to_type(ty: &naga::Type) -> Type {
+        todo!()
+    }
+}
+impl From<naga::Type> for Type {
+    fn from(ty: naga::Type) -> Self {
+        todo!()
     }
 }
 use naga::{front::glsl, Module};
@@ -81,6 +141,7 @@ pub struct ShaderConfig {
 #[derive(Deserialize, Debug)]
 pub struct ModuleConfig {
     path: String,
+    info: ShaderDescription,
     entry_point: EntryPoint,
 }
 #[derive(Deserialize, Debug)]
@@ -121,7 +182,9 @@ pub fn load_directory(path: &Path) -> Result<Shader> {
             defines: naga::FastHashMap::default(),
         },
     )?;
-    println!("{:?}", vertex_shader.global_variables);
-    println!("\n\n{:?}", vertex_shader.types);
-    Ok(Shader { vertex_shader })
+    println!("{:#?}", vertex_shader);
+    Ok(Shader {
+        vertex_shader,
+        vertex_info: config.vertex_shader.info,
+    })
 }

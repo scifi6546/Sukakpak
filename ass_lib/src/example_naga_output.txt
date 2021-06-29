@@ -1,0 +1,389 @@
+Module {
+    types: {
+        [1]: Type {
+            name: None,
+            inner: Matrix {
+                columns: Quad,
+                rows: Quad,
+                width: 4,
+            },
+        },
+        [2]: Type {
+            name: Some(
+                "constants",
+            ),
+            inner: Struct {
+                top_level: true,
+                members: [
+                    StructMember {
+                        name: Some(
+                            "proj",
+                        ),
+                        ty: [1],
+                        binding: None,
+                        offset: 0,
+                    },
+                ],
+                span: 64,
+            },
+        },
+        [3]: Type {
+            name: None,
+            inner: Vector {
+                size: Tri,
+                kind: Float,
+                width: 4,
+            },
+        },
+        [4]: Type {
+            name: None,
+            inner: Vector {
+                size: Bi,
+                kind: Float,
+                width: 4,
+            },
+        },
+        [5]: Type {
+            name: None,
+            inner: Vector {
+                size: Quad,
+                kind: Float,
+                width: 4,
+            },
+        },
+        [6]: Type {
+            name: None,
+            inner: Struct {
+                top_level: false,
+                members: [
+                    StructMember {
+                        name: Some(
+                            "o_uv",
+                        ),
+                        ty: [4],
+                        binding: Some(
+                            Location {
+                                location: 0,
+                                interpolation: Some(
+                                    Perspective,
+                                ),
+                                sampling: None,
+                            },
+                        ),
+                        offset: 0,
+                    },
+                    StructMember {
+                        name: None,
+                        ty: [5],
+                        binding: Some(
+                            BuiltIn(
+                                Position,
+                            ),
+                        ),
+                        offset: 8,
+                    },
+                ],
+                span: 24,
+            },
+        },
+    },
+    constants: {
+        [1]: Constant {
+            name: None,
+            specialization: None,
+            inner: Scalar {
+                width: 4,
+                value: Sint(
+                    0,
+                ),
+            },
+        },
+        [2]: Constant {
+            name: None,
+            specialization: None,
+            inner: Scalar {
+                width: 4,
+                value: Sint(
+                    1,
+                ),
+            },
+        },
+        [3]: Constant {
+            name: None,
+            specialization: None,
+            inner: Scalar {
+                width: 4,
+                value: Sint(
+                    0,
+                ),
+            },
+        },
+        [4]: Constant {
+            name: None,
+            specialization: None,
+            inner: Scalar {
+                width: 4,
+                value: Float(
+                    1.0,
+                ),
+            },
+        },
+    },
+    global_variables: {
+        [1]: GlobalVariable {
+            name: Some(
+                "ubo",
+            ),
+            class: PushConstant,
+            binding: None,
+            ty: [2],
+            init: None,
+            storage_access: (empty),
+        },
+        [2]: GlobalVariable {
+            name: Some(
+                "pos",
+            ),
+            class: Private,
+            binding: None,
+            ty: [3],
+            init: None,
+            storage_access: (empty),
+        },
+        [3]: GlobalVariable {
+            name: Some(
+                "uv",
+            ),
+            class: Private,
+            binding: None,
+            ty: [4],
+            init: None,
+            storage_access: (empty),
+        },
+        [4]: GlobalVariable {
+            name: Some(
+                "o_uv",
+            ),
+            class: Private,
+            binding: None,
+            ty: [4],
+            init: None,
+            storage_access: (empty),
+        },
+        [5]: GlobalVariable {
+            name: Some(
+                "gl_Position",
+            ),
+            class: Private,
+            binding: None,
+            ty: [5],
+            init: None,
+            storage_access: (empty),
+        },
+    },
+    functions: {
+        [1]: Function {
+            name: Some(
+                "main",
+            ),
+            arguments: [],
+            result: None,
+            local_variables: {},
+            expressions: {
+                [1]: GlobalVariable(
+                    [1],
+                ),
+                [2]: GlobalVariable(
+                    [1],
+                ),
+                [3]: AccessIndex {
+                    base: [2],
+                    index: 0,
+                },
+                [4]: GlobalVariable(
+                    [2],
+                ),
+                [5]: GlobalVariable(
+                    [3],
+                ),
+                [6]: GlobalVariable(
+                    [4],
+                ),
+                [7]: GlobalVariable(
+                    [5],
+                ),
+                [8]: Load {
+                    pointer: [1],
+                },
+                [9]: AccessIndex {
+                    base: [8],
+                    index: 0,
+                },
+                [10]: Load {
+                    pointer: [4],
+                },
+                [11]: Constant(
+                    [4],
+                ),
+                [12]: Compose {
+                    ty: [5],
+                    components: [
+                        [10],
+                        [11],
+                    ],
+                },
+                [13]: Binary {
+                    op: Multiply,
+                    left: [9],
+                    right: [12],
+                },
+                [14]: Load {
+                    pointer: [5],
+                },
+            },
+            named_expressions: {},
+            body: [
+                Emit(
+                    [3..3],
+                ),
+                Emit(
+                    [8..10],
+                ),
+                Emit(
+                    [12..13],
+                ),
+                Store {
+                    pointer: [7],
+                    value: [13],
+                },
+                Emit(
+                    [14..14],
+                ),
+                Store {
+                    pointer: [6],
+                    value: [14],
+                },
+                Return {
+                    value: None,
+                },
+            ],
+        },
+    },
+    entry_points: [
+        EntryPoint {
+            name: "main",
+            stage: Vertex,
+            early_depth_test: None,
+            workgroup_size: [
+                0,
+                0,
+                0,
+            ],
+            function: Function {
+                name: None,
+                arguments: [
+                    FunctionArgument {
+                        name: Some(
+                            "pos",
+                        ),
+                        ty: [3],
+                        binding: Some(
+                            Location {
+                                location: 0,
+                                interpolation: Some(
+                                    Perspective,
+                                ),
+                                sampling: None,
+                            },
+                        ),
+                    },
+                    FunctionArgument {
+                        name: Some(
+                            "uv",
+                        ),
+                        ty: [4],
+                        binding: Some(
+                            Location {
+                                location: 1,
+                                interpolation: Some(
+                                    Perspective,
+                                ),
+                                sampling: None,
+                            },
+                        ),
+                    },
+                ],
+                result: Some(
+                    FunctionResult {
+                        ty: [6],
+                        binding: None,
+                    },
+                ),
+                local_variables: {},
+                expressions: {
+                    [1]: GlobalVariable(
+                        [2],
+                    ),
+                    [2]: FunctionArgument(
+                        0,
+                    ),
+                    [3]: GlobalVariable(
+                        [3],
+                    ),
+                    [4]: FunctionArgument(
+                        1,
+                    ),
+                    [5]: GlobalVariable(
+                        [4],
+                    ),
+                    [6]: Load {
+                        pointer: [5],
+                    },
+                    [7]: GlobalVariable(
+                        [5],
+                    ),
+                    [8]: Load {
+                        pointer: [7],
+                    },
+                    [9]: Compose {
+                        ty: [6],
+                        components: [
+                            [6],
+                            [8],
+                        ],
+                    },
+                },
+                named_expressions: {},
+                body: [
+                    Store {
+                        pointer: [1],
+                        value: [2],
+                    },
+                    Store {
+                        pointer: [3],
+                        value: [4],
+                    },
+                    Call {
+                        function: [1],
+                        arguments: [],
+                        result: None,
+                    },
+                    Emit(
+                        [6..6],
+                    ),
+                    Emit(
+                        [8..8],
+                    ),
+                    Emit(
+                        [9..9],
+                    ),
+                    Return {
+                        value: Some(
+                            [9],
+                        ),
+                    },
+                ],
+            },
+        },
+    ],
+}

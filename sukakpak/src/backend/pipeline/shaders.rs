@@ -36,7 +36,7 @@ impl From<AssembledSpirv> for ShaderDescription {
             })
             .collect();
         let binding_description = vk::VertexInputBindingDescription {
-            binding: spv.vertex_shader.binding,
+            binding: spv.vertex_shader.vertex_input_binding,
             stride: spv
                 .vertex_shader
                 .data_in
@@ -54,7 +54,7 @@ impl From<AssembledSpirv> for ShaderDescription {
                 let current_offset = offset;
                 offset += data_type.size();
                 vk::VertexInputAttributeDescription {
-                    binding: spv.vertex_shader.binding,
+                    binding: spv.vertex_shader.vertex_input_binding,
                     location: location.location,
                     offset: current_offset,
                     format: match data_type {
