@@ -14,6 +14,7 @@ pub struct AssembledSpirv {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpirvModule {
     pub stage: ShaderStage,
+    pub binding: u32,
     pub data: Vec<u32>,
     pub data_in: Vec<(Type, Location)>,
     pub entry_point: String,
@@ -28,6 +29,11 @@ pub enum Type {
     Mat3(ScalarType),
     Mat4(ScalarType),
 }
+impl Type {
+    pub fn size(&self) -> u32 {
+        todo!()
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScalarType {
     F32,
@@ -35,7 +41,7 @@ pub enum ScalarType {
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Location {
-    location: u32,
+    pub location: u32,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PushConstant {

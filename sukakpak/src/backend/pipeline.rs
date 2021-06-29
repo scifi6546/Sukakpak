@@ -34,7 +34,7 @@ impl GraphicsPipeline {
 
         pipeline_type: PipelineType,
     ) -> Self {
-        let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data))
+        let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data.clone()))
             .expect("failed to create shader");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_shader_data);
         let fragment_shader = unsafe {
@@ -43,7 +43,7 @@ impl GraphicsPipeline {
                 .expect("failed to create shader")
         };
 
-        let vert_shader_data = read_spv(&mut Cursor::new(shader_data.vertex_shader_data))
+        let vert_shader_data = read_spv(&mut Cursor::new(shader_data.vertex_shader_data.clone()))
             .expect("failed to create shader");
         let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vert_shader_data);
         let vertex_shader = unsafe {
