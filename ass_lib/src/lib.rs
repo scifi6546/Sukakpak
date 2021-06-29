@@ -62,6 +62,17 @@ impl TryFrom<Shader> for AssembledSpirv {
         todo!()
     }
 }
+impl Shader {
+    fn get_module(module: naga::Module, stage: ShaderStage) -> SpirvModule {
+        SpirvModule {
+            stage,
+            binding: todo!(),
+            data: todo!(),
+            data_in: todo!(),
+            entry_point: todo!(),
+        }
+    }
+}
 use naga::{front::glsl, Module};
 #[derive(Deserialize, Debug)]
 pub struct ShaderConfig {
