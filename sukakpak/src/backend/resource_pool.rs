@@ -326,7 +326,7 @@ impl ResourcePool {
     ) -> Result<vk::DescriptorSet> {
         let descriptor_set = unsafe {
             self.texture_descriptor_pool
-                .allocate_descriptor_set(core, &DescriptorName::MeshTexture)
+                .allocate_descriptor_set(core, "mesh_texture")
         }?[0];
         let descriptor_image_info = [*vk::DescriptorImageInfo::builder()
             .image_layout(layout)
@@ -336,7 +336,7 @@ impl ResourcePool {
             .dst_set(descriptor_set)
             .dst_binding(
                 self.texture_descriptor_pool
-                    .get_descriptor_desc(&DescriptorName::MeshTexture)
+                    .get_descriptor_desc("mesh_texture")
                     .unwrap()
                     .layout_binding
                     .binding,

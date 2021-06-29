@@ -12,7 +12,7 @@ pub struct ShaderDescription {
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: Vec<u8>,
     pub fragment_shader_data: Vec<u8>,
-    pub textures: HashMap<DescriptorName, DescriptorDesc>,
+    pub textures: HashMap<String, DescriptorDesc>,
 }
 
 pub struct VertexBufferDesc {
@@ -83,6 +83,22 @@ impl From<AssembledSpirv> for ShaderDescription {
             binding_description,
             attributes,
         };
+        let textures = spv
+            .textures
+            .iter()
+            .map(|(name, tex)| {
+                (
+                    name.clone(),
+                    DescriptorDesc {
+                        layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                            .binding(tex.binding)
+                            .descriptor_count(0)
+                            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                            .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                    },
+                )
+            })
+            .collect();
         Self {
             push_constants,
             vertex_buffer_desc,
@@ -100,14 +116,14 @@ impl From<AssembledSpirv> for ShaderDescription {
                 .map(|int| int.to_ne_bytes())
                 .flatten()
                 .collect(),
-            textures: todo!(),
+            textures,
         }
     }
 }
 pub fn push_shader() -> ShaderDescription {
     ShaderDescription {
         textures: [(
-            DescriptorName::MeshTexture,
+            "mesh_texture".to_string(),
             DescriptorDesc {
                 layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                     .binding(0)

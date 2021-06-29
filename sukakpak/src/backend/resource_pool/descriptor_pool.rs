@@ -10,7 +10,7 @@ pub enum DescriptorName {
 #[derive(Error, Debug)]
 pub enum DescriptorError {
     #[error("Descriptor {0:?} not found")]
-    DescriptorSetLayoutNotFound(DescriptorName),
+    DescriptorSetLayoutNotFound(String),
     #[error("Descriptor Pool Full")]
     DescriptorPoolFull,
 }
@@ -22,7 +22,7 @@ pub struct DescriptorDesc {
 /// TODO: HANDLE REMAPPING
 pub struct DescriptorPool {
     descriptor_pool: vk::DescriptorPool,
-    pub descriptors: HashMap<DescriptorName, (vk::DescriptorSetLayout, DescriptorDesc)>,
+    pub descriptors: HashMap<String, (vk::DescriptorSetLayout, DescriptorDesc)>,
     num_descriptors_allocated: usize,
 }
 impl DescriptorPool {
@@ -30,7 +30,7 @@ impl DescriptorPool {
     pub fn new(
         core: &Core,
         pool_type: vk::DescriptorType,
-        descriptors: &HashMap<DescriptorName, DescriptorDesc>,
+        descriptors: &HashMap<String, DescriptorDesc>,
     ) -> Result<Self> {
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
             .descriptor_count(Self::MAX_SETS)
@@ -73,7 +73,7 @@ impl DescriptorPool {
     pub unsafe fn allocate_descriptor_set(
         &mut self,
         core: &mut Core,
-        descriptor_name: &DescriptorName,
+        descriptor_name: &str,
     ) -> Result<Vec<vk::DescriptorSet>> {
         if self.num_descriptors_allocated + 1 >= Self::MAX_SETS as usize {
             return Err(anyhow!("{}", DescriptorError::DescriptorPoolFull));
@@ -88,11 +88,11 @@ impl DescriptorPool {
         } else {
             Err(anyhow!(
                 "{}",
-                DescriptorError::DescriptorSetLayoutNotFound(descriptor_name.clone())
+                DescriptorError::DescriptorSetLayoutNotFound(descriptor_name.to_string())
             ))
         }
     }
-    pub fn get_descriptor_desc(&self, name: &DescriptorName) -> Option<DescriptorDesc> {
+    pub fn get_descriptor_desc(&self, name: &str) -> Option<DescriptorDesc> {
         if let Some((_layout, desc)) = self.descriptors.get(name) {
             Some(desc.clone())
         } else {

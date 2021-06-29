@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{convert::TryFrom, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, convert::TryFrom, fs::File, io::Read, path::Path};
 pub struct Shader {
     vertex_shader: Module,
 }
@@ -9,7 +9,13 @@ pub struct Shader {
 pub struct AssembledSpirv {
     pub vertex_shader: SpirvModule,
     pub fragment_shader: SpirvModule,
+    pub textures: HashMap<String, Texture>,
     pub push_constants: Vec<PushConstant>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Texture {
+    pub binding: u32,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpirvModule {
