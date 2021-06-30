@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum DescriptorName {
-    MeshTexture,
+
 }
 #[derive(Error, Debug)]
 pub enum DescriptorError {

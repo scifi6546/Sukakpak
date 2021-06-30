@@ -74,7 +74,7 @@ impl Framebuffer {
             &mut pipeline,
             &texture_attachment.color_buffer,
             &texture_attachment.depth_buffer,
-            resolution.clone(),
+            resolution,
         );
         Ok(Self {
             texture_attachment,

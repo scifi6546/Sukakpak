@@ -1,4 +1,4 @@
-use super::{DescriptorDesc, DescriptorName};
+use super::DescriptorDesc;
 use ash::vk;
 use ass_lib::{AssembledSpirv, ScalarType, ShaderStage, Type};
 use nalgebra::{Matrix4, Vector3};

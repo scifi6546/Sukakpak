@@ -19,8 +19,7 @@ use thiserror::Error;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
-    DescriptorDesc, DescriptorName, IndexBufferAllocation, ResourcePool, TextureAllocation,
-    VertexBufferAllocation,
+    DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
 
 pub struct BackendCreateInfo {
@@ -117,15 +116,6 @@ impl Backend {
             AttachmentType::Swapchain,
             create_info.default_size,
         )?;
-
-        let mut main_graphics_pipeline = GraphicsPipeline::new(
-            &mut core,
-            &main_shader,
-            &resource_pool.get_descriptor_set_layouts(),
-            create_info.default_size,
-            &texture_attachment.depth_buffer,
-            PipelineType::Present,
-        );
 
         let main_framebuffer = Framebuffer::new(
             &mut core,

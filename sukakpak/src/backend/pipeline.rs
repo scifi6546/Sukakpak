@@ -1,8 +1,8 @@
-use super::{Core, DepthBuffer, DescriptorDesc, DescriptorName};
+use super::{Core, DepthBuffer, DescriptorDesc};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
 use nalgebra::Vector2;
-use std::{collections::HashMap, ffi::CString, io::Cursor};
+use std::{ffi::CString, io::Cursor};
 mod shaders;
 pub use shaders::{push_shader, PushConstantDesc, ShaderDescription, VertexBufferDesc};
 pub struct RenderPipeline {
