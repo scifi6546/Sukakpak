@@ -9,5 +9,16 @@
             "name": "main",
             "stage": "Vertex"
         }
+    },
+    "fragment_shader": {
+        "path": "shader.frag",
+        "info": {
+            "stage": "Vertex",
+            "vertex_input_binding": 0
+        },
+        "entry_point": {
+            "name": "main",
+            "stage": "Fragment"
+        }
     }
 }
