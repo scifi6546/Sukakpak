@@ -7,7 +7,10 @@ use ash::{
 };
 use nalgebra::Vector2;
 
-use super::{CommandPool, Core, GraphicsPipeline, ResourcePool, TextureAllocation};
+use super::{
+    CommandPool, Core, GraphicsPipeline, PipelineType, ResourcePool, ShaderDescription,
+    TextureAllocation,
+};
 use anyhow::Result;
 
 pub use color_buffer::{AttachmentType, ColorBuffer};
@@ -46,31 +49,44 @@ impl TextureAttachment {
 pub struct Framebuffer {
     pub framebuffer_target: FrameBufferTarget,
     pub resolution: Vector2<u32>,
+    pub pipeline: GraphicsPipeline,
     pub texture_attachment: TextureAttachment,
 }
 impl Framebuffer {
     pub fn new(
         core: &mut Core,
-        pipeline: &mut GraphicsPipeline,
+        shader: &ShaderDescription,
+        resource_pool: &ResourcePool,
         texture_attachment: TextureAttachment,
         resolution: Vector2<u32>,
+        pipeline_type: PipelineType,
     ) -> Result<Self> {
+        let mut pipeline = GraphicsPipeline::new(
+            core,
+            shader,
+            &resource_pool.get_descriptor_set_layouts(),
+            resolution,
+            &texture_attachment.depth_buffer,
+            pipeline_type,
+        );
         let framebuffer_target = FrameBufferTarget::new(
             core,
-            pipeline,
+            &mut pipeline,
             &texture_attachment.color_buffer,
             &texture_attachment.depth_buffer,
-            resolution,
+            resolution.clone(),
         );
         Ok(Self {
             texture_attachment,
             resolution,
+            pipeline,
             framebuffer_target,
         })
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.framebuffer_target.free(core);
         self.texture_attachment.free(core, resource_pool)?;
+        self.pipeline.free(core);
         Ok(())
     }
 }
@@ -84,8 +100,8 @@ impl AttachableFramebuffer {
     pub fn new(
         core: &mut Core,
         command_pool: &mut CommandPool,
-        graphics_pipeline: &mut GraphicsPipeline,
         resource_pool: &mut ResourcePool,
+        shader: &ShaderDescription,
         resolution: Vector2<u32>,
     ) -> Result<Self> {
         let texture_attachment = TextureAttachment::new(
@@ -95,8 +111,14 @@ impl AttachableFramebuffer {
             AttachmentType::UserFramebuffer,
             resolution,
         )?;
-        let framebuffer =
-            Framebuffer::new(core, graphics_pipeline, texture_attachment, resolution)?;
+        let framebuffer = Framebuffer::new(
+            core,
+            shader,
+            resource_pool,
+            texture_attachment,
+            resolution,
+            PipelineType::OffScreen,
+        )?;
         let sampler_info = vk::SamplerCreateInfo::builder()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)

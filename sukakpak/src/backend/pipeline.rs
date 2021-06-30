@@ -1,6 +1,7 @@
 use super::{Core, DepthBuffer, DescriptorDesc, DescriptorName};
 use ash::version::DeviceV1_0;
 use ash::{util::*, vk};
+use nalgebra::Vector2;
 use std::{collections::HashMap, ffi::CString, io::Cursor};
 mod shaders;
 pub use shaders::{push_shader, PushConstantDesc, ShaderDescription, VertexBufferDesc};
@@ -25,11 +26,8 @@ impl GraphicsPipeline {
     pub fn new(
         core: &mut Core,
         shader_data: &ShaderDescription,
-        vertex_layout: &VertexBufferDesc,
         descriptor_layouts: &[vk::DescriptorSetLayout],
-        push_constants: &[PushConstantDesc],
-        screen_width: u32,
-        screen_height: u32,
+        screen_dimensions: Vector2<u32>,
         depth_buffer: &DepthBuffer,
 
         pipeline_type: PipelineType,
@@ -67,11 +65,12 @@ impl GraphicsPipeline {
                 ..Default::default()
             },
         ];
-        let binding_description = [vertex_layout.binding_description];
+        let binding_description = [shader_data.vertex_buffer_desc.binding_description];
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(&binding_description)
-            .vertex_attribute_descriptions(&vertex_layout.attributes);
-        let ranges = push_constants
+            .vertex_attribute_descriptions(&shader_data.vertex_buffer_desc.attributes);
+        let ranges = shader_data
+            .push_constants
             .iter()
             .map(|push| push.range)
             .collect::<Vec<_>>();
@@ -89,8 +88,8 @@ impl GraphicsPipeline {
             &shader_stage_create_infos,
             *vertex_input_state_info,
             pipeline_layout,
-            screen_width,
-            screen_height,
+            screen_dimensions.x,
+            screen_dimensions.y,
             vk::AttachmentLoadOp::CLEAR,
             depth_buffer,
             vk::ImageLayout::UNDEFINED,
@@ -104,8 +103,8 @@ impl GraphicsPipeline {
             &shader_stage_create_infos,
             *vertex_input_state_info,
             pipeline_layout,
-            screen_width,
-            screen_height,
+            screen_dimensions.x,
+            screen_dimensions.y,
             vk::AttachmentLoadOp::LOAD,
             depth_buffer,
             match pipeline_type {

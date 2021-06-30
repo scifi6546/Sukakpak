@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ash::vk;
 use image::RgbaImage;
 use nalgebra::{Matrix4, Vector2};
@@ -15,6 +15,7 @@ use framebuffer::{
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
+use thiserror::Error;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
@@ -32,6 +33,11 @@ pub enum VertexLayout {
     XYZ_F32,    //xyz vector with floating point components
     XYZ_UV_F32, //xyz with uv
 }
+#[derive(Error, Debug)]
+pub enum RenderError {
+    #[error("Rendering to framebuffer {fb:?}")]
+    RenderingBoundFramebuffer { fb: BoundFramebuffer },
+}
 pub struct Backend {
     #[allow(dead_code)]
     window: winit::window::Window,
@@ -43,30 +49,29 @@ pub struct Backend {
     resource_pool: ResourcePool,
     main_framebuffer: Framebuffer,
     renderpass: RenderPass,
-    main_graphics_pipeline: GraphicsPipeline,
-    framebuffer_pipeline: GraphicsPipeline,
+    bound_framebuffer: BoundFramebuffer,
     screen_dimensions: Vector2<u32>,
     main_shader: ShaderDescription,
     core: Core,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct VertexBufferID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TextureID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum MeshTexture {
     RegularTexture(TextureID),
     Framebuffer(FramebufferID),
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MeshID {
     pub verticies: VertexBufferID,
     pub texture: MeshTexture,
@@ -80,11 +85,11 @@ impl MeshID {
         self.texture = MeshTexture::Framebuffer(fb);
     }
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FramebufferID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BoundFramebuffer {
     ScreenFramebuffer,
     UserFramebuffer(FramebufferID),
@@ -116,32 +121,19 @@ impl Backend {
         let mut main_graphics_pipeline = GraphicsPipeline::new(
             &mut core,
             &main_shader,
-            &main_shader.vertex_buffer_desc,
             &resource_pool.get_descriptor_set_layouts(),
-            &main_shader.push_constants,
-            create_info.default_size.x,
-            create_info.default_size.y,
+            create_info.default_size,
             &texture_attachment.depth_buffer,
             PipelineType::Present,
-        );
-        let framebuffer_pipeline = GraphicsPipeline::new(
-            &mut core,
-            &main_shader,
-            &main_shader.vertex_buffer_desc,
-            &resource_pool.get_descriptor_set_layouts(),
-            &main_shader.push_constants,
-            create_info.default_size.x,
-            create_info.default_size.y,
-            &texture_attachment.depth_buffer,
-            //todo allow custom framebuffer formats
-            PipelineType::OffScreen,
         );
 
         let main_framebuffer = Framebuffer::new(
             &mut core,
-            &mut main_graphics_pipeline,
+            &main_shader,
+            &resource_pool,
             texture_attachment,
             create_info.default_size,
+            PipelineType::Present,
         )?;
         let renderpass = RenderPass::new(
             &mut core,
@@ -158,8 +150,7 @@ impl Backend {
             command_pool,
             main_framebuffer,
             renderpass,
-            main_graphics_pipeline,
-            framebuffer_pipeline,
+            bound_framebuffer: BoundFramebuffer::ScreenFramebuffer,
             screen_dimensions,
             index_buffers: Arena::new(),
             vertex_buffers: Arena::new(),
@@ -208,52 +199,52 @@ impl Backend {
             buffer_index: self.framebuffer_arena.insert(AttachableFramebuffer::new(
                 &mut self.core,
                 &mut self.command_pool,
-                &mut self.framebuffer_pipeline,
                 &mut self.resource_pool,
+                &self.main_shader,
                 resolution,
             )?),
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
-        let (pipeline, framebuffer) = match framebuffer_id {
-            &BoundFramebuffer::ScreenFramebuffer => {
-                (&mut self.main_graphics_pipeline, &self.main_framebuffer)
-            }
-            &BoundFramebuffer::UserFramebuffer(id) => (
-                &mut self.framebuffer_pipeline,
-                self.framebuffer_arena
-                    .get(id.buffer_index)
-                    .unwrap()
-                    .get_framebuffer(),
-            ),
+        let framebuffer = match framebuffer_id {
+            &BoundFramebuffer::ScreenFramebuffer => (&self.main_framebuffer),
+            &BoundFramebuffer::UserFramebuffer(id) => self
+                .framebuffer_arena
+                .get(id.buffer_index)
+                .unwrap()
+                .get_framebuffer(),
         };
         unsafe {
             self.renderpass.end_renderpass(&mut self.core)?;
-            self.renderpass.begin_renderpass(
-                &mut self.core,
-                pipeline,
-                &framebuffer,
-                ClearOp::ClearColor,
-            )?;
+            self.renderpass
+                .begin_renderpass(&mut self.core, &framebuffer, ClearOp::ClearColor)?;
         }
+        self.bound_framebuffer = *framebuffer_id;
         Ok(())
     }
     pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
-        let (pipeline, texture_descriptor_set) = match mesh.texture {
-            MeshTexture::RegularTexture(texture) => (
-                &mut self.main_graphics_pipeline,
+        let texture_descriptor_set = match mesh.texture {
+            MeshTexture::RegularTexture(texture) => {
                 self.textures
                     .get(texture.buffer_index)
                     .unwrap()
-                    .descriptor_set,
-            ),
-            MeshTexture::Framebuffer(fb) => (
-                &mut self.framebuffer_pipeline,
-                self.framebuffer_arena
-                    .get(fb.buffer_index)
-                    .unwrap()
-                    .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?),
-            ),
+                    .descriptor_set
+            }
+            MeshTexture::Framebuffer(fb) => {
+                if BoundFramebuffer::UserFramebuffer(fb) == self.bound_framebuffer {
+                    return Err(anyhow!(
+                        "{}",
+                        RenderError::RenderingBoundFramebuffer {
+                            fb: self.bound_framebuffer
+                        }
+                    ));
+                } else {
+                    self.framebuffer_arena
+                        .get(fb.buffer_index)
+                        .unwrap()
+                        .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?)
+                }
+            }
         };
         let render_mesh = RenderMesh {
             view_matrix,
@@ -266,8 +257,16 @@ impl Backend {
         let descriptor_set = [texture_descriptor_set];
         self.renderpass.draw_mesh(
             &mut self.core,
-            pipeline,
-            &self.main_framebuffer,
+            match self.bound_framebuffer {
+                BoundFramebuffer::ScreenFramebuffer => &self.main_framebuffer,
+                BoundFramebuffer::UserFramebuffer(fb) => {
+                    &self
+                        .framebuffer_arena
+                        .get(fb.buffer_index)
+                        .unwrap()
+                        .framebuffer
+                }
+            },
             &descriptor_set,
             self.screen_dimensions,
             render_mesh,
@@ -278,8 +277,16 @@ impl Backend {
         unsafe {
             self.renderpass.begin_frame(
                 &mut self.core,
-                &mut self.main_graphics_pipeline,
-                &mut self.main_framebuffer,
+                match self.bound_framebuffer {
+                    BoundFramebuffer::ScreenFramebuffer => &self.main_framebuffer,
+                    BoundFramebuffer::UserFramebuffer(fb) => {
+                        &self
+                            .framebuffer_arena
+                            .get(fb.buffer_index)
+                            .unwrap()
+                            .framebuffer
+                    }
+                },
             )
         }
     }
@@ -319,24 +326,13 @@ impl Backend {
                 new_size,
             )?;
 
-            self.main_graphics_pipeline.free(&mut self.core);
-            self.main_graphics_pipeline = GraphicsPipeline::new(
-                &mut self.core,
-                &self.main_shader,
-                &self.main_shader.vertex_buffer_desc,
-                &self.resource_pool.get_descriptor_set_layouts(),
-                &self.main_shader.push_constants,
-                new_size.x,
-                new_size.y,
-                &texture_attachment.depth_buffer,
-                PipelineType::Present,
-            );
-
             self.main_framebuffer = Framebuffer::new(
                 &mut self.core,
-                &mut self.main_graphics_pipeline,
+                &self.main_shader,
+                &mut self.resource_pool,
                 texture_attachment,
                 new_size,
+                PipelineType::Present,
             )?;
             self.renderpass.free(&mut self.core);
             self.renderpass = RenderPass::new(
@@ -370,8 +366,7 @@ impl Drop for Backend {
                     .expect("failed to free");
             }
             self.renderpass.free(&mut self.core);
-            self.main_graphics_pipeline.free(&mut self.core);
-            self.framebuffer_pipeline.free(&mut self.core);
+
             self.main_framebuffer
                 .free(&mut self.core, &mut self.resource_pool)
                 .expect("failed to drop framebuffer");

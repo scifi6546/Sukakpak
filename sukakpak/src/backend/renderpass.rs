@@ -1,5 +1,5 @@
 use super::{
-    CommandPool, Core, FrameBufferTarget, Framebuffer, GraphicsPipeline, IndexBufferAllocation,
+    CommandPool, Core, FrameBufferTarget, Framebuffer, IndexBufferAllocation,
     VertexBufferAllocation,
 };
 use anyhow::Result;
@@ -81,9 +81,7 @@ impl RenderPass {
     pub fn draw_mesh(
         &mut self,
         core: &mut Core,
-        graphics_pipeline: &GraphicsPipeline,
         framebuffer: &Framebuffer,
-
         descriptor_sets: &[vk::DescriptorSet],
         screen_dimensions: Vector2<u32>,
         mesh: RenderMesh,
@@ -106,7 +104,7 @@ impl RenderPass {
                 core.device.cmd_bind_descriptor_sets(
                     self.command_buffers[image_index as usize],
                     vk::PipelineBindPoint::GRAPHICS,
-                    graphics_pipeline.pipeline_layout,
+                    framebuffer.pipeline.pipeline_layout,
                     0,
                     &descriptor_sets,
                     &[],
@@ -116,7 +114,7 @@ impl RenderPass {
                     std::slice::from_raw_parts(matrix_ptr, size_of::<Matrix4<f32>>());
                 core.device.cmd_push_constants(
                     self.command_buffers[image_index as usize],
-                    graphics_pipeline.pipeline_layout,
+                    framebuffer.pipeline.pipeline_layout,
                     vk::ShaderStageFlags::VERTEX,
                     0,
                     matrix_slice,
@@ -134,25 +132,13 @@ impl RenderPass {
             Ok(())
         } else {
             self.acquire_next_image(core)?;
-            self.begin_renderpass(core, graphics_pipeline, framebuffer, ClearOp::DoNotClear)?;
-            self.draw_mesh(
-                core,
-                graphics_pipeline,
-                framebuffer,
-                descriptor_sets,
-                screen_dimensions,
-                mesh,
-            )?;
+            self.begin_renderpass(core, framebuffer, ClearOp::DoNotClear)?;
+            self.draw_mesh(core, framebuffer, descriptor_sets, screen_dimensions, mesh)?;
             Ok(())
         }
     }
     /// begins rendering a frame, builds renderpass with selected frame
-    pub unsafe fn begin_frame(
-        &mut self,
-        core: &mut Core,
-        graphics_pipeline: &GraphicsPipeline,
-        framebuffer: &Framebuffer,
-    ) -> Result<()> {
+    pub unsafe fn begin_frame(&mut self, core: &mut Core, framebuffer: &Framebuffer) -> Result<()> {
         self.acquire_next_image(core)?;
         let image_index = self.image_index.unwrap();
         core.device
@@ -161,13 +147,12 @@ impl RenderPass {
             self.command_buffers[image_index as usize],
             &vk::CommandBufferBeginInfo::builder(),
         )?;
-        self.begin_renderpass(core, graphics_pipeline, framebuffer, ClearOp::ClearColor)
+        self.begin_renderpass(core, framebuffer, ClearOp::ClearColor)
     }
 
     pub fn begin_renderpass(
         &mut self,
         core: &mut Core,
-        graphics_pipeline: &GraphicsPipeline,
         framebuffer: &Framebuffer,
         clear_op: ClearOp,
     ) -> Result<()> {
@@ -177,8 +162,8 @@ impl RenderPass {
         unsafe {
             let renderpass_info = vk::RenderPassBeginInfo::builder()
                 .render_pass(match clear_op {
-                    ClearOp::ClearColor => graphics_pipeline.clear_pipeline.renderpass,
-                    ClearOp::DoNotClear => graphics_pipeline.load_pipeline.renderpass,
+                    ClearOp::ClearColor => framebuffer.pipeline.clear_pipeline.renderpass,
+                    ClearOp::DoNotClear => framebuffer.pipeline.load_pipeline.renderpass,
                 })
                 .framebuffer(framebuffer.framebuffer_target.framebuffers[image_index as usize])
                 .render_area(vk::Rect2D {
@@ -210,8 +195,8 @@ impl RenderPass {
                 self.command_buffers[image_index as usize],
                 vk::PipelineBindPoint::GRAPHICS,
                 match clear_op {
-                    ClearOp::ClearColor => graphics_pipeline.clear_pipeline.graphics_pipeline,
-                    ClearOp::DoNotClear => graphics_pipeline.load_pipeline.graphics_pipeline,
+                    ClearOp::ClearColor => framebuffer.pipeline.clear_pipeline.graphics_pipeline,
+                    ClearOp::DoNotClear => framebuffer.pipeline.load_pipeline.graphics_pipeline,
                 },
             );
             Ok(())
