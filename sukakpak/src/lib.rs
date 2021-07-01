@@ -7,6 +7,7 @@ pub use backend::{
     TextureID as Texture,
 };
 pub use events::Event;
+use events::EventCollector;
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
@@ -14,39 +15,60 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 pub use nalgebra::Matrix4;
-use winit::{
-    event::{Event as WinitEvent, WindowEvent},
-    event_loop::ControlFlow,
+use std::{
+    sync::mpsc::{channel, Receiver, TryRecvError},
+    thread,
 };
+use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Context {
     backend: Backend,
 }
+unsafe impl Send for Context {}
 impl Context {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
-        let mut context = Context {
+        let context = Context {
             backend: Backend::new(create_info, &event_loop).expect("failed to create backend"),
         };
-        let mut render = {
-            let mut child = ContextChild::new(&mut context);
-            R::init(&mut child)
-        };
+        let (event_sender, receiver) = channel();
+        let mut event_collector = EventCollector::new();
+        thread::spawn(move || rendering_thread::<R>(receiver, context));
 
         event_loop.run(move |event, _, control_flow| {
-            let updated_screen_size: Option<na::Vector2<u32>> = None;
             match event {
-                WinitEvent::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = ControlFlow::Exit,
+                WinitEvent::WindowEvent { event, .. } => event_collector.push_event(event),
                 _ => (),
             }
-            if let Some(size) = updated_screen_size {
-                context
-                    .backend
-                    .resize_renderer(size)
-                    .expect("failed to resize");
+            event_collector
+                .pull_events()
+                .drain(..)
+                .map(|event| event_sender.send(event))
+                .collect::<Vec<_>>();
+
+            if event_collector.quit_done() {
+                *control_flow = ControlFlow::Exit
+            }
+        });
+    }
+}
+fn rendering_thread<R: Renderable>(receiver: Receiver<Event>, mut context: Context) {
+    let mut render = {
+        let mut child = ContextChild::new(&mut context);
+        R::init(&mut child)
+    };
+    loop {
+        let mut events: Vec<Event> = vec![];
+        loop {
+            match receiver.try_recv() {
+                Ok(e) => events.push(e),
+                Err(err) => match err {
+                    TryRecvError::Empty => break,
+                    TryRecvError::Disconnected => {
+                        events.push(Event::ProgramTermination);
+                        break;
+                    }
+                },
             }
             context
                 .backend
@@ -54,15 +76,15 @@ impl Context {
                 .expect("failed to start rendering frame");
             let mut child = ContextChild::new(&mut context);
             render.render_frame(&[], &mut child);
-            if child.quit {
-                *control_flow = ControlFlow::Exit
+            if !child.quit {
+                context
+                    .backend
+                    .finish_render()
+                    .expect("failed to swap framebuffer");
+            } else {
+                return;
             }
-
-            context
-                .backend
-                .finish_render()
-                .expect("failed to swap framebuffer");
-        });
+        }
     }
 }
 pub struct ContextChild<'a> {
