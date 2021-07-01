@@ -13,7 +13,7 @@ use framebuffer::{
     TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
+use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
 use thiserror::Error;
 mod pipeline;
@@ -21,6 +21,7 @@ use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
     DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
+use std::collections::HashMap;
 
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
@@ -39,6 +40,7 @@ pub enum RenderError {
 }
 pub struct Backend {
     #[allow(dead_code)]
+    shaders: HashMap<String, ShaderDescription>,
     window: winit::window::Window,
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
@@ -93,11 +95,23 @@ pub enum BoundFramebuffer {
     ScreenFramebuffer,
     UserFramebuffer(FramebufferID),
 }
+impl From<&FramebufferID> for BoundFramebuffer {
+    fn from(fb: &FramebufferID) -> Self {
+        BoundFramebuffer::UserFramebuffer(*fb)
+    }
+}
 impl Backend {
     pub fn new(
         create_info: BackendCreateInfo,
         event_loop: &winit::event_loop::EventLoop<()>,
     ) -> Result<Self> {
+        let shaders = [
+            ("push".to_string(), push_shader()),
+            ("alt".to_string(), alt_shader()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
         let main_shader = push_shader();
         let window = winit::window::WindowBuilder::new()
             .with_title(create_info.name.clone())
@@ -140,6 +154,7 @@ impl Backend {
             command_pool,
             main_framebuffer,
             renderpass,
+            shaders,
             bound_framebuffer: BoundFramebuffer::ScreenFramebuffer,
             screen_dimensions,
             index_buffers: Arena::new(),
@@ -212,6 +227,22 @@ impl Backend {
         self.bound_framebuffer = *framebuffer_id;
         Ok(())
     }
+    pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
+        let shader = self.shaders.get(shader).unwrap();
+        let framebuffer = match framebuffer {
+            BoundFramebuffer::ScreenFramebuffer => &mut self.main_framebuffer,
+            BoundFramebuffer::UserFramebuffer(id) => {
+                &mut self
+                    .framebuffer_arena
+                    .get_mut(id.buffer_index)
+                    .unwrap()
+                    .framebuffer
+            }
+        };
+        framebuffer.rebuild_framebuffer(&mut self.core, &self.resource_pool, shader)?;
+        Ok(())
+    }
+
     pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
         let texture_descriptor_set = match mesh.texture {
             MeshTexture::RegularTexture(texture) => {

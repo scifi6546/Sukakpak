@@ -1,10 +1,12 @@
 use anyhow::Result;
 mod backend;
+mod events;
 use backend::{Backend, VertexLayout};
 pub use backend::{
     BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, MeshTexture,
     TextureID as Texture,
 };
+pub use events::Event;
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
@@ -13,7 +15,7 @@ pub use nalgebra;
 use nalgebra as na;
 pub use nalgebra::Matrix4;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event as WinitEvent, WindowEvent},
     event_loop::ControlFlow,
 };
 pub struct Context {
@@ -34,7 +36,7 @@ impl Context {
         event_loop.run(move |event, _, control_flow| {
             let updated_screen_size: Option<na::Vector2<u32>> = None;
             match event {
-                Event::WindowEvent {
+                WinitEvent::WindowEvent {
                     event: WindowEvent::CloseRequested,
                     ..
                 } => *control_flow = ControlFlow::Exit,
@@ -51,7 +53,7 @@ impl Context {
                 .begin_render()
                 .expect("failed to start rendering frame");
             let mut child = ContextChild::new(&mut context);
-            render.render_frame(&mut child);
+            render.render_frame(&[], &mut child);
             if child.quit {
                 *control_flow = ControlFlow::Exit
             }
@@ -101,6 +103,11 @@ impl<'a> ContextChild<'a> {
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
         self.context.backend.build_framebuffer(resolution)
     }
+    /// Shader being stringly typed is not ideal but better shader system is waiting
+    /// on a naga translation layer for shaders
+    pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
+        self.context.backend.bind_shader(framebuffer, shader)
+    }
     pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
         self.context.backend.bind_framebuffer(bound_framebuffer)
     }
@@ -118,7 +125,7 @@ impl<'a> ContextChild<'a> {
 /// User Provided code that provides draw calls
 pub trait Renderable {
     fn init<'a>(context: &mut ContextChild<'a>) -> Self;
-    fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>);
+    fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>);
 }
 #[cfg(test)]
 mod tests {

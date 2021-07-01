@@ -50,6 +50,7 @@ pub struct Framebuffer {
     pub framebuffer_target: FrameBufferTarget,
     pub resolution: Vector2<u32>,
     pub pipeline: GraphicsPipeline,
+    pipeline_type: PipelineType,
     pub texture_attachment: TextureAttachment,
 }
 impl Framebuffer {
@@ -69,19 +70,39 @@ impl Framebuffer {
             &texture_attachment.depth_buffer,
             pipeline_type,
         );
-        let framebuffer_target = FrameBufferTarget::new(
-            core,
-            &mut pipeline,
-            &texture_attachment.color_buffer,
-            &texture_attachment.depth_buffer,
-            resolution,
-        );
+        let framebuffer_target =
+            FrameBufferTarget::new(core, &mut pipeline, &texture_attachment, resolution);
         Ok(Self {
             texture_attachment,
             resolution,
             pipeline,
             framebuffer_target,
+            pipeline_type,
         })
+    }
+    pub fn rebuild_framebuffer(
+        &mut self,
+        core: &mut Core,
+        resource_pool: &ResourcePool,
+        shader: &ShaderDescription,
+    ) -> Result<()> {
+        self.framebuffer_target.free(core);
+        self.pipeline.free(core);
+        self.pipeline = GraphicsPipeline::new(
+            core,
+            shader,
+            &resource_pool.get_descriptor_set_layouts(),
+            self.resolution,
+            &self.texture_attachment.depth_buffer,
+            self.pipeline_type,
+        );
+        self.framebuffer_target = FrameBufferTarget::new(
+            core,
+            &mut self.pipeline,
+            &self.texture_attachment,
+            self.resolution,
+        );
+        Ok(())
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         self.framebuffer_target.free(core);

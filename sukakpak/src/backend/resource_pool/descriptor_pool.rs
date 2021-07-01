@@ -4,9 +4,7 @@ use ash::{version::DeviceV1_0, vk};
 use std::collections::HashMap;
 use thiserror::Error;
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum DescriptorName {
-
-}
+pub enum DescriptorName {}
 #[derive(Error, Debug)]
 pub enum DescriptorError {
     #[error("Descriptor {0:?} not found")]
@@ -14,7 +12,7 @@ pub enum DescriptorError {
     #[error("Descriptor Pool Full")]
     DescriptorPoolFull,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DescriptorDesc {
     pub layout_binding: vk::DescriptorSetLayoutBinding,
 }

@@ -4,7 +4,7 @@ use ash::{util::*, vk};
 use nalgebra::Vector2;
 use std::{ffi::CString, io::Cursor};
 mod shaders;
-pub use shaders::{push_shader, PushConstantDesc, ShaderDescription, VertexBufferDesc};
+pub use shaders::{alt_shader, push_shader, PushConstantDesc, ShaderDescription, VertexBufferDesc};
 pub struct RenderPipeline {
     pub graphics_pipeline: vk::Pipeline,
     pub renderpass: vk::RenderPass,
@@ -18,6 +18,7 @@ pub struct GraphicsPipeline {
     // does not clear color bit on draw
     pub load_pipeline: RenderPipeline,
 }
+#[derive(Clone, Copy, Debug)]
 pub enum PipelineType {
     Present,
     OffScreen,

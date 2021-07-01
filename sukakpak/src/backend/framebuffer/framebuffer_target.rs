@@ -1,4 +1,4 @@
-use super::{ColorBuffer, Core, DepthBuffer, GraphicsPipeline};
+use super::{Core, GraphicsPipeline, TextureAttachment};
 use ash::{version::DeviceV1_0, vk};
 use nalgebra::Vector2;
 pub struct FrameBufferTarget {
@@ -8,15 +8,15 @@ impl FrameBufferTarget {
     pub fn new(
         core: &mut Core,
         pipeline: &mut GraphicsPipeline,
-        color_buffer: &ColorBuffer,
-        depth_buffer: &DepthBuffer,
+        attachment: &TextureAttachment,
         resolution: Vector2<u32>,
     ) -> Self {
-        let framebuffers: Vec<vk::Framebuffer> = color_buffer
+        let framebuffers: Vec<vk::Framebuffer> = attachment
+            .color_buffer
             .present_image_views
             .iter()
             .map(|image_view| {
-                let attachments = [*image_view, depth_buffer.view];
+                let attachments = [*image_view, attachment.depth_buffer.view];
                 let create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(pipeline.clear_pipeline.renderpass)
                     .attachments(&attachments)
