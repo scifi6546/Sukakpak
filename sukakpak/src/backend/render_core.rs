@@ -67,7 +67,9 @@ pub struct Core {
     swapchain_image_count: u32,
     present_mode: vk::PresentModeKHR,
     //end swapchain info
+    /// TODO: move into separate thread
     surface: vk::SurfaceKHR,
+    /// TODO: move into separate thread
     surface_loader: AshSurface,
     debug_utils_loader: DebugUtils,
 }

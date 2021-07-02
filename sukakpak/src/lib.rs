@@ -159,7 +159,7 @@ mod tests {
         fn init<'a>(_context: &mut ContextChild<'a>) -> Self {
             Self {}
         }
-        fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
             context.quit();
         }
     }
@@ -182,7 +182,7 @@ mod tests {
                 texture,
             }
         }
-        fn render_frame<'a>(&mut self, context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
             if self.num_frames <= 10_000 {
                 context
                     .draw_mesh(Matrix4::identity(), &self.triangle)
