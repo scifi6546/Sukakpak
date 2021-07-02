@@ -3,7 +3,21 @@ use winit::event::WindowEvent as WinitEvent;
 #[derive(Clone, Debug)]
 pub enum Event {
     ProgramTermination,
-    Resized { new_size: Vector2<u32> },
+    WindowResized {
+        new_size: Vector2<u32>,
+    },
+    WindowMoved {
+        new_position: Vector2<i32>,
+    },
+    WindowGainedFocus,
+    WindowLostFocus,
+    CursorEnteredWindow,
+    CursorLeftWindow,
+    MouseMoved {
+        ///Mouse position with y increasing as cursor goes down the window and x is increasing as
+        ///the mouse moves to the right.
+        position: Vector2<f32>,
+    },
 }
 pub struct EventCollector {
     events: Vec<Event>,
@@ -18,10 +32,13 @@ impl EventCollector {
     }
     pub fn push_event(&mut self, event: WinitEvent) {
         match event {
-            WinitEvent::Resized(size) => self.events.push(Event::Resized {
+            WinitEvent::Resized(size) => self.events.push(Event::WindowResized {
                 new_size: Vector2::new(size.width, size.height),
             }),
-            WinitEvent::Moved(_) => todo!("Handle moved"),
+            WinitEvent::Moved(pos) => self.events.push(Event::WindowMoved {
+                new_position: Vector2::new(pos.x, pos.y),
+            }),
+
             WinitEvent::CloseRequested => {
                 self.quit = true;
             }
@@ -32,12 +49,21 @@ impl EventCollector {
             WinitEvent::HoveredFile(_) => todo!("hover file"),
             WinitEvent::HoveredFileCancelled => todo!("hovered file canceled"),
             WinitEvent::ReceivedCharacter(_) => todo!("received character"),
-            WinitEvent::Focused(_) => todo!("focused"),
+            WinitEvent::Focused(f) => {
+                let e = if f {
+                    Event::WindowGainedFocus
+                } else {
+                    Event::WindowLostFocus
+                };
+                self.events.push(e);
+            }
             WinitEvent::KeyboardInput { .. } => todo!("keyboard input"),
             WinitEvent::ModifiersChanged(_) => todo!("Modifiers Changed"),
-            WinitEvent::CursorMoved { .. } => todo!("cursor moved"),
-            WinitEvent::CursorEntered { .. } => todo!("cursor entered"),
-            WinitEvent::CursorLeft { .. } => todo!("cursor left"),
+            WinitEvent::CursorMoved { position, .. } => self.events.push(Event::MouseMoved {
+                position: Vector2::new(position.x as f32, position.y as f32),
+            }),
+            WinitEvent::CursorEntered { .. } => self.events.push(Event::CursorEnteredWindow),
+            WinitEvent::CursorLeft { .. } => self.events.push(Event::CursorLeftWindow),
             WinitEvent::MouseWheel { .. } => todo!("mouse wheel"),
             WinitEvent::MouseInput { .. } => todo!("mouse input"),
             WinitEvent::TouchpadPressure { .. } => todo!("touchpad pressure"),
