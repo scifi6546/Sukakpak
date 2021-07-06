@@ -15,10 +15,7 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 pub use nalgebra::Matrix4;
-use std::{
-    sync::mpsc::{channel, Receiver, TryRecvError},
-    thread,
-};
+use std::sync::mpsc::{Receiver, TryRecvError};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Context {
     backend: Backend,
@@ -28,28 +25,54 @@ impl Context {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
-        let context = Context {
+        let mut context = Context {
             backend: Backend::new(create_info, &event_loop).expect("failed to create backend"),
         };
-        let (event_sender, receiver) = channel();
+
+        let mut render = {
+            let mut child = ContextChild::new(&mut context);
+            R::init(&mut child)
+        };
+
         let mut event_collector = EventCollector::new();
-        thread::spawn(move || rendering_thread::<R>(receiver, context));
 
         event_loop.run(move |event, _, control_flow| {
             match event {
                 WinitEvent::WindowEvent { event, .. } => event_collector.push_event(event),
                 _ => (),
             }
-            event_collector
-                .pull_events()
-                .drain(..)
-                .map(|event| event_sender.send(event))
-                .collect::<Vec<_>>();
+            let status = run_frame(&event_collector.pull_events(), &mut render, &mut context);
 
-            if event_collector.quit_done() {
+            if event_collector.quit_done() || status == FrameStatus::Quit {
                 *control_flow = ControlFlow::Exit
             }
         });
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FrameStatus {
+    Continue,
+    Quit,
+}
+fn run_frame<R: Renderable>(
+    events: &[Event],
+    renderer: &mut R,
+    context: &mut Context,
+) -> FrameStatus {
+    context
+        .backend
+        .begin_render()
+        .expect("failed to start rendering frame");
+    let mut child = ContextChild::new(context);
+    renderer.render_frame(events, &mut child);
+    if !child.quit {
+        context
+            .backend
+            .finish_render()
+            .expect("failed to swap framebuffer");
+        FrameStatus::Continue
+    } else {
+        FrameStatus::Quit
     }
 }
 fn rendering_thread<R: Renderable>(receiver: Receiver<Event>, mut context: Context) {

@@ -4,7 +4,6 @@ use image::RgbaImage;
 use nalgebra::{Matrix4, Vector2};
 mod command_pool;
 mod framebuffer;
-mod framebuffer_swapper;
 mod render_core;
 mod renderpass;
 mod resource_pool;
