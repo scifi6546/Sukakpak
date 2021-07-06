@@ -39,11 +39,16 @@ impl Context {
         event_loop.run(move |event, _, control_flow| {
             match event {
                 WinitEvent::WindowEvent { event, .. } => event_collector.push_event(event),
+                WinitEvent::MainEventsCleared => {
+                    match run_frame(&event_collector.pull_events(), &mut render, &mut context) {
+                        FrameStatus::Quit => *control_flow = ControlFlow::Exit,
+                        FrameStatus::Continue => (),
+                    };
+                }
                 _ => (),
             }
-            let status = run_frame(&event_collector.pull_events(), &mut render, &mut context);
 
-            if event_collector.quit_done() || status == FrameStatus::Quit {
+            if event_collector.quit_done() {
                 *control_flow = ControlFlow::Exit
             }
         });
