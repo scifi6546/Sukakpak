@@ -211,9 +211,9 @@ impl TreeNode for SearchStart {
 }
 #[cfg(test)]
 mod test {
-    use super::super::super::prelude::Path;
+    use super::super::super::prelude::{na::Vector2, Path};
     use super::*;
-    use nalgebra::Vector2;
+
     struct A {}
     impl TreeNode for A {
         fn name(&self) -> String {

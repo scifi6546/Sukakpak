@@ -6,17 +6,16 @@ use legion::*;
 use log::debug;
 use nalgebra::Vector2;
 use std::cell::RefCell;
+use sukakpak::MeshTexture;
 pub struct RuntimeModel {
     pub mesh: RuntimeMesh,
-    pub texture: RuntimeTexture,
+    pub texture: MeshTexture,
 }
 /// Used for printing debug info
 pub struct RuntimeDebugMesh {
     mesh: RuntimeMesh,
 }
-pub struct GraphicsSettings {
-    pub screen_size: Vector2<u32>,
-}
+pub struct GraphicsSettings {}
 #[derive(Clone)]
 pub struct RuntimeModelId {
     id: String,

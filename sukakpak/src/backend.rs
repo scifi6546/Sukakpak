@@ -365,6 +365,9 @@ impl Backend {
             Ok(())
         }
     }
+    pub fn get_screen_size(&self) -> Vector2<u32> {
+        self.screen_dimensions
+    }
 }
 impl Drop for Backend {
     fn drop(&mut self) {

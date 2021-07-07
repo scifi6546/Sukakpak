@@ -1,4 +1,5 @@
 use super::prelude::{
+    na::{Vector2, Vector3, Vector4},
     ErrorType, Event, ItemDesc, Mesh, RenderingContext, ShaderBind, Texture as RGBATexture, Vertex,
 };
 use egui::{
@@ -7,7 +8,6 @@ use egui::{
     PaintJobs, RawInput, Texture,
 };
 use log::info;
-use nalgebra::{Vector2, Vector3, Vector4};
 use std::sync::Arc;
 /// Struct used to get state
 ///

@@ -14,7 +14,7 @@ pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
-pub use nalgebra::Matrix4;
+use nalgebra::Vector2;
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Context {
     backend: Backend,
@@ -94,7 +94,7 @@ impl<'a> ContextChild<'a> {
             quit: false,
         }
     }
-    pub fn build_meshes(&mut self, mesh: MeshAsset, texture: Texture) -> Mesh {
+    pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Mesh {
         Mesh {
             verticies: self
                 .context
@@ -106,11 +106,13 @@ impl<'a> ContextChild<'a> {
                 .backend
                 .allocate_indicies(mesh.indices)
                 .expect("failed to allocate indicies"),
-            texture: MeshTexture::RegularTexture(texture),
+            texture,
         }
     }
-    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {
-        self.context.backend.allocate_texture(image)
+    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<MeshTexture> {
+        Ok(MeshTexture::RegularTexture(
+            self.context.backend.allocate_texture(image)?,
+        ))
     }
     pub fn draw_mesh(&mut self, push: &[u8], mesh: &Mesh) -> Result<()> {
         self.context.backend.draw_mesh(push, mesh)
@@ -125,6 +127,9 @@ impl<'a> ContextChild<'a> {
     }
     pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
         self.context.backend.bind_framebuffer(bound_framebuffer)
+    }
+    pub fn get_screen_size(&self) -> Vector2<u32> {
+        self.context.backend.get_screen_size()
     }
     pub fn update_uniform(&mut self) {
         todo!("update uniform")
@@ -145,7 +150,7 @@ pub trait Renderable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Vector2;
+    use nalgebra::{Matrix4, Vector2};
 
     struct EmptyRenderable {}
     impl Renderable for EmptyRenderable {
@@ -160,7 +165,7 @@ mod tests {
         num_frames: usize,
         triangle: Mesh,
         #[allow(dead_code)]
-        texture: Texture,
+        texture: MeshTexture,
     }
     impl Renderable for TriangleRenderable {
         fn init<'a>(context: &mut ContextChild<'a>) -> Self {
@@ -168,7 +173,7 @@ mod tests {
             let texture = context
                 .build_texture(&image)
                 .expect("failed to create image");
-            let triangle = context.build_meshes(MeshAsset::new_triangle(), texture);
+            let triangle = context.build_mesh(MeshAsset::new_triangle(), texture);
             Self {
                 triangle,
                 num_frames: 0,

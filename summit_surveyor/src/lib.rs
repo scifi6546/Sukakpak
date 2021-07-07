@@ -16,7 +16,7 @@ mod utils;
 use log::{debug, info};
 use sukakpak::{
     nalgebra::{Matrix4, Vector2, Vector3, Vector4},
-    BoundFramebuffer, ContextChild, Event, Framebuffer,
+    BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset, MeshTexture,
 };
 use texture::RGBATexture;
 use transform::Transform;
@@ -133,34 +133,37 @@ impl sukakpak::Renderable for Game {
             Vector2::new(10, 10),
         );
         println!("inserted lift");
-        let mut world_framebuffer_texture = context.build_texture(&RGBATexture::constant_color(
-            Vector4::new(0, 0, 0, 0),
-            screen_size,
-        ));
-        println!("built world frame_buffer_texture");
 
-        let fb_mesh = context.build_mesh(Mesh::plane(), &shader_bind.get_bind())?;
-        let world_framebuffer =
-            webgl.build_framebuffer(&mut world_framebuffer_texture, &mut world_depth_texture)?;
+        let mut world_framebuffer = {
+            let screen_size = context.get_screen_size();
+            context
+                .build_framebuffer(screen_size)
+                .expect("failed to build framebuffer")
+        };
+
+        let fb_mesh = context.build_mesh(
+            MeshAsset::new_plane(),
+            MeshTexture::Framebuffer(world_framebuffer),
+        );
+
         println!("built world framebuffer");
         let world_render_surface = RuntimeModel {
             mesh: fb_mesh,
-            texture: world_framebuffer_texture,
+            texture: MeshTexture::Framebuffer(world_framebuffer),
         };
 
         info!("building skiiers");
         println!("building skiiers");
         for i in 0..10 {
-            skiier::build_skiier(&mut world, &mut context, &shader_bind, Vector2::new(i, 0))?;
+            skiier::build_skiier(&mut world, &mut context, &shader_bind, Vector2::new(i, 0))
+                .expect("failed to build skiiers");
         }
         info!("done building skiiers");
         resources.insert(context);
         resources.insert(shader_bind);
-        resources.insert(GraphicsSettings {
-            screen_size: screen_size.clone(),
-        });
+        resources.insert(GraphicsSettings {});
         resources.insert(Camera::new(Vector3::new(0.0, 0.0, 0.0), 20.0, 1.0, 1.0));
-        let (egui_context, egui_adaptor) = gui::init_gui(screen_size);
+        let (egui_context, egui_adaptor) = gui::init_gui(context.get_screen_size());
         resources.insert(egui_context);
         resources.insert(egui_adaptor);
         resources.insert(model_manager);
