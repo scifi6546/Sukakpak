@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use ash::vk;
 use image::RgbaImage;
-use nalgebra::{Matrix4, Vector2};
+use nalgebra::Vector2;
 mod command_pool;
 mod framebuffer;
 mod render_core;
@@ -243,7 +243,7 @@ impl Backend {
         Ok(())
     }
 
-    pub fn draw_mesh(&mut self, view_matrix: Matrix4<f32>, mesh: &MeshID) -> Result<()> {
+    pub fn draw_mesh(&mut self, push: &[u8], mesh: &MeshID) -> Result<()> {
         let texture_descriptor_set = match mesh.texture {
             MeshTexture::RegularTexture(texture) => {
                 self.textures
@@ -268,7 +268,7 @@ impl Backend {
             }
         };
         let render_mesh = RenderMesh {
-            view_matrix,
+            push,
             vertex_buffer: self
                 .vertex_buffers
                 .get(mesh.verticies.buffer_index)

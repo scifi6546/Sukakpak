@@ -14,7 +14,7 @@ pub enum ClearOp {
 }
 pub struct RenderMesh<'a> {
     //pub uniform_data: HashMap<String, &'a [u8]>,
-    pub view_matrix: Matrix4<f32>,
+    pub push: &'a [u8],
     pub vertex_buffer: &'a VertexBufferAllocation,
     pub index_buffer: &'a IndexBufferAllocation,
 }
@@ -109,7 +109,7 @@ impl RenderPass {
                     &descriptor_sets,
                     &[],
                 );
-                let matrix_ptr = mesh.view_matrix.as_ptr() as *const u8;
+                let matrix_ptr = mesh.push.as_ptr() as *const u8;
                 let matrix_slice =
                     std::slice::from_raw_parts(matrix_ptr, size_of::<Matrix4<f32>>());
                 core.device.cmd_push_constants(
@@ -250,7 +250,6 @@ impl RenderPass {
                 .wait_semaphores(&wait_semaphore)
                 .swapchains(&swapchain)
                 .image_indices(&indices);
-            /// TODO HANDLE THREADING WITH SWAPCHAIN LOADER AND SWAPCHAINKHR
             unsafe {
                 core.swapchain_loader
                     .queue_present(core.present_queue, &present_info)?;

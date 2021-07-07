@@ -15,7 +15,6 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 pub use nalgebra::Matrix4;
-use std::sync::mpsc::{Receiver, TryRecvError};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Context {
     backend: Backend,
@@ -80,41 +79,7 @@ fn run_frame<R: Renderable>(
         FrameStatus::Quit
     }
 }
-fn rendering_thread<R: Renderable>(receiver: Receiver<Event>, mut context: Context) {
-    let mut render = {
-        let mut child = ContextChild::new(&mut context);
-        R::init(&mut child)
-    };
-    loop {
-        let mut events: Vec<Event> = vec![];
-        loop {
-            match receiver.try_recv() {
-                Ok(e) => events.push(e),
-                Err(err) => match err {
-                    TryRecvError::Empty => break,
-                    TryRecvError::Disconnected => {
-                        events.push(Event::ProgramTermination);
-                        break;
-                    }
-                },
-            }
-            context
-                .backend
-                .begin_render()
-                .expect("failed to start rendering frame");
-            let mut child = ContextChild::new(&mut context);
-            render.render_frame(&[], &mut child);
-            if !child.quit {
-                context
-                    .backend
-                    .finish_render()
-                    .expect("failed to swap framebuffer");
-            } else {
-                return;
-            }
-        }
-    }
-}
+
 pub struct ContextChild<'a> {
     context: &'a mut Context,
     //true if quit is signaled
@@ -147,8 +112,8 @@ impl<'a> ContextChild<'a> {
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {
         self.context.backend.allocate_texture(image)
     }
-    pub fn draw_mesh(&mut self, transform: Matrix4<f32>, mesh: &Mesh) -> Result<()> {
-        self.context.backend.draw_mesh(transform, mesh)
+    pub fn draw_mesh(&mut self, push: &[u8], mesh: &Mesh) -> Result<()> {
+        self.context.backend.draw_mesh(push, mesh)
     }
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
         self.context.backend.build_framebuffer(resolution)
@@ -187,7 +152,7 @@ mod tests {
         fn init<'a>(_context: &mut ContextChild<'a>) -> Self {
             Self {}
         }
-        fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild<'a>) {
             context.quit();
         }
     }
@@ -210,10 +175,13 @@ mod tests {
                 texture,
             }
         }
-        fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild<'a>) {
             if self.num_frames <= 10_000 {
+                let mat = Matrix4::identity();
+                let mat_ptr = mat.as_ptr() as *const u8;
+                let push = unsafe { std::slice::from_raw_parts(mat_ptr, 16 * 4) };
                 context
-                    .draw_mesh(Matrix4::identity(), &self.triangle)
+                    .draw_mesh(push, &self.triangle)
                     .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {

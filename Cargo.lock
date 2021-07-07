@@ -836,7 +836,6 @@ dependencies = [
  "image",
  "nalgebra 0.26.2",
  "phf",
- "renderer",
  "sukakpak",
  "winit",
 ]
@@ -1491,20 +1490,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ab49abadf3f9e1c4bc499e8845e152ad87d2ad2d30371841171169e9d75feee"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "renderer"
-version = "0.1.0"
-dependencies = [
- "ash",
- "ash-window",
- "backtrace",
- "generational-arena",
- "image",
- "nalgebra 0.26.2",
- "phf",
- "winit",
 ]
 
 [[package]]
