@@ -1,3 +1,4 @@
+use na::Vector2;
 use sukakpak::{
     nalgebra as na, BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset,
     MeshTexture,
@@ -8,14 +9,15 @@ pub struct CloneCraft {
     framebuffer: Framebuffer,
     frame_counter: u64,
     plane: Mesh,
+    cube_pos: na::Vector2<f32>,
     #[allow(dead_code)]
     red_texture: MeshTexture,
     #[allow(dead_code)]
     blue_texture: MeshTexture,
 }
 impl CloneCraft {
-    fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>) {
-        let transorm_mat = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0));
+    fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>, pos: na::Vector2<f32>) {
+        let transorm_mat = na::Matrix4::new_translation(&na::Vector3::new(pos.x, pos.y, -10.0));
 
         let rot = na::Matrix4::from_euler_angles(
             self.frame_counter as f32 / 123.0,
@@ -71,18 +73,34 @@ impl sukakpak::Renderable for CloneCraft {
             frame_counter: 0,
             blue_texture,
             framebuffer,
+            cube_pos: Vector2::new(0.0, 0.0),
             plane,
         }
     }
-    fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild<'a>) {
+    fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
+        for e in events.iter() {
+            match e {
+                Event::MouseMoved { position } => {
+                    println!("{}", position);
+                    let dim = context.get_screen_size();
+                    let dim = Vector2::new(dim.x as f32, dim.y as f32);
+                    self.cube_pos = 5.0
+                        * Vector2::new(
+                            position.x / (dim.x * 2.0) - 1.0,
+                            position.y / (dim.y * 2.0) - 1.0,
+                        )
+                }
+                _ => (),
+            }
+        }
         context
             .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.framebuffer))
             .expect("failed to bind");
-        self.draw_rotating_cube(context);
+        self.draw_rotating_cube(context, self.cube_pos);
         context
             .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)
             .expect("failed to bind");
-
+        self.draw_rotating_cube(context, self.cube_pos);
         let transorm_mat = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0));
 
         let rot = na::Matrix4::from_euler_angles(
