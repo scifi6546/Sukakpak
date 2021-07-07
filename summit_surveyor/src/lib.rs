@@ -41,6 +41,7 @@ pub mod prelude {
     };
     pub use super::graphics_engine::{ItemDesc, Mesh, Vertex};
     pub use super::transform::Transform;
+    pub use sukakpak::nalgebra as na;
     pub type ShaderBind = super::Bindable<String>;
     pub use super::events::{Event, MouseButton};
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
@@ -51,11 +52,45 @@ pub mod prelude {
     pub use super::texture::RGBATexture as Texture;
 }
 use prelude::ShaderBind;
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PushBuilder {
+    sun_direction: Vector3<f32>,
+    sun_color: Vector4<f32>,
+    view_matrix: Matrix4<f32>,
+    is_built: bool,
+}
+impl PushBuilder {
+    pub fn new(sun_direction: Vector3<f32>, sun_color: Vector4<f32>) -> Self {
+        Self {
+            sun_direction,
+            sun_color,
+            view_matrix: Matrix4::zeros(),
+            is_built: false,
+        }
+    }
+    pub fn to_slice(&mut self) -> &[u8] {
+        assert!(self.is_built);
+        unsafe {
+            std::slice::from_raw_parts(
+                self.sun_direction.as_ptr() as *const u8,
+                std::mem::size_of::<Vector3<f32>>()
+                    + std::mem::size_of::<Vector4<f32>>()
+                    + std::mem::size_of::<Matrix4<f32>>(),
+            )
+        }
+    }
+    pub fn build(&mut self, view_matrix: Matrix4<f32>) {
+        self.view_matrix = view_matrix;
+        self.is_built = true;
+    }
+}
 pub struct Game {
     world: World,
     resources: Resources,
     world_framebuffer: Framebuffer,
     world_render_surface: RuntimeModel,
+    push_builder: PushBuilder,
 }
 impl sukakpak::Renderable for Game {
     fn init(context: &mut ContextChild) -> Self {
@@ -64,66 +99,47 @@ impl sukakpak::Renderable for Game {
         let mut world = World::default();
         let mut shader_bind = Bindable::default();
         let mut model_manager = AssetManager::default();
-        shader_bind.insert("world", "world");
+        shader_bind.insert("world", "world".to_string());
         shader_bind.bind("world");
         context
             .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader_bind.get_bind())
             .ok()
             .unwrap();
-        webgl
-            .send_vec3_uniform(
-                &mut shader_bind["world"],
-                "sun_direction",
-                Vector3::new(1.0, -1.0, 0.0).normalize(),
-            )
-            .ok()
-            .unwrap();
-        webgl
-            .send_vec4_uniform(
-                &mut shader_bind["world"],
-                "sun_color",
-                Vector4::new(1.0, 1.0, 1.0, 1.0),
-            )
-            .ok()
-            .unwrap();
-        shader_bind.insert("screen", "screen");
-        shader_bind.insert("gui", "gui");
+        let push_builder = PushBuilder::new(
+            Vector3::new(1.0, -1.0, 0.0).normalize(),
+            Vector4::new(1.0, 1.0, 1.0, 1.0),
+        );
+        shader_bind.insert("screen", "screen".to_string());
+        shader_bind.insert("gui", "gui".to_string());
         shader_bind.bind("world");
         let mut box_transform = Transform::default();
         box_transform.set_scale(Vector3::new(0.1, 0.1, 0.1));
         box_transform.translate(Vector3::new(-0.5, -0.5, 0.0));
 
-        GuiModel::simple_box(box_transform).insert(
-            &mut world,
-            &mut webgl,
-            &shader_bind.get_bind(),
-        )?;
-        webgl.get_error();
+        GuiModel::simple_box(box_transform).insert(&mut world, context, &shader_bind.get_bind());
         insert_terrain(
             Terrain::new_cone(Vector2::new(20, 20), Vector2::new(10.0, 10.0), 5.0, -1.0),
             &mut world,
-            &mut webgl,
+            context,
             &mut model_manager,
             &shader_bind.get_bind(),
-        )?;
+        );
         insert_lift(
             &mut world,
-            &mut webgl,
+            context,
             &mut model_manager,
             &shader_bind,
             Vector2::new(0, 0),
             Vector2::new(10, 10),
-        )?;
+        );
         println!("inserted lift");
-        webgl.get_error();
-        let mut world_framebuffer_texture = webgl.build_texture(
-            RGBATexture::constant_color(Vector4::new(0, 0, 0, 0), screen_size),
-            &shader_bind.get_bind(),
-        )?;
+        let mut world_framebuffer_texture = context.build_texture(&RGBATexture::constant_color(
+            Vector4::new(0, 0, 0, 0),
+            screen_size,
+        ));
         println!("built world frame_buffer_texture");
-        let mut world_depth_texture =
-            webgl.build_depth_texture(screen_size, &shader_bind.get_bind())?;
-        let fb_mesh = webgl.build_mesh(Mesh::plane(), &shader_bind.get_bind())?;
+
+        let fb_mesh = context.build_mesh(Mesh::plane(), &shader_bind.get_bind())?;
         let world_framebuffer =
             webgl.build_framebuffer(&mut world_framebuffer_texture, &mut world_depth_texture)?;
         println!("built world framebuffer");
@@ -131,15 +147,14 @@ impl sukakpak::Renderable for Game {
             mesh: fb_mesh,
             texture: world_framebuffer_texture,
         };
-        webgl.get_error();
+
         info!("building skiiers");
         println!("building skiiers");
         for i in 0..10 {
-            skiier::build_skiier(&mut world, &mut webgl, &shader_bind, Vector2::new(i, 0))?;
+            skiier::build_skiier(&mut world, &mut context, &shader_bind, Vector2::new(i, 0))?;
         }
         info!("done building skiiers");
-        webgl.get_error();
-        resources.insert(webgl);
+        resources.insert(context);
         resources.insert(shader_bind);
         resources.insert(GraphicsSettings {
             screen_size: screen_size.clone(),
@@ -157,7 +172,7 @@ impl sukakpak::Renderable for Game {
             resources,
             world_framebuffer,
             world_render_surface,
-            world_depth_texture,
+            push_builder,
         };
         info!("built game successfully");
         g
@@ -180,19 +195,18 @@ impl sukakpak::Renderable for Game {
                     Event::WindowResized { new_size } => {
                         let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
                         shader.bind("screen");
-                        let gl: &mut RenderingContext = &mut self.resources.get_mut().unwrap();
-                        gl.change_viewport(new_size).expect("screen updated");
+
                         let settings: &mut GraphicsSettings =
                             &mut self.resources.get_mut().unwrap();
                         settings.screen_size = new_size.clone();
-                        gl.delete_depth_buffer(&mut self.world_depth_texture)
-                            .expect("deleted old texture");
-                        gl.delete_texture(&mut self.world_render_surface.texture);
-                        gl.delete_mesh(&mut self.world_render_surface.mesh)
+                        context.delete_texture(&mut self.world_render_surface.texture);
+                        context
+                            .delete_mesh(&mut self.world_render_surface.mesh)
                             .expect("failed to delete framebuffer mesh");
-                        gl.delete_framebuffer(&mut self.world_framebuffer)
+                        context
+                            .delete_framebuffer(&mut self.world_framebuffer)
                             .expect("deleted old framebuffer");
-                        let mut world_framebuffer_texture = gl
+                        let mut world_framebuffer_texture = context
                             .build_texture(
                                 RGBATexture::constant_color(
                                     Vector4::new(0, 0, 0, 0),
@@ -201,10 +215,8 @@ impl sukakpak::Renderable for Game {
                                 &shader.get_bind(),
                             )
                             .expect("failed to build new texture");
-                        let mut world_depth_texture = gl
-                            .build_depth_texture(new_size.clone(), &shader.get_bind())
-                            .expect("failed to build depth texture");
-                        let fb_mesh = gl
+
+                        let fb_mesh = context
                             .build_mesh(Mesh::plane(), &shader.get_bind())
                             .expect("failed to build mesh");
                         self.world_framebuffer = gl
@@ -232,13 +244,11 @@ impl sukakpak::Renderable for Game {
 
             //binding to world framebuffer and rendering to it
 
-            let gl: &mut RenderingContext = &mut self.resources.get_mut().unwrap();
-            gl.bind_framebuffer(&self.world_framebuffer);
-            gl.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
+            context.bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.world_framebuffer));
 
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("world");
-            gl.bind_shader(shader.get_bind()).ok().unwrap();
+            context.bind_shader(shader.get_bind()).ok().unwrap();
         }
         //game logic
         let mut schedule = Schedule::builder()

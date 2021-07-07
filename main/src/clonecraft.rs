@@ -7,7 +7,6 @@ pub struct CloneCraft {
     framebuffer: Framebuffer,
     frame_counter: u64,
     plane: Mesh,
-    green_cube: Mesh,
     #[allow(dead_code)]
     red_texture: Texture,
     #[allow(dead_code)]
@@ -27,8 +26,16 @@ impl CloneCraft {
             * rot
             * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
         context
-            .draw_mesh(mat, &self.triangle)
+            .draw_mesh(to_slice(&mat), &self.triangle)
             .expect("failed to draw triangle");
+    }
+}
+fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(
+            mat.as_ptr() as *const u8,
+            std::mem::size_of::<na::Matrix4<f32>>(),
+        )
     }
 }
 const CUBE_DIMENSIONS: usize = 10;
@@ -45,13 +52,7 @@ impl sukakpak::Renderable for CloneCraft {
                 image::Rgba([0, 0, 255, 0]),
             ))
             .expect("failed to build texture");
-        let green_texture = context
-            .build_texture(&image::ImageBuffer::from_pixel(
-                100,
-                100,
-                image::Rgba([0, 255, 0, 0]),
-            ))
-            .expect("failed to build texture");
+
         let triangle = context.build_meshes(MeshAsset::new_cube(), red_texture);
         let framebuffer = context
             .build_framebuffer(na::Vector2::new(300, 300))
@@ -59,8 +60,6 @@ impl sukakpak::Renderable for CloneCraft {
         context
             .bind_shader(&BoundFramebuffer::UserFramebuffer(framebuffer), "alt")
             .expect("failed to bind");
-        let mut green_cube = triangle.clone();
-        green_cube.bind_texture(green_texture);
         let mut plane = context.build_meshes(MeshAsset::new_plane(), red_texture);
         plane.bind_framebuffer(framebuffer);
         let camera_matrix = *na::Perspective3::new(1.0, 3.14 / 4.0, 1.0, 1000.0).as_matrix();
@@ -70,7 +69,6 @@ impl sukakpak::Renderable for CloneCraft {
             red_texture,
             frame_counter: 0,
             blue_texture,
-            green_cube,
             framebuffer,
             plane,
         }
@@ -110,23 +108,21 @@ impl sukakpak::Renderable for CloneCraft {
                     }
 
                     context
-                        .draw_mesh(mat, &new_mesh)
+                        .draw_mesh(to_slice(&mat), &new_mesh)
                         .expect("failed to draw triangle");
                 }
             }
         }
         //self.draw_rotating_cube(context);
-        context
-            .draw_mesh(
-                self.camera_matrix
-                    * transorm_mat
-                    * na::Matrix4::new_nonuniform_scaling_wrt_point(
-                        &na::Vector3::new(2.0, 2.0, 4.0),
-                        &na::Point3::new(0.0, 0.0, 0.0),
-                    )
-                    * na::Matrix4::new_translation(&na::Vector3::new(0.5, 0.5, 0.0)),
-                &self.plane,
+        let plane_mat = self.camera_matrix
+            * transorm_mat
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &na::Vector3::new(2.0, 2.0, 4.0),
+                &na::Point3::new(0.0, 0.0, 0.0),
             )
+            * na::Matrix4::new_translation(&na::Vector3::new(0.5, 0.5, 0.0));
+        context
+            .draw_mesh(to_slice(&plane_mat), &self.plane)
             .expect("failed to draw");
         self.frame_counter += 1;
     }

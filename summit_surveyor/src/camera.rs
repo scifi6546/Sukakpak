@@ -1,4 +1,5 @@
-use nalgebra::{Matrix4, Point, Vector2, Vector3};
+use super::prelude::na::{Matrix4, Point, Vector2, Vector3};
+
 pub struct Camera {
     /// Origin about which camera rotates
     origin: Vector3<f32>,

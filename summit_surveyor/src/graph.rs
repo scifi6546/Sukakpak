@@ -1,6 +1,7 @@
+use super::prelude::na::Vector2;
 use super::prelude::Grid;
 use log::info;
-use nalgebra::Vector2;
+
 use priority_queue::PriorityQueue;
 use std::cmp::Reverse;
 use std::collections::HashMap;
