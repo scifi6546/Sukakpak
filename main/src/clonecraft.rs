@@ -1,5 +1,6 @@
 use sukakpak::{
-    nalgebra as na, BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset, Texture,
+    nalgebra as na, BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset,
+    MeshTexture,
 };
 pub struct CloneCraft {
     camera_matrix: na::Matrix4<f32>,
@@ -8,9 +9,9 @@ pub struct CloneCraft {
     frame_counter: u64,
     plane: Mesh,
     #[allow(dead_code)]
-    red_texture: Texture,
+    red_texture: MeshTexture,
     #[allow(dead_code)]
-    blue_texture: Texture,
+    blue_texture: MeshTexture,
 }
 impl CloneCraft {
     fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>) {
@@ -53,14 +54,14 @@ impl sukakpak::Renderable for CloneCraft {
             ))
             .expect("failed to build texture");
 
-        let triangle = context.build_meshes(MeshAsset::new_cube(), red_texture);
+        let triangle = context.build_mesh(MeshAsset::new_cube(), red_texture);
         let framebuffer = context
             .build_framebuffer(na::Vector2::new(300, 300))
             .expect("failed to build frame buffer");
         context
             .bind_shader(&BoundFramebuffer::UserFramebuffer(framebuffer), "alt")
             .expect("failed to bind");
-        let mut plane = context.build_meshes(MeshAsset::new_plane(), red_texture);
+        let mut plane = context.build_mesh(MeshAsset::new_plane(), red_texture);
         plane.bind_framebuffer(framebuffer);
         let camera_matrix = *na::Perspective3::new(1.0, 3.14 / 4.0, 1.0, 1000.0).as_matrix();
         Self {

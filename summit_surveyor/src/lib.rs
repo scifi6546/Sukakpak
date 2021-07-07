@@ -43,13 +43,14 @@ pub mod prelude {
     pub use super::transform::Transform;
     pub use sukakpak::nalgebra as na;
     pub type ShaderBind = super::Bindable<String>;
-    pub use super::events::{Event, MouseButton};
+    pub use super::events::MouseButton;
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
     pub use super::grid::Grid;
     pub use super::gui::{GuiModel, GuiRuntimeModel, GuiTransform};
     pub use super::model::Model;
     pub use super::terrain::Terrain;
     pub use super::texture::RGBATexture as Texture;
+    pub use sukakpak::Event;
 }
 use prelude::ShaderBind;
 #[repr(C)]
@@ -251,7 +252,13 @@ impl sukakpak::Renderable for Game {
 
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("world");
-            context.bind_shader(shader.get_bind()).ok().unwrap();
+            context
+                .bind_shader(
+                    &BoundFramebuffer::UserFramebuffer(self.world_framebuffer),
+                    shader.get_bind(),
+                )
+                .ok()
+                .unwrap();
         }
         //game logic
         let mut schedule = Schedule::builder()
@@ -267,10 +274,6 @@ impl sukakpak::Renderable for Game {
             skiier::draw_skiiers(&self.world, ctx);
         }
         schedule.execute(&mut self.world, &mut self.resources);
-        {
-            let gl: &mut RenderingContext = &mut self.resources.get_mut().unwrap();
-            gl.clear_depth();
-        }
         let mut schedule = Schedule::builder()
             .add_system(graphics_system::render_debug_system())
             .build();
@@ -299,11 +302,11 @@ impl sukakpak::Renderable for Game {
                 let settings: &GraphicsSettings = &self.resources.get().unwrap();
                 gui::draw_gui(
                     egui_context,
-                    &events,
+                    events,
                     gl,
                     shader,
                     egui_adaptor,
-                    settings.screen_size,
+                    context.get_screen_size(),
                 )
                 .expect("successfully drew");
             }

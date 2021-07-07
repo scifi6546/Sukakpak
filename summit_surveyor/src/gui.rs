@@ -61,7 +61,7 @@ pub fn init_gui(screen_size: Vector2<u32>) -> (CtxRef, EguiRawInputAdaptor) {
 }
 pub fn draw_gui(
     context: &mut CtxRef,
-    input: &Vec<Event>,
+    input: &[Event],
     gl: &mut RenderingContext,
     shader: &mut ShaderBind,
     adaptor: &mut EguiRawInputAdaptor,

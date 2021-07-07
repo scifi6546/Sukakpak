@@ -79,8 +79,8 @@ pub struct MeshID {
     pub indicies: IndexBufferID,
 }
 impl MeshID {
-    pub fn bind_texture(&mut self, tex: TextureID) {
-        self.texture = MeshTexture::RegularTexture(tex);
+    pub fn bind_texture(&mut self, tex: MeshTexture) {
+        self.texture = tex;
     }
     pub fn bind_framebuffer(&mut self, fb: FramebufferID) {
         self.texture = MeshTexture::Framebuffer(fb);
