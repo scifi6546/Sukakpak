@@ -13,12 +13,10 @@ mod terrain;
 mod texture;
 mod transform;
 mod utils;
-
-use js_sys::Array as JsArray;
 use log::{debug, info};
 use sukakpak::{
     nalgebra::{Matrix4, Vector2, Vector3, Vector4},
-    BoundFramebuffer, ContextChild, Event,
+    BoundFramebuffer, ContextChild, Event, Framebuffer,
 };
 use texture::RGBATexture;
 use transform::Transform;
@@ -41,11 +39,9 @@ pub mod prelude {
         dijkstra, FollowPath, GraphLayer, GraphLayerList, GraphWeight, GridNode, LiftLayer, Node,
         NodeFloat, Path,
     };
-    pub use super::graphics_engine::{
-        ErrorType, Framebuffer, ItemDesc, Mesh, RenderingContext, RuntimeMesh, RuntimeTexture,
-        Shader, Transform, Vertex,
-    };
-    pub type ShaderBind = super::Bindable<Shader>;
+    pub use super::graphics_engine::{ItemDesc, Mesh, Vertex};
+    pub use super::transform::Transform;
+    pub type ShaderBind = super::Bindable<String>;
     pub use super::events::{Event, MouseButton};
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
     pub use super::grid::Grid;
@@ -53,13 +49,11 @@ pub mod prelude {
     pub use super::model::Model;
     pub use super::terrain::Terrain;
     pub use super::texture::RGBATexture as Texture;
-    pub use wasm_bindgen::prelude::JsValue;
 }
 use prelude::ShaderBind;
 pub struct Game {
     world: World,
     resources: Resources,
-    world_depth_texture: RuntimeDepthTexture,
     world_framebuffer: Framebuffer,
     world_render_surface: RuntimeModel,
 }
@@ -166,14 +160,9 @@ impl sukakpak::Renderable for Game {
             world_depth_texture,
         };
         info!("built game successfully");
-        Ok(g)
+        g
     }
     fn render_frame(&mut self, events: &[Event], context: &mut ContextChild) {
-        todo!()
-    }
-}
-impl Game {
-    pub fn run_frame(&mut self, events: Vec<Event>) {
         {
             let context = &mut self.resources.get_mut().unwrap();
             gui::insert_ui(context);
@@ -182,19 +171,13 @@ impl Game {
             let camera: &mut Camera = &mut self.resources.get_mut().unwrap();
             for e in events.iter() {
                 match e {
-                    Event::MouseMove {
-                        delta_x,
-                        delta_y,
-                        delta_time_ms,
-                        buttons_pressed,
-                        ..
-                    } => {
+                    Event::MouseMoved { position } => {
                         if buttons_pressed.contains(&MouseButton::RightClick) {
                             camera.rotate_phi(delta_x * 0.001 * delta_time_ms);
                             camera.rotate_theta(delta_y * 0.001 * delta_time_ms);
                         }
                     }
-                    Event::ScreenSizeChange { new_size } => {
+                    Event::WindowResized { new_size } => {
                         let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
                         shader.bind("screen");
                         let gl: &mut RenderingContext = &mut self.resources.get_mut().unwrap();
