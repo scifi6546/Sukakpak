@@ -1,11 +1,10 @@
 use super::prelude::{
-    AssetManager, Camera, ErrorType, GuiRuntimeModel, GuiTransform, Mesh, Model, RenderingContext,
-    RuntimeMesh, RuntimeTexture, Shader, ShaderBind, Terrain, Transform,
+    AssetManager, Camera, GuiRuntimeModel, GuiTransform, Model, ShaderBind, Terrain, Transform,
 };
 use legion::*;
 use log::debug;
-use nalgebra::Vector2;
 use std::cell::RefCell;
+use sukakpak::nalgebra::Vector2;
 use sukakpak::MeshTexture;
 pub struct RuntimeModel {
     pub mesh: RuntimeMesh,

@@ -2,7 +2,6 @@ mod asset_manager;
 mod bindable;
 mod camera;
 mod graph;
-mod graphics_engine;
 mod graphics_system;
 mod grid;
 mod gui;
@@ -13,6 +12,8 @@ mod terrain;
 mod texture;
 mod transform;
 mod utils;
+use bindable::Bindable;
+use camera::Camera;
 use log::{debug, info};
 use sukakpak::{
     nalgebra::{Matrix4, Vector2, Vector3, Vector4},
@@ -20,9 +21,6 @@ use sukakpak::{
 };
 use texture::RGBATexture;
 use transform::Transform;
-mod events;
-use bindable::Bindable;
-use camera::Camera;
 
 use asset_manager::AssetManager;
 use graph::graph_debug;
@@ -39,11 +37,9 @@ pub mod prelude {
         dijkstra, FollowPath, GraphLayer, GraphLayerList, GraphWeight, GridNode, LiftLayer, Node,
         NodeFloat, Path,
     };
-    pub use super::graphics_engine::{ItemDesc, Mesh, Vertex};
     pub use super::transform::Transform;
     pub use sukakpak::nalgebra as na;
     pub type ShaderBind = super::Bindable<String>;
-    pub use super::events::MouseButton;
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
     pub use super::grid::Grid;
     pub use super::gui::{GuiModel, GuiRuntimeModel, GuiTransform};
