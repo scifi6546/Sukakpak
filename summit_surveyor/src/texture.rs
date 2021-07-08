@@ -1,3 +1,4 @@
+use super::prelude::image::RgbaImage;
 pub use nalgebra::{Vector2, Vector4};
 #[derive(Clone)]
 pub struct RGBATexture {
@@ -27,6 +28,11 @@ impl RGBATexture {
     }
     pub fn height(&self) -> u32 {
         self.dimensions.y
+    }
+}
+impl From<RGBATexture> for RgbaImage {
+    fn from(img: RGBATexture) -> Self {
+        todo!()
     }
 }
 impl std::fmt::Display for RGBATexture {

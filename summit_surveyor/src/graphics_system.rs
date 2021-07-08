@@ -1,5 +1,6 @@
 use super::prelude::{
-    AssetManager, Camera, GuiRuntimeModel, GuiTransform, Model, ShaderBind, Terrain, Transform,
+    AssetManager, Camera, ContextChild, GuiRuntimeModel, GuiTransform, Model, ShaderBind, Terrain,Shader
+    Transform,
 };
 use legion::*;
 use log::debug;
@@ -27,21 +28,22 @@ impl RuntimeModelId {
 impl RuntimeModel {
     pub fn new(
         model: &Model,
-        graphics: &mut RenderingContext,
+        context: &mut ContextChild,
         bound_shader: &Shader,
     ) -> Result<Self, ErrorType> {
-        let mesh = graphics.build_mesh(model.mesh.clone(), bound_shader)?;
-        let texture = graphics.build_texture(model.texture.clone(), bound_shader)?;
+        let texture = context.build_texture(&model.texture.into())?;
+        let mesh = context.build_mesh(model.mesh.clone(), texture);
         Ok(Self { mesh, texture })
     }
 }
 impl RuntimeDebugMesh {
     pub fn new(
-        mesh: Mesh,
-        graphics: &mut RenderingContext,
+        model: &Model,
+        context: &mut ContextChild,
         bound_shader: &Shader,
     ) -> Result<Self, ErrorType> {
-        let mesh = graphics.build_mesh(mesh, bound_shader)?;
+        let texture = context.build_texture(&model.texture.into())?;
+        let mesh = context.build_mesh(model.mesh, texture);
         Ok(Self { mesh })
     }
 }

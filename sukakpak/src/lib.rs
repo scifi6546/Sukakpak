@@ -8,6 +8,7 @@ pub use backend::{
 };
 use events::EventCollector;
 pub use events::{Event, MouseButton};
+pub use image;
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;

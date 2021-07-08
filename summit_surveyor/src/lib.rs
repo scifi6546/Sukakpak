@@ -39,6 +39,9 @@ pub mod prelude {
     };
     pub use super::transform::Transform;
     pub use sukakpak::nalgebra as na;
+    pub use sukakpak::{image, ContextChild};
+
+    pub type Shader = String;
     pub type ShaderBind = super::Bindable<String>;
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
     pub use super::grid::Grid;
