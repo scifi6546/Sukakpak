@@ -16,7 +16,7 @@ mod utils;
 use log::{debug, info};
 use sukakpak::{
     nalgebra::{Matrix4, Vector2, Vector3, Vector4},
-    BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset, MeshTexture,
+    BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset, MeshTexture, MouseButton,
 };
 use texture::RGBATexture;
 use transform::Transform;
@@ -81,9 +81,12 @@ impl PushBuilder {
             )
         }
     }
-    pub fn build(&mut self, view_matrix: Matrix4<f32>) {
+    pub fn set_view(&mut self, view_matrix: Matrix4<f32>) {
         self.view_matrix = view_matrix;
         self.is_built = true;
+    }
+    pub fn make_identity(&mut self) {
+        self.view_matrix = Matrix4::identity();
     }
 }
 pub struct Game {
@@ -92,6 +95,7 @@ pub struct Game {
     world_framebuffer: Framebuffer,
     world_render_surface: RuntimeModel,
     push_builder: PushBuilder,
+    last_mouse_pos: Vector2<f32>,
 }
 impl sukakpak::Renderable for Game {
     fn init(context: &mut ContextChild) -> Self {
@@ -177,70 +181,31 @@ impl sukakpak::Renderable for Game {
             world_framebuffer,
             world_render_surface,
             push_builder,
+            last_mouse_pos: Vector2::new(0.0, 0.0),
         };
         info!("built game successfully");
         g
     }
-    fn render_frame(&mut self, events: &[Event], context: &mut ContextChild) {
+    fn render_frame(&mut self, events: &[Event], context: &mut ContextChild, delta_time_ms: f32) {
         {
             let context = &mut self.resources.get_mut().unwrap();
             gui::insert_ui(context);
         }
         {
+            let mut buttons_pressed = vec![];
             let camera: &mut Camera = &mut self.resources.get_mut().unwrap();
             for e in events.iter() {
                 match e {
-                    Event::MouseMoved { position } => {
-                        if buttons_pressed.contains(&MouseButton::RightClick) {
-                            camera.rotate_phi(delta_x * 0.001 * delta_time_ms);
-                            camera.rotate_theta(delta_y * 0.001 * delta_time_ms);
+                    Event::MouseMoved { position, .. } => {
+                        if buttons_pressed.contains(&MouseButton::Right) {
+                            let delta = position - self.last_mouse_pos;
+                            camera.rotate_phi(delta.x * 0.001 * delta_time_ms);
+                            camera.rotate_theta(delta.y * 0.001 * delta_time_ms);
                         }
+                        self.last_mouse_pos = *position;
                     }
-                    Event::WindowResized { new_size } => {
-                        let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
-                        shader.bind("screen");
-
-                        let settings: &mut GraphicsSettings =
-                            &mut self.resources.get_mut().unwrap();
-                        settings.screen_size = new_size.clone();
-                        context.delete_texture(&mut self.world_render_surface.texture);
-                        context
-                            .delete_mesh(&mut self.world_render_surface.mesh)
-                            .expect("failed to delete framebuffer mesh");
-                        context
-                            .delete_framebuffer(&mut self.world_framebuffer)
-                            .expect("deleted old framebuffer");
-                        let mut world_framebuffer_texture = context
-                            .build_texture(
-                                RGBATexture::constant_color(
-                                    Vector4::new(0, 0, 0, 0),
-                                    new_size.clone(),
-                                ),
-                                &shader.get_bind(),
-                            )
-                            .expect("failed to build new texture");
-
-                        let fb_mesh = context
-                            .build_mesh(Mesh::plane(), &shader.get_bind())
-                            .expect("failed to build mesh");
-                        self.world_framebuffer = gl
-                            .build_framebuffer(
-                                &mut world_framebuffer_texture,
-                                &mut world_depth_texture,
-                            )
-                            .expect("failed to build framebuffer");
-                        self.world_render_surface = RuntimeModel {
-                            mesh: fb_mesh,
-                            texture: world_framebuffer_texture,
-                        };
-                    }
-                    Event::CameraMove { direction } => camera.translate(&(0.1 * direction)),
-                    Event::Scroll {
-                        delta_y,
-                        delta_time_ms,
-                    } => {
-                        camera.update_radius(0.0000001 * delta_y * delta_time_ms);
-                        debug!("zoomed");
+                    Event::ScrollContinue { delta } => {
+                        camera.update_radius(0.001 * delta.y() * delta_time_ms);
                     }
                     _ => (),
                 }
@@ -281,21 +246,26 @@ impl sukakpak::Renderable for Game {
         {
             //binding to world framebuffer and rendering to it
 
-            let gl: &mut RenderingContext = &mut self.resources.get_mut().unwrap();
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("screen");
-            gl.bind_default_framebuffer();
+            context.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer);
             //getting screen shader
-            gl.bind_shader(shader.get_bind()).ok().unwrap();
-            gl.send_view_matrix(Matrix4::identity(), shader.get_bind());
-            gl.send_model_matrix(Matrix4::identity(), shader.get_bind());
-            gl.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
-            gl.bind_texture(&self.world_render_surface.texture, shader.get_bind());
-            gl.draw_mesh(&self.world_render_surface.mesh);
+            context
+                .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
+                .ok()
+                .unwrap();
+            self.push_builder.make_identity();
+
+            context.draw_mesh(
+                self.push_builder.to_slice(),
+                &self.world_render_surface.mesh,
+            );
 
             //binding and drawing gui shader
             shader.bind("gui");
-            gl.bind_shader(shader.get_bind()).ok().unwrap();
+            context
+                .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
+                .expect("failed to bind gui shader");
             {
                 let egui_context = &mut self.resources.get_mut().unwrap();
                 let egui_adaptor = &mut self.resources.get_mut().unwrap();
@@ -303,7 +273,7 @@ impl sukakpak::Renderable for Game {
                 gui::draw_gui(
                     egui_context,
                     events,
-                    gl,
+                    context,
                     shader,
                     egui_adaptor,
                     context.get_screen_size(),
@@ -312,7 +282,9 @@ impl sukakpak::Renderable for Game {
             }
             shader.bind("screen");
             //getting screen shader
-            gl.bind_shader(shader.get_bind()).ok().unwrap();
+            context
+                .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
+                .expect("failed to bind screen");
         }
         let mut gui_schedule = Schedule::builder()
             .add_system(graphics_system::render_gui_system())

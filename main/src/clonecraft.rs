@@ -1,14 +1,15 @@
 use na::Vector2;
 use sukakpak::{
     nalgebra as na, BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset,
-    MeshTexture,
+    MeshTexture, MouseButton,
 };
 pub struct CloneCraft {
     camera_matrix: na::Matrix4<f32>,
     triangle: Mesh,
     framebuffer: Framebuffer,
-    frame_counter: u64,
+    frame_counter: f32,
     plane: Mesh,
+    cube_scale: f32,
     cube_pos: na::Vector2<f32>,
     #[allow(dead_code)]
     red_texture: MeshTexture,
@@ -17,17 +18,19 @@ pub struct CloneCraft {
 }
 impl CloneCraft {
     fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>, pos: na::Vector2<f32>) {
-        let transorm_mat = na::Matrix4::new_translation(&na::Vector3::new(pos.x, pos.y, -10.0));
-
         let rot = na::Matrix4::from_euler_angles(
-            self.frame_counter as f32 / 123.0,
-            self.frame_counter as f32 / 100.0,
+            self.frame_counter / 335.0,
+            self.frame_counter / 107.2,
             0.0,
         );
-        let mat = self.camera_matrix
-            * transorm_mat
+        let mat = na::Matrix4::new_translation(&na::Vector3::new(pos.x, -1.0 * pos.y, 0.0))
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &na::Vector3::new(self.cube_scale, self.cube_scale, self.cube_scale),
+                &na::Point3::new(0.0, 0.0, 0.0),
+            )
             * rot
-            * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
+            * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, 0.0));
+
         context
             .draw_mesh(to_slice(&mat), &self.triangle)
             .expect("failed to draw triangle");
@@ -70,25 +73,35 @@ impl sukakpak::Renderable for CloneCraft {
             camera_matrix,
             triangle,
             red_texture,
-            frame_counter: 0,
+            frame_counter: 0.0,
+            cube_scale: 0.2,
             blue_texture,
             framebuffer,
             cube_pos: Vector2::new(0.0, 0.0),
             plane,
         }
     }
-    fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>) {
+    fn render_frame<'a>(
+        &mut self,
+        events: &[Event],
+        context: &mut ContextChild<'a>,
+        delta_time: f32,
+    ) {
         for e in events.iter() {
             match e {
-                Event::MouseMoved { position } => {
-                    println!("{}", position);
-                    let dim = context.get_screen_size();
-                    let dim = Vector2::new(dim.x as f32, dim.y as f32);
-                    self.cube_pos = 5.0
-                        * Vector2::new(
-                            position.x / (dim.x * 2.0) - 1.0,
-                            position.y / (dim.y * 2.0) - 1.0,
-                        )
+                Event::MouseMoved { normalized, .. } => self.cube_pos = *normalized,
+                Event::MouseDown { button } => {
+                    if button == &MouseButton::Left {
+                        self.triangle.bind_texture(self.blue_texture)
+                    }
+                }
+                Event::MouseUp { button } => {
+                    if button == &MouseButton::Left {
+                        self.triangle.bind_texture(self.red_texture)
+                    }
+                }
+                Event::ScrollContinue { delta } => {
+                    self.cube_scale += delta.delta.y * delta_time * 0.01;
                 }
                 _ => (),
             }
@@ -143,6 +156,6 @@ impl sukakpak::Renderable for CloneCraft {
         context
             .draw_mesh(to_slice(&plane_mat), &self.plane)
             .expect("failed to draw");
-        self.frame_counter += 1;
+        self.frame_counter += delta_time;
     }
 }

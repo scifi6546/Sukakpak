@@ -1,7 +1,7 @@
 use js_sys::Map as JsMap;
 use log::info;
-use nalgebra::{Vector2, Vector3};
-use wasm_bindgen::prelude::*;
+use sukakpak::nalgebra::{Vector2, Vector3};
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum MouseButton {
     LeftClick,
