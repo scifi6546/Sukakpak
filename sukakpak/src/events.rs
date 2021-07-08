@@ -13,6 +13,10 @@ pub enum Event {
     WindowLostFocus,
     CursorEnteredWindow,
     CursorLeftWindow,
+    ControllerAxis {
+        axis_id: u32,
+        value: f32,
+    },
     MouseMoved {
         ///Mouse position with y increasing as cursor goes down the window and x is increasing as
         ///the mouse moves to the right.
@@ -67,7 +71,10 @@ impl EventCollector {
             WinitEvent::MouseWheel { .. } => todo!("mouse wheel"),
             WinitEvent::MouseInput { .. } => todo!("mouse input"),
             WinitEvent::TouchpadPressure { .. } => todo!("touchpad pressure"),
-            WinitEvent::AxisMotion { .. } => todo!("axis motion"),
+            WinitEvent::AxisMotion { axis, value, .. } => self.events.push(Event::ControllerAxis {
+                axis_id: axis,
+                value: value as f32,
+            }),
             WinitEvent::Touch(_) => todo!("touch"),
             WinitEvent::ScaleFactorChanged { .. } => todo!("scale factor changed"),
             WinitEvent::ThemeChanged(_) => todo!("theme changed"),
