@@ -6,8 +6,9 @@ pub use backend::{
     BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, MeshTexture,
     TextureID as Texture,
 };
-pub use events::Event;
 use events::EventCollector;
+pub use events::{Event, MouseButton};
+pub use image;
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
@@ -15,6 +16,7 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
+use std::time::SystemTime;
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Context {
     backend: Backend,
@@ -34,15 +36,24 @@ impl Context {
         };
 
         let mut event_collector = EventCollector::new();
-
+        let mut system_time = SystemTime::now();
         event_loop.run(move |event, _, control_flow| {
             match event {
-                WinitEvent::WindowEvent { event, .. } => event_collector.push_event(event),
+                WinitEvent::WindowEvent { event, .. } => {
+                    event_collector.push_event(event, &context.backend)
+                }
                 WinitEvent::MainEventsCleared => {
-                    match run_frame(&event_collector.pull_events(), &mut render, &mut context) {
+                    let delta_time = system_time.elapsed().expect("failed to get time");
+                    match run_frame(
+                        &event_collector.pull_events(),
+                        &mut render,
+                        &mut context,
+                        delta_time.as_micros() as f32 / 1000.0,
+                    ) {
                         FrameStatus::Quit => *control_flow = ControlFlow::Exit,
                         FrameStatus::Continue => (),
                     };
+                    system_time = SystemTime::now();
                 }
                 _ => (),
             }
@@ -62,13 +73,14 @@ fn run_frame<R: Renderable>(
     events: &[Event],
     renderer: &mut R,
     context: &mut Context,
+    delta_time_ms: f32,
 ) -> FrameStatus {
     context
         .backend
         .begin_render()
         .expect("failed to start rendering frame");
     let mut child = ContextChild::new(context);
-    renderer.render_frame(events, &mut child);
+    renderer.render_frame(events, &mut child, delta_time_ms);
     if !child.quit {
         context
             .backend
@@ -145,7 +157,12 @@ impl<'a> ContextChild<'a> {
 /// User Provided code that provides draw calls
 pub trait Renderable {
     fn init<'a>(context: &mut ContextChild<'a>) -> Self;
-    fn render_frame<'a>(&mut self, events: &[Event], context: &mut ContextChild<'a>);
+    fn render_frame<'a>(
+        &mut self,
+        events: &[Event],
+        context: &mut ContextChild<'a>,
+        delta_time_ms: f32,
+    );
 }
 #[cfg(test)]
 mod tests {
@@ -157,7 +174,12 @@ mod tests {
         fn init<'a>(_context: &mut ContextChild<'a>) -> Self {
             Self {}
         }
-        fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(
+            &mut self,
+            _events: &[Event],
+            context: &mut ContextChild<'a>,
+            _delta_time: f32,
+        ) {
             context.quit();
         }
     }
@@ -180,7 +202,12 @@ mod tests {
                 texture,
             }
         }
-        fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild<'a>) {
+        fn render_frame<'a>(
+            &mut self,
+            _events: &[Event],
+            context: &mut ContextChild<'a>,
+            _dt: f32,
+        ) {
             if self.num_frames <= 10_000 {
                 let mat = Matrix4::identity();
                 let mat_ptr = mat.as_ptr() as *const u8;
