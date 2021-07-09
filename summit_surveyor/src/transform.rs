@@ -1,3 +1,4 @@
+use super::prelude::na::{Matrix4, Vector3};
 #[derive(Debug, Clone)]
 pub struct Transform {
     scaling: Vector3<f32>,

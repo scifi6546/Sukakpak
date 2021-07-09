@@ -1,19 +1,18 @@
 use super::prelude::{
-    AssetManager, ErrorType, GraphLayer, GraphWeight, LiftLayer, Model, Node, RenderingContext,
+    na::{Vector2, Vector3, Vector4},
+    AssetManager, ContextChild, GraphLayer, GraphWeight, LiftLayer, Model, Node, Result,
     RuntimeModel, RuntimeModelId, ShaderBind, Texture, Transform,
 };
 use legion::*;
 use log::info;
-use nalgebra::{Vector2, Vector3, Vector4};
-use std::{cell::RefCell, sync::RwLock};
 pub fn insert_lift(
     world: &mut World,
-    graphics: &mut RenderingContext,
+    graphics: &mut ContextChild,
     asset_manager: &mut AssetManager<RuntimeModel>,
     bound_shader: &ShaderBind,
     start_position: Vector2<i64>,
     end_position: Vector2<i64>,
-) -> Result<(), ErrorType> {
+) -> Result<()> {
     let mut transform = Transform::default();
     transform.set_scale(Vector3::new(1.0, 1.0, 1.0));
     transform.set_translation(Vector3::new(
@@ -23,14 +22,14 @@ pub fn insert_lift(
     ));
     if !asset_manager.contains("lift") {
         let model = Model::from_obj(
-            include_bytes!["../../assets/obj/skilift.obj"],
-            include_bytes!["../../assets/obj/skilift.obj"],
+            include_bytes!["../assets/obj/skilift.obj"],
+            include_bytes!["../assets/obj/skilift.obj"],
             transform.clone(),
             Texture::constant_color(Vector4::new(255, 255, 0, 255), Vector2::new(10, 10)),
         );
         asset_manager.get_or_create(
             "lift",
-            RuntimeModel::new(&model, graphics, bound_shader.get_bind())?,
+            RuntimeModel::new(&model, graphics, bound_shader.get_bind()),
         );
     }
     let runtime_model = RuntimeModelId::new("lift".to_string());

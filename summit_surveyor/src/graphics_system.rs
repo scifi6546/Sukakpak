@@ -1,19 +1,16 @@
 use super::prelude::{
-    AssetManager, Camera, ContextChild, GuiRuntimeModel, GuiTransform, Model, ShaderBind, Terrain,Shader
-    Transform,
+    AssetManager, Camera, ContextChild, GuiRuntimeModel, GuiTransform, Model, PushBuilder, Result,
+    Shader, ShaderBind, Terrain, Transform,
 };
 use legion::*;
 use log::debug;
-use std::cell::RefCell;
-use sukakpak::nalgebra::Vector2;
-use sukakpak::MeshTexture;
+
 pub struct RuntimeModel {
-    pub mesh: RuntimeMesh,
-    pub texture: MeshTexture,
+    pub mesh: sukakpak::Mesh,
 }
 /// Used for printing debug info
 pub struct RuntimeDebugMesh {
-    mesh: RuntimeMesh,
+    mesh: sukakpak::Mesh,
 }
 pub struct GraphicsSettings {}
 #[derive(Clone)]
@@ -26,39 +23,35 @@ impl RuntimeModelId {
     }
 }
 impl RuntimeModel {
-    pub fn new(
-        model: &Model,
-        context: &mut ContextChild,
-        bound_shader: &Shader,
-    ) -> Result<Self, ErrorType> {
-        let texture = context.build_texture(&model.texture.into())?;
+    pub fn new(model: &Model, context: &mut ContextChild, bound_shader: &Shader) -> Self {
+        let texture = context
+            .build_texture(&model.texture.into())
+            .expect("failed to create texture");
         let mesh = context.build_mesh(model.mesh.clone(), texture);
-        Ok(Self { mesh, texture })
+        Self { mesh }
     }
 }
 impl RuntimeDebugMesh {
-    pub fn new(
-        model: &Model,
-        context: &mut ContextChild,
-        bound_shader: &Shader,
-    ) -> Result<Self, ErrorType> {
-        let texture = context.build_texture(&model.texture.into())?;
+    pub fn new(model: &Model, context: &mut ContextChild, bound_shader: &Shader) -> Self {
+        let texture = context
+            .build_texture(&model.texture.into())
+            .expect("failed to build texture");
         let mesh = context.build_mesh(model.mesh, texture);
-        Ok(Self { mesh })
+        Self { mesh }
     }
 }
 pub fn insert_terrain(
     terrain: Terrain,
     world: &mut World,
-    graphics: &mut RenderingContext,
+    context: &mut ContextChild,
     asset_manager: &mut AssetManager<RuntimeModel>,
     bound_shader: &Shader,
-) -> Result<(), ErrorType> {
+) -> Result<()> {
     let model = terrain.model();
     let transform = model.transform.clone();
     asset_manager.get_or_create(
         "game_terrain",
-        RuntimeModel::new(&model, graphics, bound_shader).expect("created model"),
+        RuntimeModel::new(&model, context, bound_shader),
     );
     world.push((
         terrain.build_graph(),
@@ -75,41 +68,43 @@ pub fn insert_terrain(
 pub fn render_object(
     transform: &Transform,
     model: &RuntimeModelId,
+    push: &PushBuilder,
     #[resource] settings: &GraphicsSettings,
-    #[resource] webgl: &mut RenderingContext,
+    #[resource] context: &mut ContextChild,
     #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
     #[resource] asset_manager: &mut AssetManager<RuntimeModel>,
 ) {
     debug!("running render object");
     let model = asset_manager.get(&model.id).unwrap();
-    webgl.bind_texture(&model.texture, shader.get_bind());
-    webgl.send_view_matrix(camera.get_matrix(settings.screen_size), shader.get_bind());
-    webgl.send_model_matrix(transform.build().clone(), shader.get_bind());
-    webgl.draw_mesh(&model.mesh);
+    push.set_view_matrix(camera.get_matrix(context.get_screen_size()));
+    push.set_model_matrix(transform.build().clone());
+    context.draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_debug(
     transform: &Transform,
     model: &RuntimeDebugMesh,
+    push: &PushBuilder,
     #[resource] settings: &GraphicsSettings,
-    #[resource] webgl: &mut RenderingContext,
+    #[resource] context: &mut ContextChild,
     #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
 ) {
-    webgl.send_model_matrix(transform.build().clone(), shader.get_bind());
-    webgl.send_view_matrix(camera.get_matrix(settings.screen_size), shader.get_bind());
-    webgl.draw_lines(&model.mesh);
+    push.set_model_matrix(transform.build().clone());
+    push.set_view_matrix(camera.get_matrix(context.get_screen_size()));
+    context.draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_gui(
     transform: &GuiTransform,
     model: &GuiRuntimeModel,
-    #[resource] webgl: &mut RenderingContext,
+    push: &PushBuilder,
+    #[resource] context: &mut ContextChild,
     #[resource] shader: &ShaderBind,
 ) {
     debug!("running render object");
-    webgl.bind_texture(&model.model.texture, shader.get_bind());
-    webgl.send_model_matrix(transform.transform.build().clone(), shader.get_bind());
-    webgl.draw_mesh(&model.model.mesh);
+
+    push.set_model_matrix(transform.transform.build().clone());
+    context.draw_mesh(push.to_slice(), &model.model.mesh);
 }

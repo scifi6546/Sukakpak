@@ -1,5 +1,7 @@
-use super::prelude::{Mesh, Texture, Transform, Vertex};
-use nalgebra::{Vector2, Vector3, Vector4};
+use super::prelude::{
+    na::{Vector2, Vector3, Vector4},
+    Texture, Transform,
+};
 #[derive(Clone)]
 pub struct Model {
     pub mesh: super::graphics_engine::Mesh,

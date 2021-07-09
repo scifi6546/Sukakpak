@@ -1,12 +1,12 @@
 use super::prelude::{
-    ErrorType, FollowPath, GraphLayer, GraphLayerList, Model, Node, Path, RenderingContext,
-    RuntimeModel, ShaderBind, Transform,
+    na::{Vector2, Vector3},
+    ContextChild, FollowPath, GraphLayer, GraphLayerList, Model, Node, Path, Result, RuntimeModel,
+    ShaderBind, Transform,
 };
 mod behavior_tree;
 use behavior_tree::{Number, SearchStart, TreeNode};
 use egui::CtxRef;
 use legion::*;
-use nalgebra::{Vector2, Vector3};
 struct DecisionDebugInfo {
     name: String,
     cost: Number<f32>,
@@ -16,10 +16,10 @@ struct DecisionDebugInfo {
 }
 pub fn build_skiier(
     world: &mut World,
-    graphics: &mut RenderingContext,
+    graphics: &mut ContextChild,
     bound_shader: &ShaderBind,
     position: Vector2<i64>,
-) -> Result<(), ErrorType> {
+) -> Result<()> {
     let tree_start: Box<dyn TreeNode> = Box::new(SearchStart::default());
     let layers: Vec<&GraphLayer> = <&GraphLayer>::query().iter(world).collect();
     let decisions = tree_start.best_path(4, &GraphLayerList::new(layers), Node { node: position });
@@ -46,7 +46,7 @@ pub fn build_skiier(
     let mut transform = Transform::default();
     transform.set_scale(Vector3::new(0.1, 0.1, 0.1));
     let model = Model::cube(transform.clone());
-    let runtime_model = RuntimeModel::new(&model, graphics, bound_shader.get_bind())?;
+    let runtime_model = RuntimeModel::new(&model, graphics, bound_shader.get_bind());
     println!("built skiier rintime model");
     world.push((transform, follow, runtime_model, decision_debug_info));
     Ok(())

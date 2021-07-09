@@ -30,7 +30,7 @@ use gui::GuiModel;
 use legion::*;
 use lift::insert_lift;
 use terrain::Terrain;
-pub mod prelude {
+mod prelude {
     pub use super::asset_manager::AssetManager;
     pub use super::camera::Camera;
     pub use super::graph::{
@@ -38,8 +38,8 @@ pub mod prelude {
         NodeFloat, Path,
     };
     pub use super::transform::Transform;
-    pub use sukakpak::nalgebra as na;
-    pub use sukakpak::{image, ContextChild};
+    pub use super::PushBuilder;
+    pub use sukakpak::{anyhow::Result, image, nalgebra as na, ContextChild, MeshAsset};
 
     pub type Shader = String;
     pub type ShaderBind = super::Bindable<String>;
@@ -57,7 +57,10 @@ use prelude::ShaderBind;
 pub struct PushBuilder {
     sun_direction: Vector3<f32>,
     sun_color: Vector4<f32>,
+    out_matrix: Matrix4<f32>,
     view_matrix: Matrix4<f32>,
+    model_matrix: Matrix4<f32>,
+
     is_built: bool,
 }
 impl PushBuilder {
@@ -65,7 +68,9 @@ impl PushBuilder {
         Self {
             sun_direction,
             sun_color,
-            view_matrix: Matrix4::zeros(),
+            out_matrix: Matrix4::identity(),
+            view_matrix: Matrix4::identity(),
+            model_matrix: Matrix4::identity(),
             is_built: false,
         }
     }
@@ -80,12 +85,17 @@ impl PushBuilder {
             )
         }
     }
-    pub fn set_view(&mut self, view_matrix: Matrix4<f32>) {
+    pub fn set_view_matrix(&mut self, view_matrix: Matrix4<f32>) {
         self.view_matrix = view_matrix;
-        self.is_built = true;
+        self.out_matrix = self.view_matrix * self.model_matrix;
+    }
+    pub fn set_model_matrix(&mut self, model_matrix: Matrix4<f32>) {
+        self.model_matrix = model_matrix;
+        self.out_matrix = self.view_matrix * self.model_matrix;
     }
     pub fn make_identity(&mut self) {
         self.view_matrix = Matrix4::identity();
+        self.model_matrix = Matrix4::identity();
     }
 }
 pub struct Game {

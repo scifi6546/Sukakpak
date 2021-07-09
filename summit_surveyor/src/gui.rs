@@ -1,6 +1,7 @@
-pub use super::prelude;
+use super::prelude;
 use super::prelude::{
-    ErrorType, Event, Mesh, Model, RenderingContext, RuntimeModel, Shader, ShaderBind, Texture,
+    na::{Vector2, Vector4},
+    ContextChild, Event, MeshAsset, Model, Result, RuntimeModel, Shader, ShaderBind, Texture,
     Transform,
 };
 use legion::*;
@@ -8,7 +9,6 @@ mod egui_integration;
 use egui::CtxRef;
 use egui_integration::draw_egui;
 pub use egui_integration::EguiRawInputAdaptor;
-use nalgebra::{Vector2, Vector4};
 pub struct GuiRuntimeModel {
     pub model: RuntimeModel,
 }
@@ -23,7 +23,7 @@ impl GuiModel {
     pub fn simple_box(transform: Transform) -> Self {
         Self {
             model: Model {
-                mesh: Mesh::plane(),
+                mesh: MeshAsset::new_plane(),
                 texture: Texture::constant_color(
                     Vector4::new(255 / 10, 255 / 2, 255 / 2, 255),
                     Vector2::new(100, 100),
@@ -35,13 +35,13 @@ impl GuiModel {
     pub fn insert(
         &self,
         world: &mut World,
-        webgl: &mut RenderingContext,
+        ctx: &mut ContextChild,
         bound_shader: &Shader,
-    ) -> Result<Entity, ErrorType> {
+    ) -> Result<Entity> {
         let transform = GuiTransform {
             transform: self.model.transform.clone(),
         };
-        let model = RuntimeModel::new(&self.model, webgl, bound_shader)?;
+        let model = RuntimeModel::new(&self.model, ctx, bound_shader);
         Ok(world.push((transform, GuiRuntimeModel { model })))
     }
 }
@@ -62,15 +62,15 @@ pub fn init_gui(screen_size: Vector2<u32>) -> (CtxRef, EguiRawInputAdaptor) {
 pub fn draw_gui(
     context: &mut CtxRef,
     input: &[Event],
-    gl: &mut RenderingContext,
+    ctx: &mut ContextChild,
     shader: &mut ShaderBind,
     adaptor: &mut EguiRawInputAdaptor,
     screen_size: Vector2<u32>,
-) -> Result<(), ErrorType> {
+) -> Result<()> {
     context.begin_frame(adaptor.process_events(input, screen_size));
     let (_, commands) = context.end_frame();
-    let paint_jobs = context.tesselate(commands);
-    draw_egui(&paint_jobs, &context.texture(), gl, shader, &screen_size)?;
+    let paint_jobs = context.tessellate(commands);
+    draw_egui(&paint_jobs, &context.texture(), ctx, shader, &screen_size)?;
     Ok(())
 }
 pub fn insert_ui(context: &mut CtxRef) {

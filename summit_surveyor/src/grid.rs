@@ -1,4 +1,4 @@
-use nalgebra::Vector2;
+use super::prelude::na::Vector2;
 use std::vec::Vec;
 /// Grid used for terrain and other features
 /// ```

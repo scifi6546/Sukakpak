@@ -1,6 +1,6 @@
 use super::prelude::{
     na::{Vector2, Vector3, Vector4},
-    ErrorType, Event, ItemDesc, Mesh, RenderingContext, ShaderBind, Texture as RGBATexture, Vertex,
+    ContextChild, Event, Result, ShaderBind, Texture as RGBATexture,
 };
 use egui::{
     math::{Pos2, Rect, Vec2},
@@ -17,7 +17,7 @@ pub struct EguiRawInputAdaptor {
     frame_scroll: f32,
 }
 impl EguiRawInputAdaptor {
-    pub fn process_events(&mut self, events: &Vec<Event>, screen_size: Vector2<u32>) -> RawInput {
+    pub fn process_events(&mut self, events: &[Event], screen_size: Vector2<u32>) -> RawInput {
         self.frame_scroll = 0.0;
         for e in events.iter() {
             match e {
@@ -32,10 +32,8 @@ impl EguiRawInputAdaptor {
                     self.is_rightclick_down = false;
                     info!("right click down: {}", self.is_rightclick_down);
                 }
-                Event::MouseMove { x, y, .. } => {
-                    self.last_cursor_pos = Vector2::new(x.clone(), y.clone())
-                }
-                Event::Scroll { delta_y, .. } => self.frame_scroll += delta_y,
+                Event::MouseMoved { position, .. } => self.last_cursor_pos = *position,
+                Event::ScrollContinue { delta, .. } => self.frame_scroll += delta.y(),
                 _ => (),
             }
         }
@@ -62,16 +60,17 @@ impl Default for EguiRawInputAdaptor {
 pub fn draw_egui(
     paint_jobs: &PaintJobs,
     texture: &Arc<Texture>,
-    gl: &mut RenderingContext,
+    rendering_ctx: &mut ContextChild,
     shader: &ShaderBind,
     screen_size: &Vector2<u32>,
-) -> Result<(), ErrorType> {
+) -> Result<()> {
     let pixels = texture
         .srgba_pixels()
         .map(|p| Vector4::new(p.r(), p.g(), p.b(), p.a()))
         .collect();
     let dimensions = Vector2::new(texture.width as u32, texture.height as u32);
     let texture = RGBATexture { pixels, dimensions };
+
     let mut render_texture = gl.build_texture(texture, shader.get_bind())?;
     gl.bind_texture(&render_texture, shader.get_bind());
     let mut depth = -0.8;
@@ -85,17 +84,14 @@ pub fn draw_egui(
             depth,
             screen_size,
         );
-        let mut runtime_mesh = gl.build_mesh(
-            Mesh {
-                vertices,
-                description: vec![ItemDesc {
-                    number_components: 4,
-                    size_component: std::mem::size_of::<f32>(),
-                    name: "vertex_color".to_string(),
-                }],
-            },
-            shader.get_bind(),
-        )?;
+        let mut runtime_mesh = rendering_ctx.build_mesh(Mesh {
+            vertices,
+            description: vec![ItemDesc {
+                number_components: 4,
+                size_component: std::mem::size_of::<f32>(),
+                name: "vertex_color".to_string(),
+            }],
+        });
         gl.draw_mesh(&runtime_mesh);
         gl.delete_mesh(&mut runtime_mesh)?;
         depth -= 0.01;
