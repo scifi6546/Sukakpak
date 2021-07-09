@@ -1,5 +1,5 @@
-use super::prelude::{GraphLayer, GraphWeight, Grid, GridNode, Model, Transform};
-use nalgebra::Vector2;
+use super::prelude::{na::Vector2, GraphLayer, GraphWeight, Grid, GridNode, Model, Transform};
+
 #[derive(Clone, Debug, PartialEq)]
 enum TileType {
     Snow,

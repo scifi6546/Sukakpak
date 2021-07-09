@@ -161,10 +161,7 @@ impl sukakpak::Renderable for Game {
         );
 
         println!("built world framebuffer");
-        let world_render_surface = RuntimeModel {
-            mesh: fb_mesh,
-            texture: MeshTexture::Framebuffer(world_framebuffer),
-        };
+        let world_render_surface = RuntimeModel { mesh: fb_mesh };
 
         info!("building skiiers");
         println!("building skiiers");

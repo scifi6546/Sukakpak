@@ -1,4 +1,4 @@
-use super::VertexLayout;
+use super::{VertexComponent, VertexLayout};
 use nalgebra::{Vector2, Vector3};
 pub struct Mesh {
     pub verticies: Vec<u8>,
@@ -210,7 +210,9 @@ impl From<EasyMesh> for Mesh {
         Mesh {
             verticies,
             indices: mesh.indices,
-            vertex_layout: VertexLayout::XYZ_UV_F32,
+            vertex_layout: VertexLayout {
+                components: vec![VertexComponent::Vec3F32, VertexComponent::Vec2F32],
+            },
         }
     }
 }

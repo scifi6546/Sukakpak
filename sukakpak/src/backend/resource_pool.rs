@@ -39,36 +39,23 @@ impl ResourcePool {
         mesh: Vec<u8>,
         layout: VertexLayout,
     ) -> Result<VertexBufferAllocation> {
-        let (binding_description, input_description) = match layout {
-            VertexLayout::XYZ_F32 => (
-                *vk::VertexInputBindingDescription::builder()
-                    .binding(0)
-                    .stride(3 * size_of::<f32>() as u32)
-                    .input_rate(vk::VertexInputRate::VERTEX),
-                vec![*vk::VertexInputAttributeDescription::builder()
-                    .binding(0)
-                    .location(0)
-                    .format(vk::Format::R32G32B32_SFLOAT)],
-            ),
-            VertexLayout::XYZ_UV_F32 => (
-                *vk::VertexInputBindingDescription::builder()
-                    .binding(0)
-                    .stride(5 * size_of::<f32>() as u32)
-                    .input_rate(vk::VertexInputRate::VERTEX),
-                vec![
+        let (binding_description, input_description) = (
+            *vk::VertexInputBindingDescription::builder()
+                .binding(0)
+                .input_rate(vk::VertexInputRate::VERTEX)
+                .stride(layout.components.iter().map(|c| c.size()).sum::<usize>() as u32),
+            layout
+                .components
+                .iter()
+                .enumerate()
+                .map(|(i, comp)| {
                     *vk::VertexInputAttributeDescription::builder()
                         .binding(0)
-                        .location(0)
-                        .format(vk::Format::R32G32B32_SFLOAT)
-                        .offset(0),
-                    *vk::VertexInputAttributeDescription::builder()
-                        .binding(0)
-                        .location(1)
-                        .format(vk::Format::R32G32_SFLOAT)
-                        .offset(3 * size_of::<f32>() as u32),
-                ],
-            ),
-        };
+                        .location(i as u32)
+                        .format(comp.into())
+                })
+                .collect(),
+        );
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(mesh.len() as u64)
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)

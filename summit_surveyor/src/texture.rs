@@ -1,5 +1,8 @@
-use super::prelude::image::RgbaImage;
-pub use nalgebra::{Vector2, Vector4};
+use super::prelude::{
+    image::RgbaImage,
+    na::{Vector2, Vector4},
+};
+
 #[derive(Clone)]
 pub struct RGBATexture {
     pub dimensions: Vector2<u32>,

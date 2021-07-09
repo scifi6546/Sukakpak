@@ -2,7 +2,7 @@ pub use anyhow;
 use anyhow::Result;
 mod backend;
 mod events;
-use backend::{Backend, VertexLayout};
+use backend::{Backend, VertexComponent, VertexLayout};
 pub use backend::{
     BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, MeshTexture,
     TextureID as Texture,

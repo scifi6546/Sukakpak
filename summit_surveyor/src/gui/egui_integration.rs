@@ -71,9 +71,11 @@ pub fn draw_egui(
     let dimensions = Vector2::new(texture.width as u32, texture.height as u32);
     let texture = RGBATexture { pixels, dimensions };
 
-    let mut render_texture = gl.build_texture(texture, shader.get_bind())?;
+    let mut render_texture = rendering_ctx.build_texture(&texture.into())?;
     gl.bind_texture(&render_texture, shader.get_bind());
     let mut depth = -0.8;
+    let mut idx = 0;
+    let (verticies,indices) = paint_jobs.iter().map(|(_rect,triangle)|);
     for (_rect, triangles) in paint_jobs.iter() {
         let vertices = to_vertex(
             &triangles
@@ -84,13 +86,10 @@ pub fn draw_egui(
             depth,
             screen_size,
         );
-        let mut runtime_mesh = rendering_ctx.build_mesh(Mesh {
+        let mut runtime_mesh = rendering_ctx.build_mesh(MeshAsset {
             vertices,
-            description: vec![ItemDesc {
-                number_components: 4,
-                size_component: std::mem::size_of::<f32>(),
-                name: "vertex_color".to_string(),
-            }],
+            triangles.indices,
+           
         });
         gl.draw_mesh(&runtime_mesh);
         gl.delete_mesh(&mut runtime_mesh)?;
@@ -99,7 +98,7 @@ pub fn draw_egui(
     gl.delete_texture(&mut render_texture);
     Ok(())
 }
-fn to_vertex(vertex_list: &Vec<EguiVertex>, depth: f32, screen_size: &Vector2<u32>) -> Vec<Vertex> {
+fn to_vertex(vertex_list: &Vec<EguiVertex>, depth: f32, screen_size: &Vector2<u32>) -> Vec<u8> {
     let mut vertices = vec![];
     let screen_x = screen_size.x as f32 / 2.0;
     let screen_y = screen_size.y as f32 / 2.0;

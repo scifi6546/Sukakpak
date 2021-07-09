@@ -7,6 +7,7 @@ mod framebuffer;
 mod render_core;
 mod renderpass;
 mod resource_pool;
+mod vertex_layout;
 use command_pool::CommandPool;
 use framebuffer::{
     AttachableFramebuffer, AttachmentType, DepthBuffer, FrameBufferTarget, Framebuffer,
@@ -16,6 +17,7 @@ use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
 use thiserror::Error;
+pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
@@ -26,12 +28,6 @@ use std::collections::HashMap;
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
     pub name: String,
-}
-//layout of vertex
-#[allow(non_camel_case_types)]
-pub enum VertexLayout {
-    XYZ_F32,    //xyz vector with floating point components
-    XYZ_UV_F32, //xyz with uv
 }
 #[derive(Error, Debug)]
 pub enum RenderError {
