@@ -17,24 +17,19 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::SystemTime};
+use std::{cell::RefCell, sync::Arc, time::SystemTime};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
-pub struct Context {
-    backend: Backend,
-}
-unsafe impl Send for Context {}
-impl Context {
+pub struct Sukakpak {}
+unsafe impl Send for Sukakpak {}
+impl Sukakpak {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
-        let mut context = Rc::new(RefCell::new(Context {
-            backend: Backend::new(create_info, &event_loop).expect("failed to create backend"),
-        }));
 
-        let mut render = {
-            let mut child = ContextChild::new(Rc::clone(&context));
-            R::init(&mut child)
-        };
+        let context = Arc::new(RefCell::new(Context::new(
+            Backend::new(create_info, &event_loop).expect("failed to create backend"),
+        )));
+        let mut renderer = R::init(Arc::clone(&context));
 
         let mut event_collector = EventCollector::new();
         let mut system_time = SystemTime::now();
@@ -49,8 +44,8 @@ impl Context {
                     let delta_time = system_time.elapsed().expect("failed to get time");
                     match run_frame(
                         &event_collector.pull_events(),
-                        &mut render,
-                        Rc::clone(&context),
+                        &mut renderer,
+                        Arc::clone(&context),
                         delta_time.as_micros() as f32 / 1000.0,
                     ) {
                         FrameStatus::Quit => *control_flow = ControlFlow::Exit,
@@ -75,7 +70,7 @@ enum FrameStatus {
 fn run_frame<R: Renderable>(
     events: &[Event],
     renderer: &mut R,
-    context: Rc<RefCell<Context>>,
+    context: Arc<RefCell<Context>>,
     delta_time_ms: f32,
 ) -> FrameStatus {
     {
@@ -86,10 +81,9 @@ fn run_frame<R: Renderable>(
             .expect("failed to start rendering frame");
     }
 
-    let mut child = ContextChild::new(Rc::clone(&context));
-    renderer.render_frame(events, &mut child, delta_time_ms);
-    if !child.quit {
-        let mut ctx_borrow = context.borrow_mut();
+    renderer.render_frame(events, Arc::clone(&context), delta_time_ms);
+    let mut ctx_borrow = context.borrow_mut();
+    if !ctx_borrow.quit {
         ctx_borrow
             .backend
             .finish_render()
@@ -100,28 +94,27 @@ fn run_frame<R: Renderable>(
     }
 }
 
-pub struct ContextChild {
-    context: Rc<RefCell<Context>>,
+pub struct Context {
+    backend: Backend,
     //true if quit is signaled
     quit: bool,
 }
 
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
-impl ContextChild {
-    fn new(context: Rc<RefCell<Context>>) -> Self {
+impl Context {
+    fn new(backend: Backend) -> Self {
         Self {
-            context,
+            backend,
             quit: false,
         }
     }
     pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Mesh {
-        let mut context = self.context.borrow_mut();
         Mesh {
-            vertices: context
+            vertices: self
                 .backend
                 .allocate_verticies(mesh.vertices, mesh.vertex_layout)
                 .expect("failed to allocate mesh"),
-            indices: context
+            indices: self
                 .backend
                 .allocate_indicies(mesh.indices)
                 .expect("failed to allocate indicies"),
@@ -130,46 +123,38 @@ impl ContextChild {
     }
     /// Deletes Mesh. Mesh not be used in current draw call.
     pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
-        let mut ctx_borrow = self.context.borrow_mut();
-        ctx_borrow.backend.free_vertices(mesh.vertices)?;
-        ctx_borrow.backend.free_indices(mesh.indices)?;
+        self.backend.free_vertices(mesh.vertices)?;
+        self.backend.free_indices(mesh.indices)?;
         Ok(())
     }
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<MeshTexture> {
-        let mut ctx_borrow = self.context.borrow_mut();
         Ok(MeshTexture::RegularTexture(
-            ctx_borrow.backend.allocate_texture(image)?,
+            self.backend.allocate_texture(image)?,
         ))
     }
     /// Deletes Texture. Texture must not be used in current draw call.
     pub fn delete_texture(&mut self, tex: MeshTexture) -> Result<()> {
-        let mut ctx_borrow = self.context.borrow_mut();
         match tex {
-            MeshTexture::RegularTexture(texture) => ctx_borrow.backend.free_texture(texture),
+            MeshTexture::RegularTexture(texture) => self.backend.free_texture(texture),
             MeshTexture::Framebuffer(_fb) => todo!("free framebuffer"),
         }
     }
     pub fn draw_mesh(&mut self, push: &[u8], mesh: &Mesh) -> Result<()> {
-        let mut ctx_borrow = self.context.borrow_mut();
-        ctx_borrow.backend.draw_mesh(push, mesh)
+        self.backend.draw_mesh(push, mesh)
     }
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
-        let mut ctx_borrow = self.context.borrow_mut();
-        ctx_borrow.backend.build_framebuffer(resolution)
+        self.backend.build_framebuffer(resolution)
     }
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
     pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
-        let mut ctx_borrow = self.context.borrow_mut();
-        ctx_borrow.backend.bind_shader(framebuffer, shader)
+        self.backend.bind_shader(framebuffer, shader)
     }
     pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
-        let mut ctx_borrow = self.context.borrow_mut();
-        ctx_borrow.backend.bind_framebuffer(bound_framebuffer)
+        self.backend.bind_framebuffer(bound_framebuffer)
     }
     pub fn get_screen_size(&self) -> Vector2<u32> {
-        let ctx_borrow = self.context.borrow();
-        ctx_borrow.backend.get_screen_size()
+        self.backend.get_screen_size()
     }
     pub fn update_uniform(&mut self) {
         todo!("update uniform")
@@ -184,11 +169,11 @@ impl ContextChild {
 }
 /// User Provided code that provides draw calls
 pub trait Renderable {
-    fn init<'a>(context: &mut ContextChild) -> Self;
+    fn init<'a>(context: Arc<RefCell<Context>>) -> Self;
     fn render_frame<'a>(
         &mut self,
         events: &[Event],
-        context: &mut ContextChild,
+        context: Arc<RefCell<Context>>,
         delta_time_ms: f32,
     );
 }
@@ -199,16 +184,17 @@ mod tests {
 
     struct EmptyRenderable {}
     impl Renderable for EmptyRenderable {
-        fn init<'a>(_context: &mut ContextChild) -> Self {
+        fn init<'a>(_context: Arc<RefCell<Context>>) -> Self {
             Self {}
         }
         fn render_frame<'a>(
             &mut self,
             _events: &[Event],
-            context: &mut ContextChild,
+            context: Arc<RefCell<Context>>,
             _delta_time: f32,
         ) {
-            context.quit();
+            let mut ctx_borrow = context.borrow_mut();
+            ctx_borrow.quit();
         }
     }
     struct TriangleRenderable {
@@ -218,36 +204,43 @@ mod tests {
         texture: MeshTexture,
     }
     impl Renderable for TriangleRenderable {
-        fn init<'a>(context: &mut ContextChild) -> Self {
+        fn init<'a>(context: Arc<RefCell<Context>>) -> Self {
+            let mut ctx_borrow = context.borrow_mut();
             let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
-            let texture = context
+            let texture = ctx_borrow
                 .build_texture(&image)
                 .expect("failed to create image");
-            let triangle = context.build_mesh(MeshAsset::new_triangle(), texture);
+            let triangle = ctx_borrow.build_mesh(MeshAsset::new_triangle(), texture);
             Self {
                 triangle,
                 num_frames: 0,
                 texture,
             }
         }
-        fn render_frame<'a>(&mut self, _events: &[Event], context: &mut ContextChild, _dt: f32) {
+        fn render_frame<'a>(
+            &mut self,
+            _events: &[Event],
+            context: Arc<RefCell<Context>>,
+            _dt: f32,
+        ) {
+            let mut ctx_borrow = context.borrow_mut();
             if self.num_frames <= 10_000 {
                 let mat = Matrix4::identity();
                 let mat_ptr = mat.as_ptr() as *const u8;
                 let push = unsafe { std::slice::from_raw_parts(mat_ptr, 16 * 4) };
-                context
+                ctx_borrow
                     .draw_mesh(push, &self.triangle)
                     .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {
-                context.quit();
+                ctx_borrow.quit();
             }
         }
     }
     #[test]
     fn draw_triangle() {
         //should start and stop without issue
-        Context::new::<TriangleRenderable>(CreateInfo {
+        Sukakpak::new::<TriangleRenderable>(CreateInfo {
             default_size: Vector2::new(800, 800),
             name: String::from("Draw Triangle"),
         });
