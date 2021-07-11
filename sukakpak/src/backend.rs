@@ -70,9 +70,9 @@ pub enum MeshTexture {
 }
 #[derive(Clone, Copy, Debug)]
 pub struct MeshID {
-    pub verticies: VertexBufferID,
+    pub vertices: VertexBufferID,
     pub texture: MeshTexture,
-    pub indicies: IndexBufferID,
+    pub indices: IndexBufferID,
 }
 impl MeshID {
     pub fn bind_texture(&mut self, tex: MeshTexture) {
@@ -159,7 +159,6 @@ impl Backend {
             textures: Arena::new(),
         })
     }
-
     pub fn allocate_verticies(
         &mut self,
         mesh: Vec<u8>,
@@ -175,6 +174,15 @@ impl Backend {
                 )?),
         })
     }
+    pub fn free_vertices(&mut self, id: VertexBufferID) -> Result<()> {
+        let buffer = self
+            .vertex_buffers
+            .remove(id.buffer_index)
+            .expect("buffer not found");
+
+        buffer.free(&mut self.core, &mut self.resource_pool)?;
+        Ok(())
+    }
     pub fn allocate_indicies(&mut self, indicies: Vec<u32>) -> Result<IndexBufferID> {
         Ok(IndexBufferID {
             buffer_index: self
@@ -186,6 +194,14 @@ impl Backend {
                 )?),
         })
     }
+    pub fn free_indices(&mut self, idx_buffer: IndexBufferID) -> Result<()> {
+        let buffer = self
+            .index_buffers
+            .remove(idx_buffer.buffer_index)
+            .expect("buffer not found");
+        buffer.free(&mut self.core, &mut self.resource_pool)?;
+        Ok(())
+    }
     pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
         Ok(TextureID {
             buffer_index: self.textures.insert(self.resource_pool.allocate_texture(
@@ -194,6 +210,14 @@ impl Backend {
                 texture,
             )?),
         })
+    }
+    pub fn free_texture(&mut self, tex_id: TextureID) -> Result<()> {
+        let texture = self
+            .textures
+            .remove(tex_id.buffer_index)
+            .expect("texture not found");
+        texture.free(&mut self.core, &mut self.resource_pool)?;
+        Ok(())
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
         Ok(FramebufferID {
@@ -265,11 +289,8 @@ impl Backend {
         };
         let render_mesh = RenderMesh {
             push,
-            vertex_buffer: self
-                .vertex_buffers
-                .get(mesh.verticies.buffer_index)
-                .unwrap(),
-            index_buffer: self.index_buffers.get(mesh.indicies.buffer_index).unwrap(),
+            vertex_buffer: self.vertex_buffers.get(mesh.vertices.buffer_index).unwrap(),
+            index_buffer: self.index_buffers.get(mesh.indices.buffer_index).unwrap(),
         };
         let descriptor_set = [texture_descriptor_set];
         self.renderpass.draw_mesh(

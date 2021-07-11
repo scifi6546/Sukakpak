@@ -17,7 +17,7 @@ pub struct CloneCraft {
     blue_texture: MeshTexture,
 }
 impl CloneCraft {
-    fn draw_rotating_cube<'a>(&self, context: &mut ContextChild<'a>, pos: na::Vector2<f32>) {
+    fn draw_rotating_cube<'a>(&self, context: &mut ContextChild, pos: na::Vector2<f32>) {
         let rot = na::Matrix4::from_euler_angles(
             self.frame_counter / 335.0,
             self.frame_counter / 107.2,
@@ -46,7 +46,7 @@ fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
 }
 const CUBE_DIMENSIONS: usize = 10;
 impl sukakpak::Renderable for CloneCraft {
-    fn init<'a>(context: &mut ContextChild<'a>) -> Self {
+    fn init(context: &mut ContextChild) -> Self {
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
         let red_texture = context
             .build_texture(&image)
@@ -60,6 +60,12 @@ impl sukakpak::Renderable for CloneCraft {
             .expect("failed to build texture");
 
         let triangle = context.build_mesh(MeshAsset::new_cube(), red_texture);
+        let delete = context.build_mesh(MeshAsset::new_cube(), red_texture);
+        context.delete_mesh(delete).expect("failed to delete");
+        let delete = context
+            .build_texture(&image)
+            .expect("failed to create image");
+        context.delete_texture(delete).expect("failed to delete");
         let framebuffer = context
             .build_framebuffer(na::Vector2::new(300, 300))
             .expect("failed to build frame buffer");
@@ -81,12 +87,7 @@ impl sukakpak::Renderable for CloneCraft {
             plane,
         }
     }
-    fn render_frame<'a>(
-        &mut self,
-        events: &[Event],
-        context: &mut ContextChild<'a>,
-        delta_time: f32,
-    ) {
+    fn render_frame(&mut self, events: &[Event], context: &mut ContextChild, delta_time: f32) {
         for e in events.iter() {
             match e {
                 Event::MouseMoved { normalized, .. } => self.cube_pos = *normalized,

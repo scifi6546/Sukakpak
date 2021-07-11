@@ -1,10 +1,11 @@
 use super::prelude::{
     na::{Vector2, Vector3, Vector4},
-    ContextChild, Event, Result, ShaderBind, Texture as RGBATexture,
+    ContextChild, Event, MeshAsset, Result, ShaderBind, Texture as RGBATexture, VertexComponent,
+    VertexLayout,
 };
 use egui::{
     math::{Pos2, Rect, Vec2},
-    paint::tessellator::Vertex as EguiVertex,
+    paint::tessellator::Triangles as EguiTris,
     PaintJobs, RawInput, Texture,
 };
 use log::info;
@@ -72,52 +73,105 @@ pub fn draw_egui(
     let texture = RGBATexture { pixels, dimensions };
 
     let mut render_texture = rendering_ctx.build_texture(&texture.into())?;
-    gl.bind_texture(&render_texture, shader.get_bind());
     let mut depth = -0.8;
     let mut idx = 0;
-    let (verticies,indices) = paint_jobs.iter().map(|(_rect,triangle)|);
+    let mut vertices = vec![];
+    let mut indices = vec![];
     for (_rect, triangles) in paint_jobs.iter() {
-        let vertices = to_vertex(
-            &triangles
-                .indices
-                .iter()
-                .map(|i| triangles.vertices[*i as usize])
-                .collect(),
-            depth,
-            screen_size,
-        );
-        let mut runtime_mesh = rendering_ctx.build_mesh(MeshAsset {
-            vertices,
-            triangles.indices,
-           
-        });
-        gl.draw_mesh(&runtime_mesh);
-        gl.delete_mesh(&mut runtime_mesh)?;
-        depth -= 0.01;
+        let (v_out, i_out) = to_vertex(triangles, idx, depth, screen_size);
+
+        vertices.append(&mut v_out);
+        indices.append(&mut i_out);
+        idx += i_out.len() as u32;
     }
-    gl.delete_texture(&mut render_texture);
+    let f = 1;
+    let mesh = rendering_ctx.build_mesh(
+        MeshAsset {
+            vertices,
+            indices,
+            vertex_layout: VertexLayout {
+                components: vec![
+                    VertexComponent::Vec3F32,
+                    VertexComponent::Vec2F32,
+                    VertexComponent::Vec3F32,
+                    VertexComponent::Vec4F32,
+                ],
+            },
+        },
+        render_texture,
+    );
+    rendering_ctx.draw_mesh(&[], &mesh);
+    rendering_ctx.delete_mesh(mesh);
+    rendering_ctx.delete_texture(render_texture);
     Ok(())
 }
-fn to_vertex(vertex_list: &Vec<EguiVertex>, depth: f32, screen_size: &Vector2<u32>) -> Vec<u8> {
+
+fn push_vec2(v: &Vector2<f32>, vec: &mut Vec<u8>) {
+    let x = v.x.to_ne_bytes();
+    for i in x {
+        vec.push(i);
+    }
+    let y = v.y.to_ne_bytes();
+    for i in y {
+        vec.push(i);
+    }
+}
+fn push_vec3(v: &Vector3<f32>, vec: &mut Vec<u8>) {
+    let x = v.x.to_ne_bytes();
+    for i in x {
+        vec.push(i);
+    }
+    let y = v.y.to_ne_bytes();
+    for i in y {
+        vec.push(i);
+    }
+    let z = v.z.to_ne_bytes();
+    for i in z {
+        vec.push(i);
+    }
+}
+fn push_vec4(v: &Vector4<f32>, vec: &mut Vec<u8>) {
+    let x = v.x.to_ne_bytes();
+    for i in x {
+        vec.push(i);
+    }
+    let y = v.y.to_ne_bytes();
+    for i in y {
+        vec.push(i);
+    }
+    let z = v.z.to_ne_bytes();
+    for i in z {
+        vec.push(i);
+    }
+    let w = v.w.to_ne_bytes();
+    for i in w {
+        vec.push(i);
+    }
+}
+fn to_vertex(
+    triangles: &EguiTris,
+    index_offset: u32,
+    depth: f32,
+    screen_size: &Vector2<u32>,
+) -> (Vec<u8>, Vec<u32>) {
     let mut vertices = vec![];
     let screen_x = screen_size.x as f32 / 2.0;
     let screen_y = screen_size.y as f32 / 2.0;
-    for vertex in vertex_list.iter() {
+    for vertex in triangles.vertices.iter() {
         let position = Vector3::new(
             vertex.pos.x / screen_x - 1.0,
             -1.0 * vertex.pos.y / screen_y + 1.0,
             depth,
         );
+
         let uv = Vector2::new(vertex.uv.x, vertex.uv.y);
         let normal = Vector3::new(0.0, 0.0, 1.0);
         let color: egui::paint::Rgba = vertex.color.into();
-        let extra_custom = vec![color.r(), color.g(), color.b(), color.a()];
-        vertices.push(Vertex {
-            position,
-            uv,
-            normal,
-            extra_custom,
-        });
+        let color = Vector4::new(color.r(), color.g(), color.b(), color.a());
+
+        push_vec3(&position, &mut vertices);
+        push_vec2(&uv, &mut vertices);
+        push_vec4(&color, &mut vertices);
     }
-    vertices
+    (vertices, triangles.indices)
 }

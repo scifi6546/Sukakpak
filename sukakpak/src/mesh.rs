@@ -1,7 +1,7 @@
 use super::{VertexComponent, VertexLayout};
 use nalgebra::{Vector2, Vector3};
 pub struct Mesh {
-    pub verticies: Vec<u8>,
+    pub vertices: Vec<u8>,
     pub indices: Vec<u32>,
     pub vertex_layout: VertexLayout,
 }
@@ -201,14 +201,14 @@ pub struct Vertex {
 impl From<EasyMesh> for Mesh {
     fn from(mesh: EasyMesh) -> Self {
         let len = std::mem::size_of::<Vertex>() * mesh.vertices.len();
-        let verticies: Vec<u8> = vec![0; len];
+        let vertices: Vec<u8> = vec![0; len];
         let mesh_ptr = mesh.vertices.as_ptr();
-        let data_ptr = verticies.as_ptr();
+        let data_ptr = vertices.as_ptr();
         unsafe {
             std::ptr::copy_nonoverlapping(mesh_ptr as *const u8, data_ptr as *mut u8, len);
         }
         Mesh {
-            verticies,
+            vertices,
             indices: mesh.indices,
             vertex_layout: VertexLayout {
                 components: vec![VertexComponent::Vec3F32, VertexComponent::Vec2F32],

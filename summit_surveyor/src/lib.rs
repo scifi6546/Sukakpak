@@ -29,6 +29,7 @@ use graphics_system::{insert_terrain, GraphicsSettings, RuntimeModel};
 use gui::GuiModel;
 use legion::*;
 use lift::insert_lift;
+use std::{cell::RefCell, rc::Rc};
 use terrain::Terrain;
 mod prelude {
     pub use super::asset_manager::AssetManager;
@@ -39,7 +40,10 @@ mod prelude {
     };
     pub use super::transform::Transform;
     pub use super::PushBuilder;
-    pub use sukakpak::{anyhow::Result, image, nalgebra as na, ContextChild, MeshAsset};
+    pub use sukakpak::{
+        anyhow::Result, image, nalgebra as na, ContextChild, MeshAsset, VertexComponent,
+        VertexLayout,
+    };
 
     pub type Shader = String;
     pub type ShaderBind = super::Bindable<String>;
