@@ -1,9 +1,13 @@
 use super::prelude::{
-    AssetManager, Camera, ContextChild, GuiRuntimeModel, GuiTransform, Model, PushBuilder, Result,
+    AssetManager, Camera, Context, GuiRuntimeModel, GuiTransform, Model, PushBuilder, Result,
     Shader, ShaderBind, Terrain, Transform,
 };
 use legion::*;
 use log::debug;
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
 
 pub struct RuntimeModel {
     pub mesh: sukakpak::Mesh,
@@ -23,27 +27,29 @@ impl RuntimeModelId {
     }
 }
 impl RuntimeModel {
-    pub fn new(model: &Model, context: &mut ContextChild, bound_shader: &Shader) -> Self {
-        let texture = context
+    pub fn new(model: &Model, context: Arc<RefCell<Context>>, bound_shader: &Shader) -> Self {
+        let mut ctx_ref = context.get_mut();
+        let texture = ctx_ref
             .build_texture(&model.texture.into())
             .expect("failed to create texture");
-        let mesh = context.build_mesh(model.mesh.clone(), texture);
+        let mesh = ctx_ref.build_mesh(model.mesh.clone(), texture);
         Self { mesh }
     }
 }
 impl RuntimeDebugMesh {
-    pub fn new(model: &Model, context: &mut ContextChild, bound_shader: &Shader) -> Self {
+    pub fn new(model: &Model, context: Arc<RefCell<Context>>, bound_shader: &Shader) -> Self {
         let texture = context
+            .get_mut()
             .build_texture(&model.texture.into())
             .expect("failed to build texture");
-        let mesh = context.build_mesh(model.mesh, texture);
+        let mesh = context.get_mut().build_mesh(model.mesh, texture);
         Self { mesh }
     }
 }
 pub fn insert_terrain(
     terrain: Terrain,
     world: &mut World,
-    context: &mut ContextChild,
+    context: Rc<RefCell<Context>>,
     asset_manager: &mut AssetManager<RuntimeModel>,
     bound_shader: &Shader,
 ) -> Result<()> {
@@ -70,16 +76,16 @@ pub fn render_object(
     model: &RuntimeModelId,
     push: &PushBuilder,
     #[resource] settings: &GraphicsSettings,
-    #[resource] context: &mut ContextChild,
+    #[resource] context: &Arc<RefCell<Context>>,
     #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
     #[resource] asset_manager: &mut AssetManager<RuntimeModel>,
 ) {
     debug!("running render object");
     let model = asset_manager.get(&model.id).unwrap();
-    push.set_view_matrix(camera.get_matrix(context.get_screen_size()));
+    push.set_view_matrix(camera.get_matrix(context.get_mut().get_screen_size()));
     push.set_model_matrix(transform.build().clone());
-    context.draw_mesh(push.to_slice(), &model.mesh);
+    context.get_mut().draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_debug(
@@ -87,24 +93,26 @@ pub fn render_debug(
     model: &RuntimeDebugMesh,
     push: &PushBuilder,
     #[resource] settings: &GraphicsSettings,
-    #[resource] context: &mut ContextChild,
+    #[resource] context: &Arc<RefCell<Context>>,
     #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
 ) {
     push.set_model_matrix(transform.build().clone());
-    push.set_view_matrix(camera.get_matrix(context.get_screen_size()));
-    context.draw_mesh(push.to_slice(), &model.mesh);
+    push.set_view_matrix(camera.get_matrix(context.get_mut().get_screen_size()));
+    context.get_mut().draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_gui(
     transform: &GuiTransform,
     model: &GuiRuntimeModel,
     push: &PushBuilder,
-    #[resource] context: &mut ContextChild,
+    #[resource] context: &Arc<RefCell<Context>>,
     #[resource] shader: &ShaderBind,
 ) {
     debug!("running render object");
 
     push.set_model_matrix(transform.transform.build().clone());
-    context.draw_mesh(push.to_slice(), &model.model.mesh);
+    context
+        .get_mut()
+        .draw_mesh(push.to_slice(), &model.model.mesh);
 }

@@ -710,6 +710,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -770,8 +779,26 @@ dependencies = [
  "bit-set",
  "derivative",
  "downcast-rs",
- "itertools",
- "legion_codegen",
+ "itertools 0.9.0",
+ "legion_codegen 0.3.0",
+ "parking_lot",
+ "paste",
+ "smallvec",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "legion"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bfd53bb4690a5ab2bd6d1c683461ee52763afe0d000929743708a256d9d9b1f"
+dependencies = [
+ "atomic_refcell",
+ "bit-set",
+ "downcast-rs",
+ "itertools 0.10.1",
+ "legion_codegen 0.4.0",
  "parking_lot",
  "paste",
  "smallvec",
@@ -784,6 +811,18 @@ name = "legion_codegen"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c24e58060e656eae6b87f83f14f41080656a930fba7ef299122e40eb8ccd307f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
+name = "legion_codegen"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ad5ad7a361d7b2522010335d95fa73135cb3c6816bef22cc7a5d5861587ae1b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1699,7 +1738,8 @@ name = "summit_surveyor"
 version = "0.1.0"
 dependencies = [
  "egui",
- "legion",
+ "legion 0.3.1",
+ "legion 0.4.0",
  "log",
  "priority-queue",
  "sukakpak",

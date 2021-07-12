@@ -17,7 +17,7 @@ use camera::Camera;
 use log::{debug, info};
 use sukakpak::{
     nalgebra::{Matrix4, Vector2, Vector3, Vector4},
-    BoundFramebuffer, ContextChild, Event, Framebuffer, Mesh, MeshAsset, MeshTexture, MouseButton,
+    BoundFramebuffer, Context, Event, Framebuffer, Mesh, MeshAsset, MeshTexture, MouseButton,
 };
 use texture::RGBATexture;
 use transform::Transform;
@@ -29,7 +29,7 @@ use graphics_system::{insert_terrain, GraphicsSettings, RuntimeModel};
 use gui::GuiModel;
 use legion::*;
 use lift::insert_lift;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 use terrain::Terrain;
 mod prelude {
     pub use super::asset_manager::AssetManager;
@@ -41,8 +41,7 @@ mod prelude {
     pub use super::transform::Transform;
     pub use super::PushBuilder;
     pub use sukakpak::{
-        anyhow::Result, image, nalgebra as na, ContextChild, MeshAsset, VertexComponent,
-        VertexLayout,
+        anyhow::Result, image, nalgebra as na, Context, MeshAsset, VertexComponent, VertexLayout,
     };
 
     pub type Shader = String;
@@ -111,18 +110,22 @@ pub struct Game {
     last_mouse_pos: Vector2<f32>,
 }
 impl sukakpak::Renderable for Game {
-    fn init(context: &mut ContextChild) -> Self {
+    fn init(context: Rc<RefCell<Context>>) -> Self {
         utils::set_panic_hook();
         let mut resources = Resources::default();
         let mut world = World::default();
         let mut shader_bind = Bindable::default();
         let mut model_manager = AssetManager::default();
+        let screen_size = context.get_mut().get_screen_size();
         shader_bind.insert("world", "world".to_string());
         shader_bind.bind("world");
-        context
-            .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader_bind.get_bind())
-            .ok()
-            .unwrap();
+        {
+            let mut ctx_ref = context.borrow_mut();
+            ctx_ref
+                .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader_bind.get_bind())
+                .ok()
+                .unwrap();
+        }
         let push_builder = PushBuilder::new(
             Vector3::new(1.0, -1.0, 0.0).normalize(),
             Vector4::new(1.0, 1.0, 1.0, 1.0),
@@ -151,15 +154,15 @@ impl sukakpak::Renderable for Game {
             Vector2::new(10, 10),
         );
         println!("inserted lift");
-
+        let mut ctx_ref = context.borrow_mut();
         let mut world_framebuffer = {
-            let screen_size = context.get_screen_size();
-            context
+            let screen_size = ctx_ref.get_screen_size();
+            ctx_ref
                 .build_framebuffer(screen_size)
                 .expect("failed to build framebuffer")
         };
 
-        let fb_mesh = context.build_mesh(
+        let fb_mesh = ctx_ref.build_mesh(
             MeshAsset::new_plane(),
             MeshTexture::Framebuffer(world_framebuffer),
         );
@@ -178,7 +181,7 @@ impl sukakpak::Renderable for Game {
         resources.insert(shader_bind);
         resources.insert(GraphicsSettings {});
         resources.insert(Camera::new(Vector3::new(0.0, 0.0, 0.0), 20.0, 1.0, 1.0));
-        let (egui_context, egui_adaptor) = gui::init_gui(context.get_screen_size());
+        let (egui_context, egui_adaptor) = gui::init_gui(screen_size);
         resources.insert(egui_context);
         resources.insert(egui_adaptor);
         resources.insert(model_manager);
@@ -196,7 +199,12 @@ impl sukakpak::Renderable for Game {
         info!("built game successfully");
         g
     }
-    fn render_frame(&mut self, events: &[Event], context: &mut ContextChild, delta_time_ms: f32) {
+    fn render_frame(
+        &mut self,
+        events: &[Event],
+        context: Rc<RefCell<Context>>,
+        delta_time_ms: f32,
+    ) {
         {
             let context = &mut self.resources.get_mut().unwrap();
             gui::insert_ui(context);
@@ -222,18 +230,21 @@ impl sukakpak::Renderable for Game {
             }
 
             //binding to world framebuffer and rendering to it
+            {
+                let ctx_ref = context.get_mut();
+                ctx_ref
+                    .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.world_framebuffer));
 
-            context.bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.world_framebuffer));
-
-            let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
-            shader.bind("world");
-            context
-                .bind_shader(
-                    &BoundFramebuffer::UserFramebuffer(self.world_framebuffer),
-                    shader.get_bind(),
-                )
-                .ok()
-                .unwrap();
+                let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
+                shader.bind("world");
+                ctx_ref
+                    .bind_shader(
+                        &BoundFramebuffer::UserFramebuffer(self.world_framebuffer),
+                        shader.get_bind(),
+                    )
+                    .ok()
+                    .unwrap();
+            }
         }
         //game logic
         let mut schedule = Schedule::builder()
@@ -258,15 +269,18 @@ impl sukakpak::Renderable for Game {
 
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("screen");
-            context.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer);
+            context
+                .get_mut()
+                .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer);
             //getting screen shader
             context
+                .get_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .ok()
                 .unwrap();
             self.push_builder.make_identity();
 
-            context.draw_mesh(
+            context.get_mut().draw_mesh(
                 self.push_builder.to_slice(),
                 &self.world_render_surface.mesh,
             );
@@ -274,9 +288,11 @@ impl sukakpak::Renderable for Game {
             //binding and drawing gui shader
             shader.bind("gui");
             context
+                .get_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .expect("failed to bind gui shader");
             {
+                let screen_size = context.get_mut().get_screen_size();
                 let egui_context = &mut self.resources.get_mut().unwrap();
                 let egui_adaptor = &mut self.resources.get_mut().unwrap();
                 let settings: &GraphicsSettings = &self.resources.get().unwrap();
@@ -286,13 +302,14 @@ impl sukakpak::Renderable for Game {
                     context,
                     shader,
                     egui_adaptor,
-                    context.get_screen_size(),
+                    screen_size,
                 )
                 .expect("successfully drew");
             }
             shader.bind("screen");
             //getting screen shader
             context
+                .get_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .expect("failed to bind screen");
         }

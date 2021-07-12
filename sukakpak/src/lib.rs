@@ -17,19 +17,25 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{cell::RefCell, sync::Arc, time::SystemTime};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, RwLock},
+    time::SystemTime,
+};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
+unsafe impl Send for Context {}
 impl Sukakpak {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
 
-        let context = Arc::new(RefCell::new(Context::new(
+        let mut context = Rc::new(RefCell::new(Context::new(
             Backend::new(create_info, &event_loop).expect("failed to create backend"),
         )));
-        let mut renderer = R::init(Arc::clone(&context));
+        let mut renderer = R::init(Rc::clone(&context));
 
         let mut event_collector = EventCollector::new();
         let mut system_time = SystemTime::now();
@@ -45,7 +51,7 @@ impl Sukakpak {
                     match run_frame(
                         &event_collector.pull_events(),
                         &mut renderer,
-                        Arc::clone(&context),
+                        Rc::clone(&context),
                         delta_time.as_micros() as f32 / 1000.0,
                     ) {
                         FrameStatus::Quit => *control_flow = ControlFlow::Exit,
@@ -70,7 +76,7 @@ enum FrameStatus {
 fn run_frame<R: Renderable>(
     events: &[Event],
     renderer: &mut R,
-    context: Arc<RefCell<Context>>,
+    context: Rc<RefCell<Context>>,
     delta_time_ms: f32,
 ) -> FrameStatus {
     {
@@ -81,7 +87,7 @@ fn run_frame<R: Renderable>(
             .expect("failed to start rendering frame");
     }
 
-    renderer.render_frame(events, Arc::clone(&context), delta_time_ms);
+    renderer.render_frame(events, Rc::clone(&context), delta_time_ms);
     let mut ctx_borrow = context.borrow_mut();
     if !ctx_borrow.quit {
         ctx_borrow
@@ -169,11 +175,11 @@ impl Context {
 }
 /// User Provided code that provides draw calls
 pub trait Renderable {
-    fn init<'a>(context: Arc<RefCell<Context>>) -> Self;
+    fn init<'a>(context: Rc<RefCell<Context>>) -> Self;
     fn render_frame<'a>(
         &mut self,
         events: &[Event],
-        context: Arc<RefCell<Context>>,
+        context: Rc<RefCell<Context>>,
         delta_time_ms: f32,
     );
 }
@@ -184,13 +190,13 @@ mod tests {
 
     struct EmptyRenderable {}
     impl Renderable for EmptyRenderable {
-        fn init<'a>(_context: Arc<RefCell<Context>>) -> Self {
+        fn init<'a>(_context: Rc<RefCell<Context>>) -> Self {
             Self {}
         }
         fn render_frame<'a>(
             &mut self,
             _events: &[Event],
-            context: Arc<RefCell<Context>>,
+            context: Rc<RefCell<Context>>,
             _delta_time: f32,
         ) {
             let mut ctx_borrow = context.borrow_mut();
@@ -204,7 +210,7 @@ mod tests {
         texture: MeshTexture,
     }
     impl Renderable for TriangleRenderable {
-        fn init<'a>(context: Arc<RefCell<Context>>) -> Self {
+        fn init<'a>(context: Rc<RefCell<Context>>) -> Self {
             let mut ctx_borrow = context.borrow_mut();
             let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
             let texture = ctx_borrow
@@ -217,12 +223,7 @@ mod tests {
                 texture,
             }
         }
-        fn render_frame<'a>(
-            &mut self,
-            _events: &[Event],
-            context: Arc<RefCell<Context>>,
-            _dt: f32,
-        ) {
+        fn render_frame<'a>(&mut self, _events: &[Event], context: Rc<RefCell<Context>>, _dt: f32) {
             let mut ctx_borrow = context.borrow_mut();
             if self.num_frames <= 10_000 {
                 let mat = Matrix4::identity();

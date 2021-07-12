@@ -1,6 +1,6 @@
 use super::prelude::{
     na::{Vector2, Vector3, Vector4},
-    ContextChild, Event, MeshAsset, Result, ShaderBind, Texture as RGBATexture, VertexComponent,
+    Context, Event, MeshAsset, Result, ShaderBind, Texture as RGBATexture, VertexComponent,
     VertexLayout,
 };
 use egui::{
