@@ -1,6 +1,6 @@
 use super::prelude::{
     na::{Vector2, Vector3},
-    ContextChild, FollowPath, GraphLayer, GraphLayerList, Model, Node, Path, Result, RuntimeModel,
+    FollowPath, GraphLayer, GraphLayerList, Model, Node, Path, RenderingCtx, Result, RuntimeModel,
     ShaderBind, Transform,
 };
 mod behavior_tree;
@@ -16,7 +16,7 @@ struct DecisionDebugInfo {
 }
 pub fn build_skiier(
     world: &mut World,
-    graphics: &mut ContextChild,
+    graphics: &mut RenderingCtx,
     bound_shader: &ShaderBind,
     position: Vector2<i64>,
 ) -> Result<()> {

@@ -1,13 +1,13 @@
 use super::prelude::{
     na::{Vector2, Vector3, Vector4},
-    AssetManager, ContextChild, GraphLayer, GraphWeight, LiftLayer, Model, Node, Result,
+    AssetManager, GraphLayer, GraphWeight, LiftLayer, Model, Node, RenderingCtx, Result,
     RuntimeModel, RuntimeModelId, ShaderBind, Texture, Transform,
 };
 use legion::*;
 use log::info;
 pub fn insert_lift(
     world: &mut World,
-    graphics: &mut ContextChild,
+    graphics: &mut RenderingCtx,
     asset_manager: &mut AssetManager<RuntimeModel>,
     bound_shader: &ShaderBind,
     start_position: Vector2<i64>,

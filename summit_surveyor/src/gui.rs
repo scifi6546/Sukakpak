@@ -1,7 +1,7 @@
 use super::prelude;
 use super::prelude::{
     na::{Vector2, Vector4},
-    ContextChild, Event, MeshAsset, Model, Result, RuntimeModel, Shader, ShaderBind, Texture,
+    Event, MeshAsset, Model, RenderingCtx, Result, RuntimeModel, Shader, ShaderBind, Texture,
     Transform,
 };
 use legion::*;
@@ -35,7 +35,7 @@ impl GuiModel {
     pub fn insert(
         &self,
         world: &mut World,
-        ctx: &mut ContextChild,
+        ctx: &mut RenderingCtx,
         bound_shader: &Shader,
     ) -> Result<Entity> {
         let transform = GuiTransform {
@@ -62,7 +62,7 @@ pub fn init_gui(screen_size: Vector2<u32>) -> (CtxRef, EguiRawInputAdaptor) {
 pub fn draw_gui(
     context: &mut CtxRef,
     input: &[Event],
-    ctx: &mut ContextChild,
+    ctx: &mut RenderingCtx,
     shader: &mut ShaderBind,
     adaptor: &mut EguiRawInputAdaptor,
     screen_size: Vector2<u32>,

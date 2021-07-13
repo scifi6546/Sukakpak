@@ -32,6 +32,10 @@ use lift::insert_lift;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 use terrain::Terrain;
 mod prelude {
+    use std::{cell::RefCell, rc::Rc};
+    pub struct RenderingCtx(pub Rc<RefCell<sukakpak::Context>>);
+    unsafe impl Send for RenderingCtx {}
+    unsafe impl Sync for RenderingCtx {}
     pub use super::asset_manager::AssetManager;
     pub use super::camera::Camera;
     pub use super::graph::{
@@ -101,6 +105,7 @@ impl PushBuilder {
         self.model_matrix = Matrix4::identity();
     }
 }
+use prelude::RenderingCtx;
 pub struct Game {
     world: World,
     resources: Resources,
@@ -112,6 +117,7 @@ pub struct Game {
 impl sukakpak::Renderable for Game {
     fn init(context: Rc<RefCell<Context>>) -> Self {
         utils::set_panic_hook();
+        let rendering_ctx = RenderingCtx(context);
         let mut resources = Resources::default();
         let mut world = World::default();
         let mut shader_bind = Bindable::default();
@@ -137,17 +143,21 @@ impl sukakpak::Renderable for Game {
         box_transform.set_scale(Vector3::new(0.1, 0.1, 0.1));
         box_transform.translate(Vector3::new(-0.5, -0.5, 0.0));
 
-        GuiModel::simple_box(box_transform).insert(&mut world, context, &shader_bind.get_bind());
+        GuiModel::simple_box(box_transform).insert(
+            &mut world,
+            &mut rendering_ctx,
+            &shader_bind.get_bind(),
+        );
         insert_terrain(
             Terrain::new_cone(Vector2::new(20, 20), Vector2::new(10.0, 10.0), 5.0, -1.0),
             &mut world,
-            context,
+            &mut rendering_ctx,
             &mut model_manager,
             &shader_bind.get_bind(),
         );
         insert_lift(
             &mut world,
-            context,
+            &mut rendering_ctx,
             &mut model_manager,
             &shader_bind,
             Vector2::new(0, 0),
@@ -173,8 +183,13 @@ impl sukakpak::Renderable for Game {
         info!("building skiiers");
         println!("building skiiers");
         for i in 0..10 {
-            skiier::build_skiier(&mut world, &mut context, &shader_bind, Vector2::new(i, 0))
-                .expect("failed to build skiiers");
+            skiier::build_skiier(
+                &mut world,
+                &mut rendering_ctx,
+                &shader_bind,
+                Vector2::new(i, 0),
+            )
+            .expect("failed to build skiiers");
         }
         info!("done building skiiers");
         resources.insert(context);
@@ -296,10 +311,11 @@ impl sukakpak::Renderable for Game {
                 let egui_context = &mut self.resources.get_mut().unwrap();
                 let egui_adaptor = &mut self.resources.get_mut().unwrap();
                 let settings: &GraphicsSettings = &self.resources.get().unwrap();
+                let rendering_ctx = RenderingCtx(context);
                 gui::draw_gui(
                     egui_context,
                     events,
-                    context,
+                    &mut rendering_ctx,
                     shader,
                     egui_adaptor,
                     screen_size,
