@@ -3,6 +3,7 @@ use anyhow::Result;
 use nalgebra::{Vector2, Vector3};
 use obj::Obj;
 use std::path::Path;
+use tobj::{load_obj, LoadOptions};
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {
     pub vertices: Vec<u8>,
@@ -10,16 +11,35 @@ pub struct Mesh {
     pub vertex_layout: VertexLayout,
 }
 impl Mesh {
-    pub fn from_obj(path: impl AsRef<Path>) -> Result<Self> {
-        let model = Obj::load(path)?;
-        let indices = (0..model.data.position.len()).map(|i| i as u32).collect();
-        let vertices: Vec<u8> = model
-            .data
-            .position
-            .iter()
-            .zip(model.data.texture.iter())
-            .zip(model.data.normal.iter())
-            .map(|((pos, uv), norm)| {
+    pub fn from_obj(path: &str) -> Result<Self> {
+        let (model, mtl) = load_obj(
+            path,
+            &LoadOptions {
+                triangulate: true,
+
+                single_index: true,
+                ..Default::default()
+            },
+        )?;
+        let mesh = &model[0].mesh;
+        let num_vertices = mesh.positions.len() / 3;
+        let vertices = (0..num_vertices)
+            .map(|i| {
+                (
+                    [
+                        mesh.positions[i * 3],
+                        mesh.positions[i * 3 + 1],
+                        mesh.positions[i * 3 + 2],
+                    ],
+                    [mesh.texcoords[i * 2], mesh.texcoords[i * 2 + 1]],
+                    [
+                        mesh.normals[i * 3],
+                        mesh.normals[i * 3 + 1],
+                        mesh.normals[i * 3 + 2],
+                    ],
+                )
+            })
+            .map(|(pos, uv, norm)| {
                 [
                     pos[0], pos[1], pos[2], uv[0], uv[1], norm[0], norm[1], norm[2],
                 ]
@@ -28,6 +48,7 @@ impl Mesh {
             .map(|f| f.to_ne_bytes())
             .flatten()
             .collect();
+        let indices = mesh.indices.clone();
 
         Ok(Self {
             indices,
