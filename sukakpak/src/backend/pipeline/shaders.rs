@@ -1,7 +1,7 @@
 use super::DescriptorDesc;
 use ash::vk;
 use ass_lib::{AssembledSpirv, ScalarType, ShaderStage, Type};
-use nalgebra::{Matrix4, Vector3};
+use nalgebra::{Matrix4, Vector2, Vector3};
 use std::collections::HashMap;
 #[derive(Clone, Copy, Debug)]
 pub struct PushConstantDesc {
@@ -147,7 +147,7 @@ pub fn push_shader() -> ShaderDescription {
         vertex_buffer_desc: VertexBufferDesc {
             binding_description: vk::VertexInputBindingDescription {
                 binding: 0,
-                stride: std::mem::size_of::<f32>() as u32 * 5,
+                stride: std::mem::size_of::<f32>() as u32 * (3 + 2 + 3),
                 input_rate: vk::VertexInputRate::VERTEX,
             },
             attributes: vec![
@@ -167,7 +167,8 @@ pub fn push_shader() -> ShaderDescription {
                     location: 2,
                     binding: 0,
                     format: vk::Format::R32G32B32_SFLOAT,
-                    offset: 0,
+                    offset: std::mem::size_of::<Vector3<f32>>() as u32
+                        + std::mem::size_of::<Vector2<f32>>() as u32,
                 },
             ],
         },

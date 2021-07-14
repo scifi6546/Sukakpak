@@ -165,7 +165,7 @@ impl GraphicsPipeline {
             .front_face(vk::FrontFace::CLOCKWISE)
             .line_width(1.0)
             .polygon_mode(vk::PolygonMode::FILL)
-            .cull_mode(vk::CullModeFlags::BACK)
+            .cull_mode(vk::CullModeFlags::FRONT)
             .depth_bias_enable(false)
             .build();
         let multi_sample_state_info = vk::PipelineMultisampleStateCreateInfo {

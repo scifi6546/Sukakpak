@@ -12,6 +12,7 @@ pub struct Mesh {
 impl Mesh {
     pub fn from_obj(path: impl AsRef<Path>) -> Result<Self> {
         let model = Obj::load(path)?;
+        let indices = (0..model.data.position.len()).map(|i| i as u32).collect();
         let vertices: Vec<u8> = model
             .data
             .position
@@ -29,7 +30,7 @@ impl Mesh {
             .collect();
 
         Ok(Self {
-            indices: (0..vertices.len()).map(|i| i as u32).collect(),
+            indices,
             vertices,
             vertex_layout: VertexLayout {
                 components: vec![

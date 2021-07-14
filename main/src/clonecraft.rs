@@ -64,10 +64,9 @@ impl sukakpak::Renderable for CloneCraft {
                 image::Rgba([0, 0, 255, 0]),
             ))
             .expect("failed to build texture");
-        let sphere = ctx_ref.build_mesh(
-            MeshAsset::from_obj(Path::new("sphere.obj")).expect(""),
-            red_texture,
-        );
+        let sphere_obj = MeshAsset::from_obj(Path::new("plane.obj")).expect("");
+        println!("{:?}", sphere_obj);
+        let sphere = ctx_ref.build_mesh(sphere_obj, red_texture);
 
         let triangle = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
         let delete = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
