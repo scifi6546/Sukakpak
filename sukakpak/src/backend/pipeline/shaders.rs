@@ -163,6 +163,12 @@ pub fn push_shader() -> ShaderDescription {
                     format: vk::Format::R32G32_SFLOAT,
                     offset: std::mem::size_of::<Vector3<f32>>() as u32,
                 },
+                vk::VertexInputAttributeDescription {
+                    location: 2,
+                    binding: 0,
+                    format: vk::Format::R32G32B32_SFLOAT,
+                    offset: 0,
+                },
             ],
         },
         fragment_shader_data: include_bytes!("../../../shaders/push.frag.spv")

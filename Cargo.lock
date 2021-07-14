@@ -1250,6 +1250,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "obj"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "059c95245738cdc7b40078cdd51a23200252a4c0a0a6dd005136152b3f467a4a"
+
+[[package]]
 name = "objc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1728,6 +1734,7 @@ dependencies = [
  "gpu-allocator",
  "image",
  "nalgebra 0.27.1",
+ "obj",
  "phf",
  "thiserror",
  "winit",

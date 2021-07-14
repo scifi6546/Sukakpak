@@ -1,5 +1,6 @@
 use ash::vk;
 use std::mem::size_of;
+#[derive(Clone, Debug, PartialEq)]
 pub enum VertexComponent {
     Vec1F32,
     Vec2F32,
@@ -26,6 +27,7 @@ impl From<&VertexComponent> for vk::Format {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq)]
 pub struct VertexLayout {
     pub components: Vec<VertexComponent>,
 }

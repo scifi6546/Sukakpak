@@ -4,7 +4,7 @@ use super::prelude::{
 };
 #[derive(Clone)]
 pub struct Model {
-    pub mesh: sukakpak::Mesh,
+    pub mesh: sukakpak::MeshAsset,
     pub texture: Texture,
     pub transform: Transform,
 }

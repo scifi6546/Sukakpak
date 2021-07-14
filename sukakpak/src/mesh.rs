@@ -1,25 +1,62 @@
 use super::{VertexComponent, VertexLayout};
+use anyhow::Result;
 use nalgebra::{Vector2, Vector3};
+use obj::Obj;
+use std::path::Path;
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {
     pub vertices: Vec<u8>,
     pub indices: Vec<u32>,
     pub vertex_layout: VertexLayout,
 }
 impl Mesh {
+    pub fn from_obj(path: impl AsRef<Path>) -> Result<Self> {
+        let model = Obj::load(path)?;
+        let vertices: Vec<u8> = model
+            .data
+            .position
+            .iter()
+            .zip(model.data.texture.iter())
+            .zip(model.data.normal.iter())
+            .map(|((pos, uv), norm)| {
+                [
+                    pos[0], pos[1], pos[2], uv[0], uv[1], norm[0], norm[1], norm[2],
+                ]
+            })
+            .flatten()
+            .map(|f| f.to_ne_bytes())
+            .flatten()
+            .collect();
+
+        Ok(Self {
+            indices: (0..vertices.len()).map(|i| i as u32).collect(),
+            vertices,
+            vertex_layout: VertexLayout {
+                components: vec![
+                    VertexComponent::Vec3F32,
+                    VertexComponent::Vec2F32,
+                    VertexComponent::Vec3F32,
+                ],
+            },
+        })
+    }
     pub fn new_triangle() -> Self {
         EasyMesh {
             vertices: vec![
                 Vertex {
                     position: Vector3::new(-0.5, -0.5, 0.0),
                     uv: Vector2::new(0.0, 0.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
                 Vertex {
                     position: Vector3::new(0.5, -0.5, 0.0),
                     uv: Vector2::new(1.0, 0.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
                 Vertex {
                     position: Vector3::new(0.0, 0.5, 0.0),
                     uv: Vector2::new(0.5, 1.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
             ],
             indices: vec![0, 1, 2],
@@ -32,18 +69,22 @@ impl Mesh {
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 0.0),
                     uv: Vector2::new(0.0, 0.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 0.0),
                     uv: Vector2::new(1.0, 0.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 0.0),
                     uv: Vector2::new(1.0, 1.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 0.0),
                     uv: Vector2::new(0.0, 1.0),
+                    normal: Vector3::new(0.0, 0.0, 1.0),
                 },
             ],
             indices: vec![1, 2, 0, 2, 3, 0],
@@ -57,119 +98,143 @@ impl Mesh {
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 1.0),
                     uv: Vector2::new(2.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 0.0),
                     uv: Vector2::new(2.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 0.0),
                     uv: Vector2::new(1.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 1.0),
                     uv: Vector2::new(1.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //face 1
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 0.0),
                     uv: Vector2::new(3.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 0.0),
                     uv: Vector2::new(3.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 0.0),
                     uv: Vector2::new(2.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 0.0),
                     uv: Vector2::new(2.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //Face 2
                 //8
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 0.0),
                     uv: Vector2::new(4.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //9
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 1.0),
                     uv: Vector2::new(4.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //10
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 0.0),
                     uv: Vector2::new(3.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //11
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 1.0),
                     uv: Vector2::new(3.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //Face 3
                 //12
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 1.0),
                     uv: Vector2::new(5.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //13
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 1.0),
                     uv: Vector2::new(5.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //14
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 1.0),
                     uv: Vector2::new(4.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //15
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 1.0),
                     uv: Vector2::new(4.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //face 4
                 //16
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 1.0),
                     uv: Vector2::new(0.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //17
                 Vertex {
                     position: Vector3::new(1.0, 1.0, 0.0),
                     uv: Vector2::new(1.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //18
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 1.0),
                     uv: Vector2::new(0.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //19
                 Vertex {
                     position: Vector3::new(0.0, 1.0, 0.0),
                     uv: Vector2::new(1.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //face 5
                 //20
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 1.0),
                     uv: Vector2::new(5.0 / 6.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //21
                 Vertex {
                     position: Vector3::new(1.0, 0.0, 0.0),
                     uv: Vector2::new(5.0 / 6.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //22
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 1.0),
                     uv: Vector2::new(1.0, 0.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
                 //23
                 Vertex {
                     position: Vector3::new(0.0, 0.0, 0.0),
                     uv: Vector2::new(1.0, 1.0),
+                    normal: Vector3::new(-1.0, 0.0, 0.0),
                 },
             ],
             indices: vec![
@@ -197,6 +262,7 @@ impl Mesh {
 pub struct Vertex {
     pub position: Vector3<f32>,
     pub uv: Vector2<f32>,
+    pub normal: Vector3<f32>,
 }
 impl From<EasyMesh> for Mesh {
     fn from(mesh: EasyMesh) -> Self {
@@ -211,7 +277,11 @@ impl From<EasyMesh> for Mesh {
             vertices,
             indices: mesh.indices,
             vertex_layout: VertexLayout {
-                components: vec![VertexComponent::Vec3F32, VertexComponent::Vec2F32],
+                components: vec![
+                    VertexComponent::Vec3F32,
+                    VertexComponent::Vec2F32,
+                    VertexComponent::Vec3F32,
+                ],
             },
         }
     }

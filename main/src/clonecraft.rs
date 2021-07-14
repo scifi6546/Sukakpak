@@ -1,7 +1,8 @@
 use na::Vector2;
 use std::{
     cell::{RefCell, RefMut},
-    sync::Arc,
+    path::Path,
+    rc::Rc,
 };
 use sukakpak::{
     nalgebra as na, BoundFramebuffer, Context, Event, Framebuffer, Mesh, MeshAsset, MeshTexture,
@@ -15,6 +16,7 @@ pub struct CloneCraft {
     plane: Mesh,
     cube_scale: f32,
     cube_pos: na::Vector2<f32>,
+    sphere: Mesh,
     #[allow(dead_code)]
     red_texture: MeshTexture,
     #[allow(dead_code)]
@@ -35,7 +37,7 @@ impl CloneCraft {
             * rot
             * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, 0.0));
         context
-            .draw_mesh(to_slice(&mat), &self.triangle)
+            .draw_mesh(to_slice(&mat), &self.sphere)
             .expect("failed to draw triangle");
     }
 }
@@ -49,7 +51,7 @@ fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
 }
 const CUBE_DIMENSIONS: usize = 10;
 impl sukakpak::Renderable for CloneCraft {
-    fn init(context: Arc<RefCell<Context>>) -> Self {
+    fn init(context: Rc<RefCell<Context>>) -> Self {
         let mut ctx_ref = context.borrow_mut();
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
         let red_texture = ctx_ref
@@ -62,6 +64,10 @@ impl sukakpak::Renderable for CloneCraft {
                 image::Rgba([0, 0, 255, 0]),
             ))
             .expect("failed to build texture");
+        let sphere = ctx_ref.build_mesh(
+            MeshAsset::from_obj(Path::new("sphere.obj")).expect(""),
+            red_texture,
+        );
 
         let triangle = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
         let delete = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
@@ -82,6 +88,7 @@ impl sukakpak::Renderable for CloneCraft {
         Self {
             camera_matrix,
             triangle,
+            sphere,
             red_texture,
             frame_counter: 0.0,
             cube_scale: 0.2,
@@ -91,7 +98,7 @@ impl sukakpak::Renderable for CloneCraft {
             plane,
         }
     }
-    fn render_frame(&mut self, events: &[Event], context: Arc<RefCell<Context>>, delta_time: f32) {
+    fn render_frame(&mut self, events: &[Event], context: Rc<RefCell<Context>>, delta_time: f32) {
         for e in events.iter() {
             match e {
                 Event::MouseMoved { normalized, .. } => self.cube_pos = *normalized,
