@@ -1,9 +1,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{collections::HashMap, convert::TryFrom, fs::File, io::Read, path::Path};
-mod assembled_spv;
-pub use assembled_spv::AssembledSpirv;
+use std::{convert::TryFrom, fs::File, io::Read, path::Path};
+
+pub mod asm_spv;
+use asm_spv::AssembledSpirv;
+pub use asm_spv::{ScalarType, Type};
 
 pub struct Shader {
     vertex_shader: Module,
@@ -12,53 +14,10 @@ pub struct Shader {
     fragment_info: ShaderDescription,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Texture {
-    pub binding: u32,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SpirvModule {
-    pub stage: ShaderStage,
-    pub vertex_input_binding: u32,
-    pub data: Vec<u32>,
-    pub data_in: Vec<(Type, Location)>,
-    pub entry_point: String,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Type {
-    Scalar(ScalarType),
-    Vec2(ScalarType),
-    Vec3(ScalarType),
-    Vec4(ScalarType),
-    Mat2(ScalarType),
-    Mat3(ScalarType),
-    Mat4(ScalarType),
-}
-impl Type {
-    pub fn size(&self) -> u32 {
-        todo!()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ScalarType {
-    F32,
-    F64,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Location {
-    pub location: u32,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PushConstant {
-    pub offset: u32,
-    pub size: u32,
-    pub stage: ShaderStage,
-}
 //info for shader description that accompanies shader module
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ShaderDescription {
-    stage: ShaderStage,
+    stage: asm_spv::ShaderStage,
     vertex_input_binding: u32,
 }
 impl TryFrom<Shader> for AssembledSpirv {
@@ -73,7 +32,7 @@ impl TryFrom<Shader> for AssembledSpirv {
     }
 }
 impl Shader {
-    fn get_module(module: naga::Module, info: ShaderDescription) -> Result<SpirvModule> {
+    fn get_module(module: naga::Module, info: ShaderDescription) -> Result<asm_spv::SpirvModule> {
         let mut validator = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::PUSH_CONSTANT,
@@ -88,7 +47,7 @@ impl Shader {
                 capabilities: None,
             },
         )?;
-        Ok(SpirvModule {
+        Ok(asm_spv::SpirvModule {
             stage: info.stage,
             vertex_input_binding: info.vertex_input_binding,
             data,
@@ -104,7 +63,7 @@ impl Shader {
                 .map(|arg| {
                     (
                         (&module.types[arg.ty]).into(),
-                        Location {
+                        asm_spv::Location {
                             location: match arg.binding.clone().expect("location found") {
                                 naga::Binding::Location { location, .. } => location,
                                 _ => todo!(),
@@ -193,12 +152,7 @@ pub struct ModuleConfig {
 #[derive(Deserialize, Debug)]
 pub struct EntryPoint {
     name: String,
-    stage: ShaderStage,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ShaderStage {
-    Vertex,
-    Fragment,
+    stage: asm_spv::ShaderStage,
 }
 
 pub fn load_directory(path: &Path) -> Result<Shader> {
@@ -215,8 +169,8 @@ pub fn load_directory(path: &Path) -> Result<Shader> {
             (
                 e.name.clone(),
                 match e.stage {
-                    ShaderStage::Fragment => naga::ShaderStage::Fragment,
-                    ShaderStage::Vertex => naga::ShaderStage::Vertex,
+                    asm_spv::ShaderStage::Fragment => naga::ShaderStage::Fragment,
+                    asm_spv::ShaderStage::Vertex => naga::ShaderStage::Vertex,
                 },
             )
         })
@@ -238,8 +192,8 @@ pub fn load_directory(path: &Path) -> Result<Shader> {
                 (
                     e.name.clone(),
                     match e.stage {
-                        ShaderStage::Fragment => naga::ShaderStage::Fragment,
-                        ShaderStage::Vertex => naga::ShaderStage::Vertex,
+                        asm_spv::ShaderStage::Fragment => naga::ShaderStage::Fragment,
+                        asm_spv::ShaderStage::Vertex => naga::ShaderStage::Vertex,
                     },
                 )
             })
