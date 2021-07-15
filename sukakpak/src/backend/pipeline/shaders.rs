@@ -1,6 +1,9 @@
 use super::DescriptorDesc;
 use ash::vk;
-use ass_lib::{AssembledSpirv, ScalarType, ShaderStage, Type};
+use ass_lib::{
+    asm_spv::{AssembledSpirv, ShaderStage},
+    ScalarType, Type,
+};
 use nalgebra::{Matrix4, Vector2, Vector3};
 use std::collections::HashMap;
 #[derive(Clone, Copy, Debug)]
