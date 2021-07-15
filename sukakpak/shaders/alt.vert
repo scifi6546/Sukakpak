@@ -4,8 +4,11 @@ layout(push_constant) uniform constants{
 } ubo;
 layout(location=0) in vec3 pos;
 layout(location=1) in vec2 uv;
+layout(location=2) in vec3 norm;
 layout(location=0) out vec2 o_uv;
+layout(location=1) out vec3 o_norm;
 void main(){
 	gl_Position = ubo.proj*vec4(pos,1.0);
     o_uv = uv;
+    o_norm = norm;
 }

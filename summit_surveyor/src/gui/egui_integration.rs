@@ -82,7 +82,7 @@ pub fn draw_egui(
     let mut vertices = vec![];
     let mut indices = vec![];
     for (_rect, triangles) in paint_jobs.iter() {
-        let (v_out, i_out) = to_vertex(triangles, idx, depth, screen_size);
+        let (mut v_out, mut i_out) = to_vertex(triangles, idx, depth, screen_size);
 
         vertices.append(&mut v_out);
         indices.append(&mut i_out);
@@ -177,5 +177,5 @@ fn to_vertex(
         push_vec2(&uv, &mut vertices);
         push_vec4(&color, &mut vertices);
     }
-    (vertices, triangles.indices)
+    (vertices, triangles.indices.clone())
 }

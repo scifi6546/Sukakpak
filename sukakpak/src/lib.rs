@@ -13,16 +13,11 @@ pub use image;
 use image::RgbaImage;
 mod mesh;
 pub use backend::BackendCreateInfo as CreateInfo;
-pub use mesh::{EasyMesh, Mesh as MeshAsset};
+pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, RwLock},
-    time::SystemTime,
-};
+use std::{cell::RefCell, rc::Rc, time::SystemTime};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
@@ -32,7 +27,7 @@ impl Sukakpak {
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
 
-        let mut context = Rc::new(RefCell::new(Context::new(
+        let context = Rc::new(RefCell::new(Context::new(
             Backend::new(create_info, &event_loop).expect("failed to create backend"),
         )));
         let mut renderer = R::init(Rc::clone(&context));

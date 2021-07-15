@@ -29,21 +29,21 @@ impl RuntimeModelId {
 }
 impl RuntimeModel {
     pub fn new(model: &Model, context: &mut RenderingCtx, bound_shader: &Shader) -> Self {
-        let mut ctx_ref = context.0.get_mut();
+        let mut ctx_ref = context.0.borrow_mut();
         let texture = ctx_ref
-            .build_texture(&model.texture.into())
+            .build_texture(&model.texture.clone().into())
             .expect("failed to create texture");
         let mesh = ctx_ref.build_mesh(model.mesh.clone(), texture);
         Self { mesh }
     }
 }
 impl RuntimeDebugMesh {
-    pub fn new(model: &Model, context: Arc<RefCell<Context>>, bound_shader: &Shader) -> Self {
+    pub fn new(model: &Model, context: Rc<RefCell<Context>>, bound_shader: &Shader) -> Self {
         let texture = context
-            .get_mut()
-            .build_texture(&model.texture.into())
+            .borrow_mut()
+            .build_texture(&model.texture.clone().into())
             .expect("failed to build texture");
-        let mesh = context.get_mut().build_mesh(model.mesh, texture);
+        let mesh = context.borrow_mut().build_mesh(model.mesh.clone(), texture);
         Self { mesh }
     }
 }
@@ -75,7 +75,7 @@ pub fn insert_terrain(
 pub fn render_object(
     transform: &Transform,
     model: &RuntimeModelId,
-    push: &PushBuilder,
+    push: &mut PushBuilder,
     #[resource] settings: &GraphicsSettings,
     #[resource] context: &RenderingCtx,
     #[resource] shader: &ShaderBind,
@@ -84,29 +84,35 @@ pub fn render_object(
 ) {
     debug!("running render object");
     let model = asset_manager.get(&model.id).unwrap();
-    push.set_view_matrix(camera.get_matrix(context.0.get_mut().get_screen_size()));
+    push.set_view_matrix(camera.get_matrix(context.0.borrow_mut().get_screen_size()));
     push.set_model_matrix(transform.build().clone());
-    context.0.get_mut().draw_mesh(push.to_slice(), &model.mesh);
+    context
+        .0
+        .borrow_mut()
+        .draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_debug(
     transform: &Transform,
     model: &RuntimeDebugMesh,
-    push: &PushBuilder,
+    push: &mut PushBuilder,
     #[resource] settings: &GraphicsSettings,
     #[resource] context: &RenderingCtx,
     #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
 ) {
     push.set_model_matrix(transform.build().clone());
-    push.set_view_matrix(camera.get_matrix(context.0.get_mut().get_screen_size()));
-    context.0.get_mut().draw_mesh(push.to_slice(), &model.mesh);
+    push.set_view_matrix(camera.get_matrix(context.0.borrow_mut().get_screen_size()));
+    context
+        .0
+        .borrow_mut()
+        .draw_mesh(push.to_slice(), &model.mesh);
 }
 #[system(for_each)]
 pub fn render_gui(
     transform: &GuiTransform,
     model: &GuiRuntimeModel,
-    push: &PushBuilder,
+    push: &mut PushBuilder,
     #[resource] context: &RenderingCtx,
     #[resource] shader: &ShaderBind,
 ) {
@@ -115,6 +121,6 @@ pub fn render_gui(
     push.set_model_matrix(transform.transform.build().clone());
     context
         .0
-        .get_mut()
+        .borrow_mut()
         .draw_mesh(push.to_slice(), &model.model.mesh);
 }

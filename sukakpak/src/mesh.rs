@@ -1,26 +1,41 @@
 use super::{VertexComponent, VertexLayout};
 use anyhow::Result;
 use nalgebra::{Vector2, Vector3};
-use obj::Obj;
-use std::path::Path;
-use tobj::{load_obj, LoadOptions};
+use std::{
+    boxed::Box,
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
+use tobj::{load_mtl_buf, load_obj_buf, LoadOptions, MTLLoadResult};
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {
     pub vertices: Vec<u8>,
     pub indices: Vec<u32>,
     pub vertex_layout: VertexLayout,
 }
+fn get_buffer_from_fs(path: &Path) -> Box<dyn BufRead> {
+    let file = File::open(path).expect("failed to open file");
+    Box::new(BufReader::new(file))
+}
 impl Mesh {
-    pub fn from_obj(path: &str) -> Result<Self> {
-        let (model, mtl) = load_obj(
-            path,
+    pub fn from_obj_buf<B: BufRead, M: Fn(&Path) -> Box<dyn BufRead>>(
+        mut buffer: B,
+        material_loader: M,
+    ) -> Result<Self> {
+        let loader: Box<dyn Fn(&Path) -> MTLLoadResult> =
+            Box::new(|path| load_mtl_buf(&mut material_loader(path)));
+        let (model, _mtl) = load_obj_buf(
+            &mut buffer,
             &LoadOptions {
                 triangulate: true,
 
                 single_index: true,
                 ..Default::default()
             },
+            loader,
         )?;
+
         let mesh = &model[0].mesh;
         let num_vertices = mesh.positions.len() / 3;
         let vertices = (0..num_vertices)
@@ -61,6 +76,12 @@ impl Mesh {
                 ],
             },
         })
+    }
+    pub fn from_obj(path: &str) -> Result<Self> {
+        return Self::from_obj_buf(
+            BufReader::new(File::open(Path::new(path))?),
+            get_buffer_from_fs,
+        );
     }
     pub fn new_triangle() -> Self {
         EasyMesh {

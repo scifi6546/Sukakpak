@@ -45,7 +45,8 @@ mod prelude {
     pub use super::transform::Transform;
     pub use super::PushBuilder;
     pub use sukakpak::{
-        anyhow::Result, image, nalgebra as na, Context, MeshAsset, VertexComponent, VertexLayout,
+        anyhow::Result, image, nalgebra as na, Context, EasyMesh, EasyMeshVertex as Vertex,
+        MeshAsset, VertexComponent, VertexLayout,
     };
 
     pub type Shader = String;
@@ -117,12 +118,12 @@ pub struct Game {
 impl sukakpak::Renderable for Game {
     fn init(context: Rc<RefCell<Context>>) -> Self {
         utils::set_panic_hook();
-        let rendering_ctx = RenderingCtx(context);
+        let mut rendering_ctx = RenderingCtx(Rc::clone(&context));
         let mut resources = Resources::default();
         let mut world = World::default();
         let mut shader_bind = Bindable::default();
         let mut model_manager = AssetManager::default();
-        let screen_size = context.get_mut().get_screen_size();
+        let screen_size = context.borrow_mut().get_screen_size();
         shader_bind.insert("world", "world".to_string());
         shader_bind.bind("world");
         {
@@ -192,7 +193,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to build skiiers");
         }
         info!("done building skiiers");
-        resources.insert(context);
+        resources.insert(context.clone());
         resources.insert(shader_bind);
         resources.insert(GraphicsSettings {});
         resources.insert(Camera::new(Vector3::new(0.0, 0.0, 0.0), 20.0, 1.0, 1.0));
@@ -246,7 +247,7 @@ impl sukakpak::Renderable for Game {
 
             //binding to world framebuffer and rendering to it
             {
-                let ctx_ref = context.get_mut();
+                let mut ctx_ref = context.borrow_mut();
                 ctx_ref
                     .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.world_framebuffer));
 
@@ -285,17 +286,17 @@ impl sukakpak::Renderable for Game {
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("screen");
             context
-                .get_mut()
+                .borrow_mut()
                 .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer);
             //getting screen shader
             context
-                .get_mut()
+                .borrow_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .ok()
                 .unwrap();
             self.push_builder.make_identity();
 
-            context.get_mut().draw_mesh(
+            context.borrow_mut().draw_mesh(
                 self.push_builder.to_slice(),
                 &self.world_render_surface.mesh,
             );
@@ -303,15 +304,14 @@ impl sukakpak::Renderable for Game {
             //binding and drawing gui shader
             shader.bind("gui");
             context
-                .get_mut()
+                .borrow_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .expect("failed to bind gui shader");
             {
-                let screen_size = context.get_mut().get_screen_size();
+                let screen_size = context.borrow_mut().get_screen_size();
                 let egui_context = &mut self.resources.get_mut().unwrap();
                 let egui_adaptor = &mut self.resources.get_mut().unwrap();
-                let settings: &GraphicsSettings = &self.resources.get().unwrap();
-                let rendering_ctx = RenderingCtx(context);
+                let mut rendering_ctx = RenderingCtx(context.clone());
                 gui::draw_gui(
                     egui_context,
                     events,
@@ -325,7 +325,7 @@ impl sukakpak::Renderable for Game {
             shader.bind("screen");
             //getting screen shader
             context
-                .get_mut()
+                .borrow_mut()
                 .bind_shader(&BoundFramebuffer::ScreenFramebuffer, shader.get_bind())
                 .expect("failed to bind screen");
         }

@@ -2,18 +2,14 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{collections::HashMap, convert::TryFrom, fs::File, io::Read, path::Path};
+mod assembled_spv;
+pub use assembled_spv::AssembledSpirv;
+
 pub struct Shader {
     vertex_shader: Module,
     vertex_info: ShaderDescription,
     fragment_shader: Module,
     fragment_info: ShaderDescription,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AssembledSpirv {
-    pub vertex_shader: SpirvModule,
-    pub fragment_shader: SpirvModule,
-    pub textures: HashMap<String, Texture>,
-    pub push_constants: Vec<PushConstant>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
