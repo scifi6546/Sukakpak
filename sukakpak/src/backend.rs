@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use ash::vk;
+use ass_lib::asm_spv::load_from_fs;
 use image::RgbaImage;
 use nalgebra::Vector2;
 mod command_pool;
@@ -23,7 +24,7 @@ use renderpass::{ClearOp, RenderMesh, RenderPass};
 use resource_pool::{
     DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 pub struct BackendCreateInfo {
     pub default_size: Vector2<u32>,
@@ -384,6 +385,11 @@ impl Backend {
     }
     pub fn get_screen_size(&self) -> Vector2<u32> {
         self.screen_dimensions
+    }
+    pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
+        self.shaders
+            .insert(shader_name.to_string(), load_from_fs(path)?.into());
+        Ok(())
     }
 }
 impl Drop for Backend {

@@ -22,6 +22,7 @@ pub struct ShaderDescription {
 }
 impl TryFrom<Shader> for AssembledSpirv {
     type Error = anyhow::Error;
+    #[allow(unreachable_code)]
     fn try_from(shader: Shader) -> std::result::Result<Self, Self::Error> {
         Ok(AssembledSpirv {
             vertex_shader: Shader::get_module(shader.vertex_shader, shader.vertex_info)?,

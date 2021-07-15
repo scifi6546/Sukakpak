@@ -1,4 +1,7 @@
-use ass_lib::{load_directory, AssembledSpirv};
+use ass_lib::{
+    asm_spv::{load_from_fs, AssembledSpirv},
+    load_directory,
+};
 use clap::{App, Arg};
 use std::{convert::TryInto, path::Path};
 fn main() {

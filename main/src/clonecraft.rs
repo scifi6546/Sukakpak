@@ -1,7 +1,6 @@
 use na::Vector2;
 use std::{
     cell::{RefCell, RefMut},
-    path::Path,
     rc::Rc,
 };
 use sukakpak::{
@@ -53,6 +52,9 @@ const CUBE_DIMENSIONS: usize = 10;
 impl sukakpak::Renderable for CloneCraft {
     fn init(context: Rc<RefCell<Context>>) -> Self {
         let mut ctx_ref = context.borrow_mut();
+        ctx_ref
+            .load_shader("shaders/test", "test")
+            .expect("failed to load shader");
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
         let red_texture = ctx_ref
             .build_texture(&image)

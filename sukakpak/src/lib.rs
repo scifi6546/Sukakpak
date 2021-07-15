@@ -17,7 +17,7 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{cell::RefCell, rc::Rc, time::SystemTime};
+use std::{cell::RefCell, path::Path, rc::Rc, time::SystemTime};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
@@ -162,6 +162,9 @@ impl Context {
     }
     pub fn force_draw(&mut self) {
         todo!("force draw")
+    }
+    pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
+        self.backend.load_shader(path, shader_name)
     }
     /// quits the program once `render_frame` finishes
     pub fn quit(&mut self) {
