@@ -1,11 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    fs::File,
-    path::Path,
-};
+use std::{collections::HashMap, fs::File, io::prelude::*, path::Path};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AssembledSpirv {
     pub vertex_shader: SpirvModule,
@@ -47,9 +42,25 @@ pub enum ScalarType {
     F32,
     F64,
 }
+impl ScalarType {
+    pub fn size(&self) -> u32 {
+        match self {
+            &Self::F32 => std::mem::size_of::<f32>() as u32,
+            &Self::F64 => std::mem::size_of::<f64>() as u32,
+        }
+    }
+}
 impl Type {
     pub fn size(&self) -> u32 {
-        todo!()
+        match &self {
+            &Self::Scalar(ty) => 1 * ty.size(),
+            &Self::Vec2(ty) => 2 * ty.size(),
+            &Self::Vec3(ty) => 3 * ty.size(),
+            &Self::Vec4(ty) => 4 * ty.size(),
+            &Self::Mat2(ty) => 2 * 2 * ty.size(),
+            &Self::Mat3(ty) => 3 * 3 * ty.size(),
+            &Self::Mat4(ty) => 4 * 4 * ty.size(),
+        }
     }
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -77,25 +88,46 @@ pub struct LoadableSpvModule {
     pub data_in: Vec<(Type, Location)>,
     pub entry_point: String,
 }
-impl TryFrom<LoadableAsmSpv> for AssembledSpirv {
-    type Error = std::io::Error;
-    fn try_from(shader: LoadableAsmSpv) -> std::result::Result<Self, Self::Error> {
-        std::result::Result::Ok(Self {
-            vertex_shader: shader.vertex_shader.try_into()?,
-            fragment_shader: shader.fragment_shader.try_into()?,
-            textures: shader.textures,
-            push_constants: shader.push_constants,
+impl LoadableAsmSpv {
+    fn to_spirv(self, path: &Path) -> Result<AssembledSpirv> {
+        Ok(AssembledSpirv {
+            vertex_shader: self.vertex_shader.to_spirv(path)?,
+            fragment_shader: self.fragment_shader.to_spirv(path)?,
+            textures: self.textures,
+            push_constants: self.push_constants,
         })
     }
 }
-impl TryFrom<LoadableSpvModule> for SpirvModule {
-    type Error = std::io::Error;
-    fn try_from(shader: LoadableSpvModule) -> std::result::Result<Self, Self::Error> {
-        todo!()
+impl LoadableSpvModule {
+    fn to_spirv(self, path: &Path) -> Result<SpirvModule> {
+        let path = path.join(self.shader_data_path);
+        let mut file = File::open(path)?;
+        let mut data_u8 = vec![];
+        file.read_to_end(&mut data_u8)?;
+        assert!(data_u8.len() % 4 == 0);
+        let mut data = vec![];
+        data.reserve(data_u8.len() / 4);
+        let data_len = data_u8.len() / 4;
+        for i in 0..data_len {
+            data.push(u32::from_ne_bytes([
+                data_u8[i * 4],
+                data_u8[i * 4 + 1],
+                data_u8[i * 4 + 2],
+                data_u8[i * 4 + 3],
+            ]));
+        }
+
+        Ok(SpirvModule {
+            stage: self.stage,
+            vertex_input_binding: self.vertex_input_binding,
+            data,
+            data_in: self.data_in,
+            entry_point: self.entry_point,
+        })
     }
 }
 pub fn load_from_fs<P: AsRef<Path>>(path: P) -> Result<AssembledSpirv> {
     let file = File::open(path.as_ref().join("index.json"))?;
     let shader: LoadableAsmSpv = serde_json::from_reader(file)?;
-    Ok(shader.try_into()?)
+    Ok(shader.to_spirv(path.as_ref())?)
 }

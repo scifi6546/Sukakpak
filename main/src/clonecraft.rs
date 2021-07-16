@@ -67,7 +67,6 @@ impl sukakpak::Renderable for CloneCraft {
             ))
             .expect("failed to build texture");
         let sphere_obj = MeshAsset::from_obj("sphere.obj").expect("");
-        println!("{:?}", sphere_obj);
         let sphere = ctx_ref.build_mesh(sphere_obj, red_texture);
 
         let triangle = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
@@ -85,7 +84,8 @@ impl sukakpak::Renderable for CloneCraft {
             .expect("failed to bind");
         let mut plane = ctx_ref.build_mesh(MeshAsset::new_plane(), red_texture);
         plane.bind_framebuffer(framebuffer);
-        let camera_matrix = *na::Perspective3::new(1.0, 3.14 / 4.0, 1.0, 1000.0).as_matrix();
+        let camera_matrix =
+            *na::Perspective3::new(1.0, std::f32::consts::PI as f32 / 4.0, 1.0, 1000.0).as_matrix();
         Self {
             camera_matrix,
             triangle,

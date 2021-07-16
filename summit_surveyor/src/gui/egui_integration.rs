@@ -10,7 +10,6 @@ use egui::{
 };
 use log::info;
 use std::sync::Arc;
-use std::{cell::RefCell, rc::Rc};
 /// Struct used to get state
 ///
 pub struct EguiRawInputAdaptor {
@@ -73,11 +72,11 @@ pub fn draw_egui(
     let dimensions = Vector2::new(texture.width as u32, texture.height as u32);
     let texture = RGBATexture { pixels, dimensions };
 
-    let mut render_texture = rendering_ctx
+    let render_texture = rendering_ctx
         .0
         .borrow_mut()
         .build_texture(&texture.into())?;
-    let mut depth = -0.8;
+    let depth = -0.8;
     let mut idx = 0;
     let mut vertices = vec![];
     let mut indices = vec![];
@@ -88,7 +87,6 @@ pub fn draw_egui(
         indices.append(&mut i_out);
         idx += i_out.len() as u32;
     }
-    let f = 1;
     let mesh = rendering_ctx.0.borrow_mut().build_mesh(
         MeshAsset {
             vertices,
@@ -104,6 +102,7 @@ pub fn draw_egui(
         },
         render_texture,
     );
+    todo!("keep resurces for at least one frame");
     rendering_ctx.0.borrow_mut().draw_mesh(&[], &mesh);
     rendering_ctx.0.borrow_mut().delete_mesh(mesh);
     rendering_ctx.0.borrow_mut().delete_texture(render_texture);

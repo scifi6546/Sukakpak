@@ -1,5 +1,5 @@
 use super::prelude::{
-    image::RgbaImage,
+    image::{Rgba, RgbaImage},
     na::{Vector2, Vector4},
 };
 
@@ -35,7 +35,16 @@ impl RGBATexture {
 }
 impl From<RGBATexture> for RgbaImage {
     fn from(img: RGBATexture) -> Self {
-        todo!()
+        RgbaImage::from_raw(
+            img.dimensions.x,
+            img.dimensions.y,
+            img.pixels
+                .iter()
+                .map(|v| [v.x, v.y, v.z, v.w])
+                .flatten()
+                .collect(),
+        )
+        .unwrap()
     }
 }
 impl std::fmt::Display for RGBATexture {
