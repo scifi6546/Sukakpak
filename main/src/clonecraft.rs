@@ -4,8 +4,8 @@ use std::{
     rc::Rc,
 };
 use sukakpak::{
-    nalgebra as na, BoundFramebuffer, Context, Event, Framebuffer, Mesh, MeshAsset, MeshTexture,
-    MouseButton,
+    anyhow::Result, nalgebra as na, BoundFramebuffer, Context, Event, Framebuffer, Mesh, MeshAsset,
+    MeshTexture, MouseButton,
 };
 pub struct CloneCraft {
     camera_matrix: na::Matrix4<f32>,
@@ -16,10 +16,15 @@ pub struct CloneCraft {
     cube_scale: f32,
     cube_pos: na::Vector2<f32>,
     sphere: Mesh,
+    textured_cube: Mesh,
+    #[allow(dead_code)]
+    mountain_tex: MeshTexture,
     #[allow(dead_code)]
     red_texture: MeshTexture,
     #[allow(dead_code)]
     blue_texture: MeshTexture,
+    alt_fb_mesh: Mesh,
+    alt_fb: Framebuffer,
 }
 impl CloneCraft {
     fn draw_rotating_cube<'a>(&self, context: &mut RefMut<Context>, pos: na::Vector2<f32>) {
@@ -39,6 +44,32 @@ impl CloneCraft {
             .draw_mesh(to_slice(&mat), &self.sphere)
             .expect("failed to draw triangle");
     }
+    fn draw_cube(&self, context: &mut RefMut<Context>, scale: f32) -> Result<()> {
+        let mat = self.camera_matrix
+            * na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0))
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &na::Vector3::new(scale, scale, scale),
+                &na::Point3::new(0.0, 0.0, 0.0),
+            );
+        context.draw_mesh(to_slice(&mat), &self.textured_cube)
+    }
+    fn draw_fb_plane(
+        &self,
+        context: &mut RefMut<Context>,
+        bound_fb: &BoundFramebuffer,
+    ) -> Result<()> {
+        let mat = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 0.2))
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &na::Vector3::new(0.2, 0.2, 0.5),
+                &na::Point3::new(0.0, 0.0, 0.0),
+            );
+        context.bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.alt_fb))?;
+        self.draw_cube(context, 1.5)?;
+        context.bind_framebuffer(bound_fb)?;
+        context.draw_mesh(to_slice(&mat), &self.alt_fb_mesh)?;
+
+        Ok(())
+    }
 }
 fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
     unsafe {
@@ -48,7 +79,7 @@ fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
         )
     }
 }
-const CUBE_DIMENSIONS: usize = 10;
+const CUBE_DIMENSIONS: usize = 1;
 impl sukakpak::Renderable for CloneCraft {
     fn init(context: Rc<RefCell<Context>>) -> Self {
         let mut ctx_ref = context.borrow_mut();
@@ -68,7 +99,16 @@ impl sukakpak::Renderable for CloneCraft {
             .expect("failed to build texture");
         let sphere_obj = MeshAsset::from_obj("sphere.obj").expect("");
         let sphere = ctx_ref.build_mesh(sphere_obj, red_texture);
-
+        let mountain_tex = ctx_ref
+            .build_texture(
+                &image::io::Reader::open("./assets/mtn.JPG")
+                    .expect("failed to open jpeg")
+                    .decode()
+                    .expect("failed to decode")
+                    .to_rgba8(),
+            )
+            .expect("failed to build texture");
+        let textured_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), mountain_tex);
         let triangle = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
         let delete = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
         ctx_ref.delete_mesh(delete).expect("failed to delete");
@@ -79,6 +119,11 @@ impl sukakpak::Renderable for CloneCraft {
         let framebuffer = ctx_ref
             .build_framebuffer(na::Vector2::new(300, 300))
             .expect("failed to build frame buffer");
+        let alt_fb = ctx_ref
+            .build_framebuffer(na::Vector2::new(1000, 1000))
+            .expect("failed to build frame buffer");
+        let alt_fb_mesh =
+            ctx_ref.build_mesh(MeshAsset::new_plane(), MeshTexture::Framebuffer(alt_fb));
         ctx_ref
             .bind_shader(&BoundFramebuffer::UserFramebuffer(framebuffer), "alt")
             .expect("failed to bind");
@@ -89,12 +134,16 @@ impl sukakpak::Renderable for CloneCraft {
         Self {
             camera_matrix,
             triangle,
+            alt_fb,
             sphere,
             red_texture,
             frame_counter: 0.0,
             cube_scale: 0.2,
             blue_texture,
             framebuffer,
+            textured_cube,
+            mountain_tex,
+            alt_fb_mesh,
             cube_pos: Vector2::new(0.0, 0.0),
             plane,
         }
@@ -123,6 +172,12 @@ impl sukakpak::Renderable for CloneCraft {
         ctx_ref
             .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.framebuffer))
             .expect("failed to bind");
+        self.draw_cube(&mut ctx_ref, 1.0).expect("failed to draw");
+        self.draw_fb_plane(
+            &mut ctx_ref,
+            &BoundFramebuffer::UserFramebuffer(self.framebuffer),
+        )
+        .expect("failed to draw");
         self.draw_rotating_cube(&mut ctx_ref, self.cube_pos);
         ctx_ref
             .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)
@@ -152,14 +207,15 @@ impl sukakpak::Renderable for CloneCraft {
                     if y % 2 == 0 {
                         new_mesh.bind_texture(self.red_texture);
                     }
-
                     ctx_ref
                         .draw_mesh(to_slice(&mat), &new_mesh)
                         .expect("failed to draw triangle");
                 }
             }
         }
-        //self.draw_rotating_cube(context);
+        self.draw_fb_plane(&mut ctx_ref, &BoundFramebuffer::ScreenFramebuffer)
+            .expect("failed to draw");
+        self.draw_rotating_cube(&mut ctx_ref, self.cube_pos);
         let plane_mat = self.camera_matrix
             * transorm_mat
             * na::Matrix4::new_nonuniform_scaling_wrt_point(

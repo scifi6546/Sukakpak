@@ -41,7 +41,7 @@ impl GuiModel {
         let transform = GuiTransform {
             transform: self.model.transform.clone(),
         };
-        let model = RuntimeModel::new(&self.model, ctx, bound_shader);
+        let model = RuntimeModel::new(&self.model, ctx);
         Ok(world.push((transform, GuiRuntimeModel { model })))
     }
 }

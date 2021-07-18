@@ -1,14 +1,9 @@
 use super::prelude::{
-    AssetManager, Camera, Context, GuiRuntimeModel, GuiTransform, Model, PushBuilder, RenderingCtx,
-    Result, Shader, ShaderBind, Terrain, Transform,
+    AssetManager, Camera, GuiRuntimeModel, GuiTransform, Model, PushBuilder, RenderingCtx, Result,
+    Terrain, Transform,
 };
 use legion::*;
 use log::debug;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
 
 pub struct RuntimeModel {
     pub mesh: sukakpak::Mesh,
@@ -28,7 +23,7 @@ impl RuntimeModelId {
     }
 }
 impl RuntimeModel {
-    pub fn new(model: &Model, context: &mut RenderingCtx, bound_shader: &Shader) -> Self {
+    pub fn new(model: &Model, context: &mut RenderingCtx) -> Self {
         let mut ctx_ref = context.0.borrow_mut();
         let texture = ctx_ref
             .build_texture(&model.texture.clone().into())
@@ -37,29 +32,16 @@ impl RuntimeModel {
         Self { mesh }
     }
 }
-impl RuntimeDebugMesh {
-    pub fn new(model: &Model, context: Rc<RefCell<Context>>, bound_shader: &Shader) -> Self {
-        let texture = context
-            .borrow_mut()
-            .build_texture(&model.texture.clone().into())
-            .expect("failed to build texture");
-        let mesh = context.borrow_mut().build_mesh(model.mesh.clone(), texture);
-        Self { mesh }
-    }
-}
+
 pub fn insert_terrain(
     terrain: Terrain,
     world: &mut World,
     context: &mut RenderingCtx,
     asset_manager: &mut AssetManager<RuntimeModel>,
-    bound_shader: &Shader,
 ) -> Result<()> {
     let model = terrain.model();
     let transform = model.transform.clone();
-    asset_manager.get_or_create(
-        "game_terrain",
-        RuntimeModel::new(&model, context, bound_shader),
-    );
+    asset_manager.get_or_create("game_terrain", RuntimeModel::new(&model, context));
     world.push((
         terrain.build_graph(),
         terrain,
@@ -76,9 +58,7 @@ pub fn render_object(
     transform: &Transform,
     model: &RuntimeModelId,
     push: &mut PushBuilder,
-    #[resource] settings: &GraphicsSettings,
     #[resource] context: &RenderingCtx,
-    #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
     #[resource] asset_manager: &mut AssetManager<RuntimeModel>,
 ) {
@@ -89,16 +69,15 @@ pub fn render_object(
     context
         .0
         .borrow_mut()
-        .draw_mesh(push.to_slice(), &model.mesh);
+        .draw_mesh(push.to_slice(), &model.mesh)
+        .expect("failed to draw");
 }
 #[system(for_each)]
 pub fn render_debug(
     transform: &Transform,
     model: &RuntimeDebugMesh,
     push: &mut PushBuilder,
-    #[resource] settings: &GraphicsSettings,
     #[resource] context: &RenderingCtx,
-    #[resource] shader: &ShaderBind,
     #[resource] camera: &Camera,
 ) {
     push.set_model_matrix(transform.build().clone());
@@ -106,7 +85,8 @@ pub fn render_debug(
     context
         .0
         .borrow_mut()
-        .draw_mesh(push.to_slice(), &model.mesh);
+        .draw_mesh(push.to_slice(), &model.mesh)
+        .expect("failed to draw");
 }
 #[system(for_each)]
 pub fn render_gui(
@@ -114,7 +94,6 @@ pub fn render_gui(
     model: &GuiRuntimeModel,
     push: &mut PushBuilder,
     #[resource] context: &RenderingCtx,
-    #[resource] shader: &ShaderBind,
 ) {
     debug!("running render object");
 
@@ -122,5 +101,6 @@ pub fn render_gui(
     context
         .0
         .borrow_mut()
-        .draw_mesh(push.to_slice(), &model.model.mesh);
+        .draw_mesh(push.to_slice(), &model.model.mesh)
+        .expect("failed to draw gui");
 }

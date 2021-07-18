@@ -155,7 +155,6 @@ impl sukakpak::Renderable for Game {
             &mut world,
             &mut rendering_ctx,
             &mut model_manager,
-            &shader_bind.get_bind(),
         )
         .expect("failed to build terrain model");
         insert_lift(
@@ -289,6 +288,7 @@ impl sukakpak::Renderable for Game {
 
             let shader: &mut ShaderBind = &mut self.resources.get_mut().unwrap();
             shader.bind("screen");
+            //failed to draw here
             context
                 .borrow_mut()
                 .bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)

@@ -27,10 +27,7 @@ pub fn insert_lift(
             transform.clone(),
             Texture::constant_color(Vector4::new(255, 255, 0, 255), Vector2::new(10, 10)),
         );
-        asset_manager.get_or_create(
-            "lift",
-            RuntimeModel::new(&model, graphics, bound_shader.get_bind()),
-        );
+        asset_manager.get_or_create("lift", RuntimeModel::new(&model, graphics));
     }
     let runtime_model = RuntimeModelId::new("lift".to_string());
     let start = Node {

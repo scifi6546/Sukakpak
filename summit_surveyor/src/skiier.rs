@@ -46,7 +46,7 @@ pub fn build_skiier(
     let mut transform = Transform::default();
     transform.set_scale(Vector3::new(0.1, 0.1, 0.1));
     let model = Model::cube(transform.clone());
-    let runtime_model = RuntimeModel::new(&model, graphics, bound_shader.get_bind());
+    let runtime_model = RuntimeModel::new(&model, graphics);
     println!("built skiier rintime model");
     world.push((transform, follow, runtime_model, decision_debug_info));
     Ok(())
