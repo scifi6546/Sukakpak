@@ -1,7 +1,6 @@
 use super::prelude::{
     na::{Vector2, Vector3, Vector4},
-    Event, MeshAsset, RenderingCtx, Result, ShaderBind, Texture as RGBATexture, VertexComponent,
-    VertexLayout,
+    Event, MeshAsset, RenderingCtx, Result, Texture as RGBATexture, VertexComponent, VertexLayout,
 };
 use egui::{
     math::{Pos2, Rect, Vec2},
@@ -62,7 +61,6 @@ pub fn draw_egui(
     paint_jobs: &PaintJobs,
     texture: &Arc<Texture>,
     rendering_ctx: &RenderingCtx,
-    shader: &ShaderBind,
     screen_size: &Vector2<u32>,
 ) -> Result<()> {
     let pixels = texture
@@ -77,15 +75,13 @@ pub fn draw_egui(
         .borrow_mut()
         .build_texture(&texture.into())?;
     let depth = -0.8;
-    let mut idx = 0;
     let mut vertices = vec![];
     let mut indices = vec![];
     for (_rect, triangles) in paint_jobs.iter() {
-        let (mut v_out, mut i_out) = to_vertex(triangles, idx, depth, screen_size);
+        let (mut v_out, mut i_out) = to_vertex(triangles, depth, screen_size);
 
         vertices.append(&mut v_out);
         indices.append(&mut i_out);
-        idx += i_out.len() as u32;
     }
     let mesh = rendering_ctx.0.borrow_mut().build_mesh(
         MeshAsset {
@@ -102,8 +98,13 @@ pub fn draw_egui(
         },
         render_texture,
     );
+    rendering_ctx
+        .0
+        .borrow_mut()
+        .draw_mesh(&[], &mesh)
+        .expect("failed to draw");
     todo!("keep resurces for at least one frame");
-    rendering_ctx.0.borrow_mut().draw_mesh(&[], &mesh);
+
     rendering_ctx.0.borrow_mut().delete_mesh(mesh);
     rendering_ctx.0.borrow_mut().delete_texture(render_texture);
     Ok(())
@@ -151,12 +152,7 @@ fn push_vec4(v: &Vector4<f32>, vec: &mut Vec<u8>) {
         vec.push(i);
     }
 }
-fn to_vertex(
-    triangles: &EguiTris,
-    index_offset: u32,
-    depth: f32,
-    screen_size: &Vector2<u32>,
-) -> (Vec<u8>, Vec<u32>) {
+fn to_vertex(triangles: &EguiTris, depth: f32, screen_size: &Vector2<u32>) -> (Vec<u8>, Vec<u32>) {
     let mut vertices = vec![];
     let screen_x = screen_size.x as f32 / 2.0;
     let screen_y = screen_size.y as f32 / 2.0;
@@ -168,7 +164,6 @@ fn to_vertex(
         );
 
         let uv = Vector2::new(vertex.uv.x, vertex.uv.y);
-        let normal = Vector3::new(0.0, 0.0, 1.0);
         let color: egui::paint::Rgba = vertex.color.into();
         let color = Vector4::new(color.r(), color.g(), color.b(), color.a());
 

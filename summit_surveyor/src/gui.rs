@@ -1,8 +1,7 @@
 use super::prelude;
 use super::prelude::{
     na::{Vector2, Vector4},
-    Event, MeshAsset, Model, RenderingCtx, Result, RuntimeModel, Shader, ShaderBind, Texture,
-    Transform,
+    Event, MeshAsset, Model, RenderingCtx, Result, RuntimeModel, Texture, Transform,
 };
 use legion::*;
 mod egui_integration;
@@ -32,12 +31,7 @@ impl GuiModel {
             },
         }
     }
-    pub fn insert(
-        &self,
-        world: &mut World,
-        ctx: &mut RenderingCtx,
-        bound_shader: &Shader,
-    ) -> Result<Entity> {
+    pub fn insert(&self, world: &mut World, ctx: &mut RenderingCtx) -> Result<Entity> {
         let transform = GuiTransform {
             transform: self.model.transform.clone(),
         };
@@ -63,14 +57,13 @@ pub fn draw_gui(
     context: &mut CtxRef,
     input: &[Event],
     ctx: &mut RenderingCtx,
-    shader: &mut ShaderBind,
     adaptor: &mut EguiRawInputAdaptor,
     screen_size: Vector2<u32>,
 ) -> Result<()> {
     context.begin_frame(adaptor.process_events(input, screen_size));
     let (_, commands) = context.end_frame();
     let paint_jobs = context.tessellate(commands);
-    draw_egui(&paint_jobs, &context.texture(), ctx, shader, &screen_size)?;
+    draw_egui(&paint_jobs, &context.texture(), ctx, &screen_size)?;
     Ok(())
 }
 pub fn insert_ui(context: &mut CtxRef) {

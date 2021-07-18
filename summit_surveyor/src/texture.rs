@@ -1,5 +1,5 @@
 use super::prelude::{
-    image::{Rgba, RgbaImage},
+    image::RgbaImage,
     na::{Vector2, Vector4},
 };
 

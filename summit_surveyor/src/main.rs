@@ -48,7 +48,6 @@ mod prelude {
         MeshAsset, VertexComponent, VertexLayout,
     };
 
-    pub type Shader = String;
     pub type ShaderBind = super::Bindable<String>;
     pub use super::graphics_system::{RuntimeDebugMesh, RuntimeModel, RuntimeModelId};
     pub use super::grid::Grid;
@@ -148,7 +147,7 @@ impl sukakpak::Renderable for Game {
         box_transform.translate(Vector3::new(-0.5, -0.5, 0.0));
 
         GuiModel::simple_box(box_transform)
-            .insert(&mut world, &mut rendering_ctx, &shader_bind.get_bind())
+            .insert(&mut world, &mut rendering_ctx)
             .expect("failed to build gui model");
         insert_terrain(
             Terrain::new_cone(Vector2::new(20, 20), Vector2::new(10.0, 10.0), 5.0, -1.0),
@@ -161,7 +160,6 @@ impl sukakpak::Renderable for Game {
             &mut world,
             &mut rendering_ctx,
             &mut model_manager,
-            &shader_bind,
             Vector2::new(0, 0),
             Vector2::new(10, 10),
         )
@@ -186,13 +184,8 @@ impl sukakpak::Renderable for Game {
         info!("building skiiers");
         println!("building skiiers");
         for i in 0..10 {
-            skiier::build_skiier(
-                &mut world,
-                &mut rendering_ctx,
-                &shader_bind,
-                Vector2::new(i, 0),
-            )
-            .expect("failed to build skiiers");
+            skiier::build_skiier(&mut world, &mut rendering_ctx, Vector2::new(i, 0))
+                .expect("failed to build skiiers");
         }
         info!("done building skiiers");
         resources.insert(shader_bind);
@@ -324,7 +317,6 @@ impl sukakpak::Renderable for Game {
                     egui_context,
                     events,
                     &mut rendering_ctx,
-                    shader,
                     egui_adaptor,
                     screen_size,
                 )

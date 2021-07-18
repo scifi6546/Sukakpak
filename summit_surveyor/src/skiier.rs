@@ -1,7 +1,7 @@
 use super::prelude::{
     na::{Vector2, Vector3},
     FollowPath, GraphLayer, GraphLayerList, Model, Node, Path, RenderingCtx, Result, RuntimeModel,
-    ShaderBind, Transform,
+    Transform,
 };
 mod behavior_tree;
 use behavior_tree::{Number, SearchStart, TreeNode};
@@ -17,7 +17,6 @@ struct DecisionDebugInfo {
 pub fn build_skiier(
     world: &mut World,
     graphics: &mut RenderingCtx,
-    bound_shader: &ShaderBind,
     position: Vector2<i64>,
 ) -> Result<()> {
     let tree_start: Box<dyn TreeNode> = Box::new(SearchStart::default());
