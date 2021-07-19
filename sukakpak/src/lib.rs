@@ -149,6 +149,7 @@ impl Context {
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
     pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
+        println!("binding shader: {}", shader);
         self.backend.bind_shader(framebuffer, shader)
     }
     pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
