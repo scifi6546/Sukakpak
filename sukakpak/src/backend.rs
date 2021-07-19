@@ -3,6 +3,7 @@ use ash::vk;
 use ass_lib::asm_spv::load_from_fs;
 use image::RgbaImage;
 use nalgebra::Vector2;
+use thiserror::Error;
 mod command_pool;
 mod framebuffer;
 mod render_core;
@@ -17,7 +18,6 @@ use framebuffer::{
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use render_core::Core;
-use thiserror::Error;
 pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderPass};
@@ -34,6 +34,8 @@ pub struct BackendCreateInfo {
 pub enum RenderError {
     #[error("Rendering to framebuffer {fb:?}")]
     RenderingBoundFramebuffer { fb: BoundFramebuffer },
+    #[error("Shader: {shader:} not found")]
+    ShaderNotFound { shader: String },
 }
 pub struct Backend {
     #[allow(dead_code)]
@@ -249,7 +251,16 @@ impl Backend {
         Ok(())
     }
     pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
-        let shader = self.shaders.get(shader).unwrap();
+        let shader = if let Some(s) = self.shaders.get(shader) {
+            s
+        } else {
+            return Err(anyhow!(
+                "{}",
+                RenderError::ShaderNotFound {
+                    shader: shader.to_string()
+                }
+            ));
+        };
         let framebuffer = match framebuffer {
             BoundFramebuffer::ScreenFramebuffer => &mut self.main_framebuffer,
             BoundFramebuffer::UserFramebuffer(id) => {
@@ -330,6 +341,10 @@ impl Backend {
         }
     }
     pub fn finish_render(&mut self) -> Result<()> {
+        //the screen frmebuffer must be bound
+        if self.bound_framebuffer != BoundFramebuffer::ScreenFramebuffer {
+            self.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)?;
+        }
         self.renderpass.submit_draw(&mut self.core)?;
         let r = self.renderpass.swap_framebuffer(&mut self.core);
         if let Err(r) = r {

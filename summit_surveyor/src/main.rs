@@ -240,6 +240,9 @@ impl sukakpak::Renderable for Game {
                 }
             }
 
+            //WORKS HERE
+            //
+            //
             //binding to world framebuffer and rendering to it
             {
                 let mut ctx_ref = context.borrow_mut();
@@ -254,10 +257,11 @@ impl sukakpak::Renderable for Game {
                         &BoundFramebuffer::UserFramebuffer(self.world_framebuffer),
                         shader.get_bind(),
                     )
-                    .ok()
-                    .unwrap();
+                    .expect("failed to bind");
             }
         }
+        //errors out before here
+        return;
         //game logic
         let mut schedule = Schedule::builder()
             .add_system(skiier::follow_path_system())
