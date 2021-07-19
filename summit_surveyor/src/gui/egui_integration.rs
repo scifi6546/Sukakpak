@@ -105,8 +105,11 @@ pub fn draw_egui(
         .expect("failed to draw");
     todo!("keep resurces for at least one frame");
 
-    rendering_ctx.0.borrow_mut().delete_mesh(mesh);
-    rendering_ctx.0.borrow_mut().delete_texture(render_texture);
+    rendering_ctx.0.borrow_mut().delete_mesh(mesh)?;
+    rendering_ctx
+        .0
+        .borrow_mut()
+        .delete_texture(render_texture)?;
     Ok(())
 }
 
