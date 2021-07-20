@@ -275,7 +275,7 @@ impl Backend {
         Ok(())
     }
 
-    pub fn draw_mesh(&mut self, push: &[u8], mesh: &MeshID) -> Result<()> {
+    pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &MeshID) -> Result<()> {
         let texture_descriptor_set = match mesh.texture {
             MeshTexture::RegularTexture(texture) => {
                 self.textures

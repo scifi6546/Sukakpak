@@ -140,7 +140,7 @@ impl Context {
             MeshTexture::Framebuffer(_fb) => todo!("free framebuffer"),
         }
     }
-    pub fn draw_mesh(&mut self, push: &[u8], mesh: &Mesh) -> Result<()> {
+    pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Mesh) -> Result<()> {
         self.backend.draw_mesh(push, mesh)
     }
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {

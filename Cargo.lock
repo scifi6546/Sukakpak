@@ -1758,11 +1758,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "summit_surveyor_bin"
+name = "summit_surveyor_v2"
 version = "0.1.0"
 dependencies = [
+ "egui",
+ "legion 0.3.1",
+ "legion 0.4.0",
+ "log",
+ "priority-queue",
  "sukakpak",
- "summit_surveyor",
 ]
 
 [[package]]
