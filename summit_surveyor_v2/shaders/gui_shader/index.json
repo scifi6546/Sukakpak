@@ -2,18 +2,17 @@
 	"vertex_shader":{
 		"stage":"Vertex",
 		"vertex_input_binding":0,
-		"shader_data_path":"push.frag.spv",
+		"shader_data_path":"push.vert.spv",
 		"entry_point":"main",
 		"data_in":[
 			[{"Vec3":"F32"},{"location":0}],
-			[{"Vec2":"F32"},{"location":1}],
-			[{"Vec3":"F32"},{"location":2}]
+			[{"Vec2":"F32"},{"location":1}]
 		]
 	},
 	"fragment_shader":{
 		"stage":"Fragment",
 		"vertex_input_binding":0,
-		"shader_data_path":"push.vert.spv",
+		"shader_data_path":"push.frag.spv",
 		"entry_point":"main",
 		"data_in":[]
 
@@ -25,10 +24,5 @@
 		}
 	},
 	"push_constants":[
-		{
-			"offset":0,
-			"size":64,
-			"stage":"Vertex"
-		}
 	]
 }

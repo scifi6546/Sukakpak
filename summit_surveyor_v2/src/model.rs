@@ -118,9 +118,65 @@ impl Terrain {
         self.heights[x * self.dimensions.y + y]
     }
 }
+pub struct ScreenPlane {
+    pub framebuffer: sukakpak::Framebuffer,
+    pub mesh: sukakpak::Mesh,
+}
+pub fn build_screen_plane(
+    context: Rc<RefCell<Context>>,
+    screen_resolution: Vector2<u32>,
+    z: f32,
+) -> Result<ScreenPlane> {
+    let framebuffer = context.borrow_mut().build_framebuffer(screen_resolution)?;
+    let vertices = [
+        ((-1.0, -1.0, z), (0.0, 1.0)),
+        ((1.0, -1.0, z), (1.0, 1.0)),
+        ((-1.0, 1.0, z), (0.0, 0.0)),
+        ((1.0, 1.0, z), (1.0, 0.0)),
+    ]
+    .iter()
+    .map(|((x, y, z), (u, v))| [x, y, z, u, v])
+    .flatten()
+    .map(|f| f.to_ne_bytes())
+    .flatten()
+    .collect();
+    let indices = vec![0, 1, 3, 0, 3, 2];
+    let mesh = context.borrow_mut().build_mesh(
+        sukakpak::MeshAsset {
+            indices,
+            vertices,
+            vertex_layout: sukakpak::VertexLayout {
+                components: vec![
+                    sukakpak::VertexComponent::Vec3F32,
+                    sukakpak::VertexComponent::Vec2F32,
+                ],
+            },
+        },
+        sukakpak::MeshTexture::Framebuffer(framebuffer),
+    );
+    Ok(ScreenPlane { mesh, framebuffer })
+}
 #[derive(Debug, Clone)]
 pub struct Model {
     mesh: sukakpak::Mesh,
+}
+pub fn insert_cube(
+    transform: Transform,
+    world: &mut World,
+    context: Rc<RefCell<Context>>,
+) -> Result<()> {
+    let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
+        100,
+        100,
+        Rgba::from([20, 200, 200, 200]),
+    ))?;
+    let model = Model {
+        mesh: context
+            .borrow_mut()
+            .build_mesh(sukakpak::MeshAsset::new_cube(), texture),
+    };
+    world.push((transform, model, texture));
+    Ok(())
 }
 
 unsafe impl Send for RenderingCtx {}

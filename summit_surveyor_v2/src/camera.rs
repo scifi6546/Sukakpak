@@ -2,21 +2,45 @@ use sukakpak::nalgebra::{Matrix4, Vector3};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
     position: Vector3<f32>,
+    scale: Vector3<f32>,
     pitch: f32,
     yaw: f32,
     roll: f32,
 }
 impl Transform {
+    /// Builds transform matrix for transform
     pub fn mat(&self) -> Matrix4<f32> {
         let rotation = Matrix4::from_euler_angles(self.roll, self.pitch, self.yaw);
         let translation = Matrix4::new_translation(&(-1.0 * self.position));
-        rotation * translation
+        let scaling: Matrix4<f32> = Matrix4::new_nonuniform_scaling(&self.scale);
+        translation * rotation * scaling
+    }
+    /// adds scale to transform
+    pub fn set_scale(self, scale: Vector3<f32>) -> Self {
+        Self {
+            position: self.position,
+            scale,
+            pitch: self.pitch,
+            yaw: self.yaw,
+            roll: self.roll,
+        }
+    }
+    /// Translates the transform by given delta
+    pub fn translate(self, delta: Vector3<f32>) -> Self {
+        Self {
+            position: self.position + delta,
+            scale: self.scale,
+            pitch: self.pitch,
+            yaw: self.yaw,
+            roll: self.roll,
+        }
     }
 }
 impl Default for Transform {
     fn default() -> Self {
         Self {
-            position: Vector3::new(0.0, -0.5, -10.0),
+            position: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(0.0, 0.0, 0.0),
             pitch: 30.0,
             yaw: 0.0,
             roll: 0.0,
