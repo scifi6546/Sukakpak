@@ -79,7 +79,8 @@ impl sukakpak::Renderable for Game {
             .expect("failed to bind");
         context
             .borrow_mut()
-            .draw_mesh(vec![], &self.game_render_surface.mesh);
+            .draw_mesh(vec![], &self.game_render_surface.mesh)
+            .expect("failed to draw screen surface");
     }
 }
 fn main() {

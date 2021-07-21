@@ -4,8 +4,7 @@ use super::{
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
-use nalgebra::{Matrix4, Vector2};
-use std::mem::size_of;
+use nalgebra::Vector2;
 mod semaphore_buffer;
 use semaphore_buffer::SemaphoreBuffer;
 pub enum ClearOp {
@@ -109,15 +108,12 @@ impl RenderPass {
                     &descriptor_sets,
                     &[],
                 );
-                let matrix_ptr = mesh.push.as_ptr() as *const u8;
-                let matrix_slice =
-                    std::slice::from_raw_parts(matrix_ptr, size_of::<Matrix4<f32>>());
                 core.device.cmd_push_constants(
                     self.command_buffers[image_index as usize],
                     framebuffer.pipeline.pipeline_layout,
                     vk::ShaderStageFlags::VERTEX,
                     0,
-                    matrix_slice,
+                    &mesh.push,
                 );
 
                 core.device.cmd_draw_indexed(
