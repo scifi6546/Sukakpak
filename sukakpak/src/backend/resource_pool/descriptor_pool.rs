@@ -52,7 +52,7 @@ impl DescriptorPool {
                             .create_descriptor_set_layout(&layout_create_info, None)
                     }
                     .expect("failed to create descriptor_set")];
-                    (layouts[0], descriptor.clone())
+                    (layouts[0], *descriptor)
                 })
             })
             .collect();
@@ -92,7 +92,7 @@ impl DescriptorPool {
     }
     pub fn get_descriptor_desc(&self, name: &str) -> Option<DescriptorDesc> {
         if let Some((_layout, desc)) = self.descriptors.get(name) {
-            Some(desc.clone())
+            Some(*desc)
         } else {
             None
         }

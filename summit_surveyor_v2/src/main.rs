@@ -1,3 +1,4 @@
+#![allow(clippy::nonstandard_macro_braces)]
 mod camera;
 mod gui;
 mod model;
@@ -59,9 +60,8 @@ impl sukakpak::Renderable for Game {
         resources.insert(RenderingCtx::new(&context));
         resources.insert(Camera::default());
         resources.insert(EventCollector::default());
-        let game_render_surface =
-            model::build_screen_plane(context.clone(), Vector2::new(1000, 1000), 0.0)
-                .expect("faled to create render surface");
+        let game_render_surface = model::build_screen_plane(context, Vector2::new(1000, 1000), 0.0)
+            .expect("faled to create render surface");
         Self {
             world,
             resources,

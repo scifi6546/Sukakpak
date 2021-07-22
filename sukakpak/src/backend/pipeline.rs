@@ -186,7 +186,7 @@ impl GraphicsPipeline {
             .depth_bounds_test_enable(false)
             .stencil_test_enable(false);
         let graphics_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&shader_stage_create_infos)
+            .stages(shader_stage_create_infos)
             .vertex_input_state(&vertex_input_state_info)
             .input_assembly_state(&input_assembly)
             .viewport_state(&viewport_state_info)

@@ -341,7 +341,7 @@ impl ResourcePool {
         self.texture_descriptor_pool
             .get_descriptor_layouts()
             .iter()
-            .map(|layout| *layout)
+            .copied()
             .collect()
     }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {

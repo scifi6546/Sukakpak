@@ -105,10 +105,10 @@ impl RenderPass {
                     vk::PipelineBindPoint::GRAPHICS,
                     framebuffer.pipeline.pipeline_layout,
                     0,
-                    &descriptor_sets,
+                    descriptor_sets,
                     &[],
                 );
-                if mesh.push.len() != 0 {
+                if !mesh.push.is_empty() {
                     core.device.cmd_push_constants(
                         self.command_buffers[image_index as usize],
                         framebuffer.pipeline.pipeline_layout,

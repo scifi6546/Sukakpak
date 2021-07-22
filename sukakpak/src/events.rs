@@ -179,7 +179,7 @@ impl EventCollector {
             events.push(Event::ProgramTermination)
         }
         self.events.clear();
-        return events;
+        events
     }
     pub fn quit_done(&mut self) -> bool {
         self.quit

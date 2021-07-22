@@ -1,3 +1,4 @@
+use std::f32;
 use sukakpak::nalgebra::{Matrix4, Vector3};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
@@ -85,7 +86,7 @@ impl Default for Camera {
             pitch: 0.0,
             yaw: 0.0,
             roll: 0.0,
-            fov: 3.14,
+            fov: f32::consts::PI,
             aspect_ratio: 1.0,
             near_clip: 0.1,
             far_clip: 100.0,
