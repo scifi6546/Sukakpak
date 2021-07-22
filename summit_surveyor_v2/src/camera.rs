@@ -15,6 +15,18 @@ impl Transform {
         let scaling: Matrix4<f32> = Matrix4::new_nonuniform_scaling(&self.scale);
         translation * rotation * scaling
     }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.mat()
+            .as_slice()
+            .iter()
+            .map(|f| f.to_ne_bytes())
+            .flatten()
+            .collect()
+    }
+    /// Gets scaling of trasform
+    pub fn get_scale(&self) -> Vector3<f32> {
+        self.scale
+    }
     /// adds scale to transform
     pub fn set_scale(self, scale: Vector3<f32>) -> Self {
         Self {
@@ -25,12 +37,21 @@ impl Transform {
             roll: self.roll,
         }
     }
+    pub fn set_translation(self, translation: Vector3<f32>) -> Self {
+        Self {
+            scale: self.scale,
+            pitch: self.pitch,
+            position: translation,
+            yaw: self.yaw,
+            roll: self.roll,
+        }
+    }
     /// Translates the transform by given delta
     pub fn translate(self, delta: Vector3<f32>) -> Self {
         Self {
-            position: self.position + delta,
             scale: self.scale,
             pitch: self.pitch,
+            position: self.position + delta,
             yaw: self.yaw,
             roll: self.roll,
         }
@@ -40,8 +61,8 @@ impl Default for Transform {
     fn default() -> Self {
         Self {
             position: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(0.0, 0.0, 0.0),
-            pitch: 30.0,
+            scale: Vector3::new(1.0, 1.0, 1.0),
+            pitch: 0.0,
             yaw: 0.0,
             roll: 0.0,
         }

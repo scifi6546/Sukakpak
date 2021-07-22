@@ -108,13 +108,15 @@ impl RenderPass {
                     &descriptor_sets,
                     &[],
                 );
-                core.device.cmd_push_constants(
-                    self.command_buffers[image_index as usize],
-                    framebuffer.pipeline.pipeline_layout,
-                    vk::ShaderStageFlags::VERTEX,
-                    0,
-                    &mesh.push,
-                );
+                if mesh.push.len() != 0 {
+                    core.device.cmd_push_constants(
+                        self.command_buffers[image_index as usize],
+                        framebuffer.pipeline.pipeline_layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        &mesh.push,
+                    );
+                }
 
                 core.device.cmd_draw_indexed(
                     self.command_buffers[image_index as usize],

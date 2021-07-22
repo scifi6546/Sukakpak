@@ -180,7 +180,7 @@ pub fn insert_cube(
 }
 
 unsafe impl Send for RenderingCtx {}
-pub struct RenderingCtx(Rc<RefCell<Context>>);
+pub struct RenderingCtx(pub Rc<RefCell<Context>>);
 impl RenderingCtx {
     pub fn new(ctx: &Rc<RefCell<Context>>) -> Self {
         Self(ctx.clone())
