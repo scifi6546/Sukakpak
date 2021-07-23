@@ -57,6 +57,9 @@ impl Transform {
             roll: self.roll,
         }
     }
+    pub fn get_translate_mat(&self) -> Matrix4<f32> {
+        Matrix4::new_translation(&(-1.0 * self.position))
+    }
 }
 impl Default for Transform {
     fn default() -> Self {

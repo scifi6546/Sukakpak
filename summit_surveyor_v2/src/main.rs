@@ -56,6 +56,22 @@ impl sukakpak::Renderable for Game {
             context.clone(),
         )
         .expect("failed to build gui square");
+        gui::VerticalContainer::insert(
+            vec![
+                gui::GuiSquare::new(Transform::default(), context.clone())
+                    .expect("failed to build square"),
+                gui::GuiSquare::new(Transform::default(), context.clone())
+                    .expect("failed to build square"),
+            ],
+            gui::VerticalContainerStyle {
+                alignment: gui::ContainerAlignment::Center,
+                padding: 0.05,
+            },
+            Vector3::new(-0.2, 0.2, 0.0),
+            &mut world,
+            context.clone(),
+        )
+        .expect("failed to insert vertical container");
 
         resources.insert(RenderingCtx::new(&context));
         resources.insert(Camera::default());
@@ -103,6 +119,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to draw screen surface");
         let mut gui_rendering_schedule = Schedule::builder()
             .add_system(gui::render_gui_system())
+            .add_system(gui::render_container_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
     }

@@ -4,24 +4,19 @@ use std::{cell::RefCell, rc::Rc};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
-    nalgebra::{Vector2, Vector4},
+    nalgebra::{Vector2, Vector3, Vector4},
     Context,
 };
 #[derive(Debug)]
 pub struct GuiSquare {
     mesh: sukakpak::Mesh,
+    transform: Transform,
     default_texture: sukakpak::MeshTexture,
     hover_texture: sukakpak::MeshTexture,
     click_texture: sukakpak::MeshTexture,
 }
 impl GuiSquare {
-    pub fn insert(
-        transform: Transform,
-        world: &mut World,
-        context: Rc<RefCell<Context>>,
-    ) -> Result<()> {
-        let upper_right = transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
-        let lower_left = transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
+    pub fn new(transform: Transform, context: Rc<RefCell<Context>>) -> Result<Self> {
         let default_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,
@@ -63,19 +58,30 @@ impl GuiSquare {
             },
             default_texture,
         );
-        world.push((
-            GuiSquare {
-                mesh,
-                default_texture,
-                hover_texture,
-                click_texture,
-            },
+        Ok(GuiSquare {
+            mesh,
+            default_texture,
+            hover_texture,
+            click_texture,
             transform,
-            EventListner::new(
-                Vector2::new(upper_right.x, upper_right.y),
-                Vector2::new(lower_left.x, lower_left.y),
-            ),
-        ));
+        })
+    }
+    pub fn build_listner(&self) -> EventListner {
+        let upper_right = self.transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
+        let lower_left = self.transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
+        EventListner::new(
+            Vector2::new(upper_right.x, upper_right.y),
+            Vector2::new(lower_left.x, lower_left.y),
+        )
+    }
+    pub fn insert(
+        transform: Transform,
+        world: &mut World,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        let square = GuiSquare::new(transform, context)?;
+        let listner = square.build_listner();
+        world.push((square, listner));
         Ok(())
     }
 }
@@ -89,25 +95,109 @@ pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
         square.mesh.bind_texture(square.default_texture);
     }
 }
+
 #[system(for_each)]
-pub fn render_gui(
-    square: &GuiSquare,
-    transform: &Transform,
-    #[resource] graphics: &mut RenderingCtx,
-) {
+pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
     graphics
         .0
         .borrow_mut()
-        .draw_mesh(transform.to_bytes(), &square.mesh)
+        .draw_mesh(
+            container.container.transform.to_bytes(),
+            &container.container.mesh,
+        )
+        .expect("failed to draw mesh");
+    for c in container.items.iter() {
+        let mat = container.container.transform.get_translate_mat() * c.transform.mat();
+        graphics
+            .0
+            .borrow_mut()
+            .draw_mesh(
+                mat.as_slice()
+                    .iter()
+                    .map(|f| f.to_ne_bytes())
+                    .flatten()
+                    .collect(),
+                &c.mesh,
+            )
+            .expect("failed to draw child");
+    }
+}
+#[system(for_each)]
+pub fn render_gui(square: &GuiSquare, #[resource] graphics: &mut RenderingCtx) {
+    graphics
+        .0
+        .borrow_mut()
+        .draw_mesh(square.transform.to_bytes(), &square.mesh)
         .expect("failed to draw mesh");
 }
+/// Describes which way to alighn elements in a container
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerAlignment {
+    Center,
+    Left,
+    Right,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerticalContainerStyle {
+    /// padding inbetween elements
+    pub padding: f32,
+    pub alignment: ContainerAlignment,
+}
+/// Contains Vertical components of components
 pub struct VerticalContainer {
     items: Vec<GuiSquare>,
     container: GuiSquare,
 }
 impl VerticalContainer {
-    pub fn new(items: Vec<GuiSquare>) -> Self {
-        todo!()
+    pub fn new(
+        mut items: Vec<GuiSquare>,
+        style: VerticalContainerStyle,
+        root_position: Vector3<f32>,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<Self> {
+        let height: f32 = items
+            .iter()
+            .map(|square| square.transform.get_scale().y + style.padding * 2.0)
+            .sum();
+        let width = items
+            .iter()
+            .map(|square| square.transform.get_scale().x + style.padding * 2.0)
+            .fold(0.0, |acc, x| if acc > x { acc } else { x });
+        let transform = Transform::default()
+            .translate(root_position)
+            .set_scale(Vector3::new(width, height, 1.0));
+        let mut y = 0.0;
+
+        for item in items.iter_mut() {
+            y += style.padding;
+            let x = match style.alignment {
+                ContainerAlignment::Left => todo!(),
+                ContainerAlignment::Center => root_position.x,
+                ContainerAlignment::Right => todo!(),
+            };
+            let z = root_position.z + 0.01;
+            item.transform = item
+                .transform
+                .clone()
+                .set_translation(Vector3::new(x, y, z));
+        }
+        let container = GuiSquare::new(transform, context)?;
+        Ok(Self { container, items })
+    }
+    pub fn build_listner(&self) -> EventListner {
+        self.container.build_listner()
+    }
+    pub fn insert(
+        items: Vec<GuiSquare>,
+        style: VerticalContainerStyle,
+        root_position: Vector3<f32>,
+        world: &mut World,
+        graphics_context: Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        let container = VerticalContainer::new(items, style, root_position, graphics_context)?;
+        let listner = container.build_listner();
+        world.push((container, listner));
+        Ok(())
     }
 }
 /// Collects information for Gui events
