@@ -8,6 +8,7 @@ use legion::*;
 use model::{RenderingCtx, ScreenPlane, Terrain};
 use std::{cell::RefCell, rc::Rc};
 use sukakpak::{
+    image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
     Context, Event, Sukakpak,
 };
@@ -48,24 +49,54 @@ impl sukakpak::Renderable for Game {
             context.clone(),
         )
         .expect("failed to insert");
-        gui::GuiSquare::insert(
-            Transform::default()
-                .set_scale(Vector3::new(0.2, 1.0, 1.0))
-                .set_translation(Vector3::new(0.2, 0.0, -0.2)),
-            &mut world,
-            context.clone(),
-        )
-        .expect("failed to build gui square");
+        let default_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([100, 100, 100, 255]),
+            ))
+            .expect("failed to build default texture");
+        let hover_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 80, 80, 255]),
+            ))
+            .expect("failed to build default texture");
+
+        let click_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 80, 80, 255]),
+            ))
+            .expect("failed to build default texture");
+
         gui::VerticalContainer::insert(
             vec![
-                gui::GuiSquare::new(Transform::default(), context.clone())
-                    .expect("failed to build square"),
-                gui::GuiSquare::new(Transform::default(), context.clone())
-                    .expect("failed to build square"),
+                gui::GuiSquare::new(
+                    Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                    default_tex,
+                    hover_tex,
+                    click_tex,
+                    context.clone(),
+                )
+                .expect("failed to build square"),
+                gui::GuiSquare::new(
+                    Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                    default_tex,
+                    hover_tex,
+                    click_tex,
+                    context.clone(),
+                )
+                .expect("failed to build square"),
             ],
             gui::VerticalContainerStyle {
                 alignment: gui::ContainerAlignment::Center,
-                padding: 0.05,
+                padding: 0.1,
             },
             Vector3::new(-0.2, 0.2, 0.0),
             &mut world,

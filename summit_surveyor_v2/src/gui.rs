@@ -16,7 +16,13 @@ pub struct GuiSquare {
     click_texture: sukakpak::MeshTexture,
 }
 impl GuiSquare {
-    pub fn new(transform: Transform, context: Rc<RefCell<Context>>) -> Result<Self> {
+    pub fn new(
+        transform: Transform,
+        default_texture: sukakpak::MeshTexture,
+        hover_texture: sukakpak::MeshTexture,
+        click_texture: sukakpak::MeshTexture,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<Self> {
         let default_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,
@@ -77,9 +83,18 @@ impl GuiSquare {
     pub fn insert(
         transform: Transform,
         world: &mut World,
+        default_texture: sukakpak::MeshTexture,
+        hover_texture: sukakpak::MeshTexture,
+        click_texture: sukakpak::MeshTexture,
         context: Rc<RefCell<Context>>,
     ) -> Result<()> {
-        let square = GuiSquare::new(transform, context)?;
+        let square = GuiSquare::new(
+            transform,
+            default_texture,
+            hover_texture,
+            click_texture,
+            context,
+        )?;
         let listner = square.build_listner();
         world.push((square, listner));
         Ok(())
@@ -106,7 +121,7 @@ pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mu
             &container.container.mesh,
         )
         .expect("failed to draw mesh");
-    for c in container.items.iter() {
+    return for c in container.items.iter() {
         let mat = container.container.transform.get_translate_mat() * c.transform.mat();
         graphics
             .0
@@ -120,7 +135,7 @@ pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mu
                 &c.mesh,
             )
             .expect("failed to draw child");
-    }
+    };
 }
 #[system(for_each)]
 pub fn render_gui(square: &GuiSquare, #[resource] graphics: &mut RenderingCtx) {
@@ -181,7 +196,39 @@ impl VerticalContainer {
                 .clone()
                 .set_translation(Vector3::new(x, y, z));
         }
-        let container = GuiSquare::new(transform, context)?;
+        let default_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 100, 255]),
+            ))
+            .expect("failed to build default texture");
+        let hover_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 80, 255]),
+            ))
+            .expect("failed to build default texture");
+
+        let click_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 20, 255]),
+            ))
+            .expect("failed to build default texture");
+
+        let container = GuiSquare::new(
+            transform,
+            default_tex,
+            hover_tex,
+            click_tex,
+            context.clone(),
+        )?;
         Ok(Self { container, items })
     }
     pub fn build_listner(&self) -> EventListner {
