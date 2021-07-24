@@ -78,7 +78,7 @@ impl sukakpak::Renderable for Game {
         gui::VerticalContainer::insert(
             vec![
                 gui::GuiSquare::new(
-                    Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                    Transform::default().set_scale(Vector3::new(0.2, 0.3, 1.0)),
                     default_tex,
                     hover_tex,
                     click_tex,
@@ -96,9 +96,9 @@ impl sukakpak::Renderable for Game {
             ],
             gui::VerticalContainerStyle {
                 alignment: gui::ContainerAlignment::Center,
-                padding: 0.1,
+                padding: 0.01,
             },
-            Vector3::new(0.0, 0.0, -0.5),
+            Vector3::new(0.0, 0.0, 0.5),
             &mut world,
             context.clone(),
         )
@@ -143,7 +143,7 @@ impl sukakpak::Renderable for Game {
             .borrow_mut()
             .draw_mesh(
                 Transform::default()
-                    .set_translation(Vector3::new(0.0, 0.0, -0.9))
+                    .set_translation(Vector3::new(0.0, 0.0, 0.9))
                     .to_bytes(),
                 &self.game_render_surface.mesh,
             )

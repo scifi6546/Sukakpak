@@ -12,9 +12,8 @@ impl Transform {
     /// Builds transform matrix for transform
     pub fn mat(&self) -> Matrix4<f32> {
         let rotation = Matrix4::from_euler_angles(self.roll, self.pitch, self.yaw);
-        let translation = Matrix4::new_translation(&(-1.0 * self.position));
         let scaling: Matrix4<f32> = Matrix4::new_nonuniform_scaling(&self.scale);
-        translation * rotation * scaling
+        self.get_translate_mat() * rotation * scaling
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         self.mat()
@@ -58,7 +57,7 @@ impl Transform {
         }
     }
     pub fn get_translate_mat(&self) -> Matrix4<f32> {
-        Matrix4::new_translation(&(-1.0 * self.position))
+        Matrix4::new_translation(&self.position)
     }
 }
 impl Default for Transform {

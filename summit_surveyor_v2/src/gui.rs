@@ -98,8 +98,13 @@ pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
 #[system(for_each)]
 pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
     for c in container.items.iter() {
+        let container_mat = container.container.transform.get_translate_mat();
+
         let mat = container.container.transform.get_translate_mat() * c.transform.mat();
-        let mat = c.transform.mat();
+        let mat = c.transform.mat() * container_mat;
+
+        // let mat = c.transform.mat();
+
         graphics
             .0
             .borrow_mut()
@@ -176,13 +181,14 @@ impl VerticalContainer {
                 ContainerAlignment::Center => 0.0,
                 ContainerAlignment::Right => todo!(),
             };
-            let z = root_position.z + 0.01;
+            let z = 0.01;
             println!("y: {}", y);
             let item_height = item.transform.get_scale().y;
-            item.transform =
-                item.transform
-                    .clone()
-                    .set_translation(Vector3::new(x, y + item_height / 2.0, z));
+            item.transform = item.transform.clone().set_translation(Vector3::new(
+                x,
+                y + item_height / 2.0,
+                -0.01,
+            ));
             y += item.transform.get_scale().y + style.padding;
         }
         let default_tex = context
