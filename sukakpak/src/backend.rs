@@ -118,7 +118,7 @@ impl Backend {
                 create_info.default_size.x,
                 create_info.default_size.y,
             ))
-            .build(&event_loop)?;
+            .build(event_loop)?;
         let mut core = Core::new(&window, &create_info)?;
         let mut resource_pool = ResourcePool::new(&core, &main_shader)?;
         let mut command_pool = CommandPool::new(&mut core);
@@ -234,9 +234,9 @@ impl Backend {
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
-        let framebuffer = match framebuffer_id {
-            &BoundFramebuffer::ScreenFramebuffer => (&self.main_framebuffer),
-            &BoundFramebuffer::UserFramebuffer(id) => self
+        let framebuffer = match *framebuffer_id {
+            BoundFramebuffer::ScreenFramebuffer => (&self.main_framebuffer),
+            BoundFramebuffer::UserFramebuffer(id) => self
                 .framebuffer_arena
                 .get(id.buffer_index)
                 .unwrap()
@@ -245,7 +245,7 @@ impl Backend {
         unsafe {
             self.renderpass.end_renderpass(&mut self.core)?;
             self.renderpass
-                .begin_renderpass(&mut self.core, &framebuffer, ClearOp::ClearColor)?;
+                .begin_renderpass(&mut self.core, framebuffer, ClearOp::ClearColor)?;
         }
         self.bound_framebuffer = *framebuffer_id;
         Ok(())
@@ -383,7 +383,7 @@ impl Backend {
             self.main_framebuffer = Framebuffer::new(
                 &mut self.core,
                 &self.main_shader,
-                &mut self.resource_pool,
+                &self.resource_pool,
                 texture_attachment,
                 new_size,
                 PipelineType::Present,

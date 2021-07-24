@@ -10,19 +10,19 @@ use sukakpak::{
 #[derive(Debug)]
 pub struct GuiSquare {
     mesh: sukakpak::Mesh,
+    transform: Transform,
     default_texture: sukakpak::MeshTexture,
     hover_texture: sukakpak::MeshTexture,
+    click_texture: sukakpak::MeshTexture,
 }
 impl GuiSquare {
-    pub fn insert(
+    pub fn new(
         transform: Transform,
-        world: &mut World,
+        default_texture: sukakpak::MeshTexture,
+        hover_texture: sukakpak::MeshTexture,
+        click_texture: sukakpak::MeshTexture,
         context: Rc<RefCell<Context>>,
-    ) -> Result<()> {
-        let upper_right = transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
-        let lower_left = transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
-        println!("upper_right: {}", upper_right);
-        println!("lower left: {}", lower_left);
+    ) -> Result<Self> {
         let default_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,
@@ -31,7 +31,12 @@ impl GuiSquare {
         let hover_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,
-            Rgba::from([200, 200, 20, 200]),
+            Rgba::from([180, 10, 10, 200]),
+        ))?;
+        let click_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
+            100,
+            100,
+            Rgba::from([100, 5, 5, 200]),
         ))?;
 
         let mesh = context.borrow_mut().build_mesh(
@@ -59,50 +64,213 @@ impl GuiSquare {
             },
             default_texture,
         );
-        world.push((
-            GuiSquare {
-                mesh,
-                default_texture,
-                hover_texture,
-            },
+        Ok(GuiSquare {
+            mesh,
+            default_texture,
+            hover_texture,
+            click_texture,
             transform,
-            EventListner::new(
-                Vector2::new(upper_right.x, upper_right.y),
-                Vector2::new(lower_left.x, lower_left.y),
-            ),
-        ));
+        })
+    }
+    pub fn build_listner(&self) -> EventListner {
+        let upper_right = self.transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
+        let lower_left = self.transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
+        EventListner::new(
+            Vector2::new(upper_right.x, upper_right.y),
+            Vector2::new(lower_left.x, lower_left.y),
+        )
+    }
+    pub fn insert(
+        transform: Transform,
+        world: &mut World,
+        default_texture: sukakpak::MeshTexture,
+        hover_texture: sukakpak::MeshTexture,
+        click_texture: sukakpak::MeshTexture,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        let square = GuiSquare::new(
+            transform,
+            default_texture,
+            hover_texture,
+            click_texture,
+            context,
+        )?;
+        let listner = square.build_listner();
+        world.push((square, listner));
         Ok(())
     }
 }
 #[system(for_each)]
 pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
-    if event_listner.mouse_hovered {
+    if event_listner.left_mouse_down {
+        square.mesh.bind_texture(square.click_texture);
+    } else if event_listner.mouse_hovered {
         square.mesh.bind_texture(square.hover_texture);
     } else {
         square.mesh.bind_texture(square.default_texture);
     }
 }
+
 #[system(for_each)]
-pub fn render_gui(
-    square: &GuiSquare,
-    transform: &Transform,
-    #[resource] graphics: &mut RenderingCtx,
-) {
+pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
     graphics
         .0
         .borrow_mut()
-        .draw_mesh(transform.to_bytes(), &square.mesh)
+        .draw_mesh(
+            container.container.transform.to_bytes(),
+            &container.container.mesh,
+        )
         .expect("failed to draw mesh");
+    return for c in container.items.iter() {
+        let mat = container.container.transform.get_translate_mat() * c.transform.mat();
+        graphics
+            .0
+            .borrow_mut()
+            .draw_mesh(
+                mat.as_slice()
+                    .iter()
+                    .map(|f| f.to_ne_bytes())
+                    .flatten()
+                    .collect(),
+                &c.mesh,
+            )
+            .expect("failed to draw child");
+    };
+}
+#[system(for_each)]
+pub fn render_gui(square: &GuiSquare, #[resource] graphics: &mut RenderingCtx) {
+    graphics
+        .0
+        .borrow_mut()
+        .draw_mesh(square.transform.to_bytes(), &square.mesh)
+        .expect("failed to draw mesh");
+}
+/// Describes which way to alighn elements in a container
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerAlignment {
+    Center,
+    Left,
+    Right,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerticalContainerStyle {
+    /// padding inbetween elements
+    pub padding: f32,
+    pub alignment: ContainerAlignment,
+}
+/// Contains Vertical components of components
+pub struct VerticalContainer {
+    items: Vec<GuiSquare>,
+    container: GuiSquare,
+}
+impl VerticalContainer {
+    pub fn new(
+        mut items: Vec<GuiSquare>,
+        style: VerticalContainerStyle,
+        root_position: Vector3<f32>,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<Self> {
+        let height: f32 = items
+            .iter()
+            .map(|square| square.transform.get_scale().y + style.padding * 2.0)
+            .sum();
+        let width = items
+            .iter()
+            .map(|square| square.transform.get_scale().x + style.padding * 2.0)
+            .fold(0.0, |acc, x| if acc > x { acc } else { x });
+        let transform = Transform::default()
+            .translate(root_position)
+            .set_scale(Vector3::new(width, height, 1.0));
+        let mut y = 0.0;
+
+        for item in items.iter_mut() {
+            y += style.padding;
+            let x = match style.alignment {
+                ContainerAlignment::Left => todo!(),
+                ContainerAlignment::Center => root_position.x,
+                ContainerAlignment::Right => todo!(),
+            };
+            let z = root_position.z + 0.01;
+            item.transform = item
+                .transform
+                .clone()
+                .set_translation(Vector3::new(x, y, z));
+        }
+        let default_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 100, 255]),
+            ))
+            .expect("failed to build default texture");
+        let hover_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 80, 255]),
+            ))
+            .expect("failed to build default texture");
+
+        let click_tex = context
+            .borrow_mut()
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 0, 20, 255]),
+            ))
+            .expect("failed to build default texture");
+
+        let container = GuiSquare::new(
+            transform,
+            default_tex,
+            hover_tex,
+            click_tex,
+            context.clone(),
+        )?;
+        Ok(Self { container, items })
+    }
+    pub fn build_listner(&self) -> EventListner {
+        self.container.build_listner()
+    }
+    pub fn insert(
+        items: Vec<GuiSquare>,
+        style: VerticalContainerStyle,
+        root_position: Vector3<f32>,
+        world: &mut World,
+        graphics_context: Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        let container = VerticalContainer::new(items, style, root_position, graphics_context)?;
+        let listner = container.build_listner();
+        world.push((container, listner));
+        Ok(())
+    }
 }
 /// Collects information for Gui events
 pub struct EventCollector {
     last_mouse_pos: Vector2<f32>,
+    right_mouse_down: bool,
+    middle_mouse_down: bool,
+    left_mouse_down: bool,
 }
 impl EventCollector {
     pub fn process_events(&mut self, events: &[sukakpak::Event]) {
         for event in events {
             match event {
                 sukakpak::Event::MouseMoved { normalized, .. } => self.last_mouse_pos = *normalized,
+                sukakpak::Event::MouseDown { button } => match button {
+                    sukakpak::MouseButton::Left => self.left_mouse_down = true,
+                    sukakpak::MouseButton::Middle => self.middle_mouse_down = true,
+                    sukakpak::MouseButton::Right => self.right_mouse_down = true,
+                    sukakpak::MouseButton::Other(_) => {}
+                },
+                sukakpak::Event::MouseUp { button } => match button {
+                    sukakpak::MouseButton::Left => self.left_mouse_down = false,
+                    sukakpak::MouseButton::Middle => self.middle_mouse_down = false,
+                    sukakpak::MouseButton::Right => self.right_mouse_down = false,
+                    sukakpak::MouseButton::Other(_) => {}
+                },
                 _ => {}
             }
         }
@@ -112,14 +280,21 @@ impl Default for EventCollector {
     fn default() -> Self {
         Self {
             last_mouse_pos: Vector2::new(0.0, 0.0),
+            right_mouse_down: false,
+            middle_mouse_down: false,
+            left_mouse_down: false,
         }
     }
 }
 
 #[system(for_each)]
 pub fn send_events(listner: &mut EventListner, #[resource] collector: &EventCollector) {
-    listner.mouse_hovered = false;
+    listner.reset();
     if listner.contains_point(collector.last_mouse_pos) {
+        listner.right_mouse_down = collector.right_mouse_down;
+        listner.middle_mouse_down = collector.middle_mouse_down;
+        listner.left_mouse_down = collector.left_mouse_down;
+
         listner.mouse_hovered = true;
     }
 }
@@ -127,10 +302,22 @@ pub fn send_events(listner: &mut EventListner, #[resource] collector: &EventColl
 /// being (1,1) and the lower left being (-1,-1)
 pub struct EventListner {
     mouse_hovered: bool,
+    #[allow(dead_code)]
+    right_mouse_down: bool,
+    #[allow(dead_code)]
+    middle_mouse_down: bool,
+    left_mouse_down: bool,
     upper_right_corner: Vector2<f32>,
     lower_left_corner: Vector2<f32>,
 }
 impl EventListner {
+    /// resets events
+    fn reset(&mut self) {
+        self.mouse_hovered = false;
+        self.right_mouse_down = false;
+        self.middle_mouse_down = false;
+        self.left_mouse_down = false;
+    }
     /// checks if contains point in box
     pub fn contains_point(&self, point: Vector2<f32>) -> bool {
         (point.x < self.upper_right_corner.x && point.y < self.upper_right_corner.y)
@@ -141,6 +328,9 @@ impl EventListner {
             mouse_hovered: false,
             upper_right_corner,
             lower_left_corner,
+            right_mouse_down: false,
+            middle_mouse_down: false,
+            left_mouse_down: false,
         }
     }
 }

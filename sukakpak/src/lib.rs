@@ -174,13 +174,8 @@ impl Context {
 }
 /// User Provided code that provides draw calls
 pub trait Renderable {
-    fn init<'a>(context: Rc<RefCell<Context>>) -> Self;
-    fn render_frame<'a>(
-        &mut self,
-        events: &[Event],
-        context: Rc<RefCell<Context>>,
-        delta_time_ms: f32,
-    );
+    fn init(context: Rc<RefCell<Context>>) -> Self;
+    fn render_frame(&mut self, events: &[Event], context: Rc<RefCell<Context>>, delta_time_ms: f32);
 }
 #[cfg(test)]
 mod tests {
