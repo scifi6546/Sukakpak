@@ -23,22 +23,6 @@ impl GuiSquare {
         click_texture: sukakpak::MeshTexture,
         context: Rc<RefCell<Context>>,
     ) -> Result<Self> {
-        let default_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
-            100,
-            100,
-            Rgba::from([200, 20, 20, 200]),
-        ))?;
-        let hover_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
-            100,
-            100,
-            Rgba::from([180, 10, 10, 200]),
-        ))?;
-        let click_texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
-            100,
-            100,
-            Rgba::from([100, 5, 5, 200]),
-        ))?;
-
         let mesh = context.borrow_mut().build_mesh(
             sukakpak::MeshAsset {
                 vertices: [
@@ -113,16 +97,9 @@ pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
 
 #[system(for_each)]
 pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
-    graphics
-        .0
-        .borrow_mut()
-        .draw_mesh(
-            container.container.transform.to_bytes(),
-            &container.container.mesh,
-        )
-        .expect("failed to draw mesh");
-    return for c in container.items.iter() {
+    for c in container.items.iter() {
         let mat = container.container.transform.get_translate_mat() * c.transform.mat();
+        let mat = c.transform.mat();
         graphics
             .0
             .borrow_mut()
@@ -135,7 +112,15 @@ pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mu
                 &c.mesh,
             )
             .expect("failed to draw child");
-    };
+    }
+    graphics
+        .0
+        .borrow_mut()
+        .draw_mesh(
+            container.container.transform.to_bytes(),
+            &container.container.mesh,
+        )
+        .expect("failed to draw mesh");
 }
 #[system(for_each)]
 pub fn render_gui(square: &GuiSquare, #[resource] graphics: &mut RenderingCtx) {
@@ -181,20 +166,24 @@ impl VerticalContainer {
         let transform = Transform::default()
             .translate(root_position)
             .set_scale(Vector3::new(width, height, 1.0));
-        let mut y = 0.0;
+        println!("height: {} ", height);
+        let mut y = height / -2.0;
 
         for item in items.iter_mut() {
             y += style.padding;
             let x = match style.alignment {
                 ContainerAlignment::Left => todo!(),
-                ContainerAlignment::Center => root_position.x,
+                ContainerAlignment::Center => 0.0,
                 ContainerAlignment::Right => todo!(),
             };
             let z = root_position.z + 0.01;
-            item.transform = item
-                .transform
-                .clone()
-                .set_translation(Vector3::new(x, y, z));
+            println!("y: {}", y);
+            let item_height = item.transform.get_scale().y;
+            item.transform =
+                item.transform
+                    .clone()
+                    .set_translation(Vector3::new(x, y + item_height / 2.0, z));
+            y += item.transform.get_scale().y + style.padding;
         }
         let default_tex = context
             .borrow_mut()

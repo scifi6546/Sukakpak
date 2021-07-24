@@ -98,7 +98,7 @@ impl sukakpak::Renderable for Game {
                 alignment: gui::ContainerAlignment::Center,
                 padding: 0.1,
             },
-            Vector3::new(-0.2, 0.2, 0.0),
+            Vector3::new(0.0, 0.0, -0.5),
             &mut world,
             context.clone(),
         )
@@ -143,7 +143,7 @@ impl sukakpak::Renderable for Game {
             .borrow_mut()
             .draw_mesh(
                 Transform::default()
-                    .set_translation(Vector3::new(0.0, 0.0, -0.5))
+                    .set_translation(Vector3::new(0.0, 0.0, -0.9))
                     .to_bytes(),
                 &self.game_render_surface.mesh,
             )
