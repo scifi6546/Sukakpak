@@ -1,6 +1,10 @@
 use super::prelude::{RenderingCtx, Transform};
 use legion::*;
 use std::{cell::RefCell, rc::Rc};
+pub mod event;
+mod text;
+pub use event::EventCollector;
+use event::{EventListner, MouseButtonEvent};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
@@ -86,9 +90,9 @@ impl GuiSquare {
 }
 #[system(for_each)]
 pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
-    if event_listner.left_mouse_down {
+    if event_listner.left_mouse_down.clicked() {
         square.mesh.bind_texture(square.click_texture);
-    } else if event_listner.mouse_hovered {
+    } else if event_listner.mouse_hovered.clicked() {
         square.mesh.bind_texture(square.hover_texture);
     } else {
         square.mesh.bind_texture(square.default_texture);
@@ -97,7 +101,7 @@ pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
 
 #[system(for_each)]
 pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
-    for c in container.items.iter() {
+    for (c, _event_collector) in container.items.iter() {
         let container_mat = container.container.transform.get_translate_mat();
 
         let mat = container.container.transform.get_translate_mat() * c.transform.mat();
@@ -150,7 +154,7 @@ pub struct VerticalContainerStyle {
 }
 /// Contains Vertical components of components
 pub struct VerticalContainer {
-    items: Vec<GuiSquare>,
+    items: Vec<(GuiSquare, EventListner)>,
     container: GuiSquare,
 }
 impl VerticalContainer {
@@ -224,11 +228,21 @@ impl VerticalContainer {
             click_tex,
             context.clone(),
         )?;
-        Ok(Self { container, items })
+        Ok(Self {
+            container,
+            items: items
+                .drain(..)
+                .map(|square| {
+                    let listner = square.build_listner();
+                    (square, listner)
+                })
+                .collect(),
+        })
     }
     pub fn build_listner(&self) -> EventListner {
         self.container.build_listner()
     }
+
     pub fn insert(
         items: Vec<GuiSquare>,
         style: VerticalContainerStyle,
@@ -240,92 +254,5 @@ impl VerticalContainer {
         let listner = container.build_listner();
         world.push((container, listner));
         Ok(())
-    }
-}
-/// Collects information for Gui events
-pub struct EventCollector {
-    last_mouse_pos: Vector2<f32>,
-    right_mouse_down: bool,
-    middle_mouse_down: bool,
-    left_mouse_down: bool,
-}
-impl EventCollector {
-    pub fn process_events(&mut self, events: &[sukakpak::Event]) {
-        for event in events {
-            match event {
-                sukakpak::Event::MouseMoved { normalized, .. } => self.last_mouse_pos = *normalized,
-                sukakpak::Event::MouseDown { button } => match button {
-                    sukakpak::MouseButton::Left => self.left_mouse_down = true,
-                    sukakpak::MouseButton::Middle => self.middle_mouse_down = true,
-                    sukakpak::MouseButton::Right => self.right_mouse_down = true,
-                    sukakpak::MouseButton::Other(_) => {}
-                },
-                sukakpak::Event::MouseUp { button } => match button {
-                    sukakpak::MouseButton::Left => self.left_mouse_down = false,
-                    sukakpak::MouseButton::Middle => self.middle_mouse_down = false,
-                    sukakpak::MouseButton::Right => self.right_mouse_down = false,
-                    sukakpak::MouseButton::Other(_) => {}
-                },
-                _ => {}
-            }
-        }
-    }
-}
-impl Default for EventCollector {
-    fn default() -> Self {
-        Self {
-            last_mouse_pos: Vector2::new(0.0, 0.0),
-            right_mouse_down: false,
-            middle_mouse_down: false,
-            left_mouse_down: false,
-        }
-    }
-}
-
-#[system(for_each)]
-pub fn send_events(listner: &mut EventListner, #[resource] collector: &EventCollector) {
-    listner.reset();
-    if listner.contains_point(collector.last_mouse_pos) {
-        listner.right_mouse_down = collector.right_mouse_down;
-        listner.middle_mouse_down = collector.middle_mouse_down;
-        listner.left_mouse_down = collector.left_mouse_down;
-
-        listner.mouse_hovered = true;
-    }
-}
-/// Listner for mouse events. Coordinates are in regular cartesian with the upper right corner
-/// being (1,1) and the lower left being (-1,-1)
-pub struct EventListner {
-    mouse_hovered: bool,
-    #[allow(dead_code)]
-    right_mouse_down: bool,
-    #[allow(dead_code)]
-    middle_mouse_down: bool,
-    left_mouse_down: bool,
-    upper_right_corner: Vector2<f32>,
-    lower_left_corner: Vector2<f32>,
-}
-impl EventListner {
-    /// resets events
-    fn reset(&mut self) {
-        self.mouse_hovered = false;
-        self.right_mouse_down = false;
-        self.middle_mouse_down = false;
-        self.left_mouse_down = false;
-    }
-    /// checks if contains point in box
-    pub fn contains_point(&self, point: Vector2<f32>) -> bool {
-        (point.x < self.upper_right_corner.x && point.y < self.upper_right_corner.y)
-            && (point.x > self.lower_left_corner.x && point.y > self.lower_left_corner.y)
-    }
-    pub fn new(upper_right_corner: Vector2<f32>, lower_left_corner: Vector2<f32>) -> Self {
-        Self {
-            mouse_hovered: false,
-            upper_right_corner,
-            lower_left_corner,
-            right_mouse_down: false,
-            middle_mouse_down: false,
-            left_mouse_down: false,
-        }
     }
 }

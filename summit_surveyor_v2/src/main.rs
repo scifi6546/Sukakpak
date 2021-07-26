@@ -130,7 +130,8 @@ impl sukakpak::Renderable for Game {
             ))
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
-            .add_system(gui::send_events_system())
+            .add_system(gui::event::send_events_system())
+            .add_system(gui::event::vert_container_events_system())
             .add_system(gui::react_events_system())
             .add_system(model::render_model_system())
             .build();

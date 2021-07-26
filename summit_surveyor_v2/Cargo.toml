@@ -15,5 +15,5 @@ legion ={version= "0.3.1",default-features = false, features = ["wasm-bindgen","
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 legion ={version= "0.4",default-features = false, features = ["wasm-bindgen","codegen"] }
 log="^0.4"
-egui = "0.7"
+epaint="0.13"
 priority-queue = "1.0.5"

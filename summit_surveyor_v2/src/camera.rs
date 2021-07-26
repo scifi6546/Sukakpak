@@ -59,6 +59,9 @@ impl Transform {
     pub fn get_translate_mat(&self) -> Matrix4<f32> {
         Matrix4::new_translation(&self.position)
     }
+    pub fn get_translate(&self) -> Vector3<f32> {
+        self.position
+    }
 }
 impl Default for Transform {
     fn default() -> Self {
