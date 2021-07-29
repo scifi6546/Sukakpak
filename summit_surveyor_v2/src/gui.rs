@@ -1,16 +1,39 @@
 use super::prelude::{RenderingCtx, Transform};
 use legion::*;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Mutex};
 pub mod event;
 mod text;
 pub use event::EventCollector;
-use event::{EventListner, MouseButtonEvent};
+use event::EventListner;
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3, Vector4},
     Context,
 };
+pub struct GuiComponent {
+    pub item: Mutex<Box<dyn GuiItem>>,
+}
+impl GuiComponent {
+    pub fn insert(item: Box<dyn GuiItem>, world: &mut World) -> Result<()> {
+        world.push((
+            Self {
+                item: Mutex::new(item),
+            },
+            0u8,
+        ));
+        Ok(())
+    }
+}
+pub trait GuiItem: Send {
+    /// Renders the gui the transformation is applied to the box in the order of
+    /// `transform.mat()*self.transform.mat()`
+    fn render(&self, transform: Transform, graphics: &mut RenderingCtx);
+    fn get_transform(&self) -> &Transform;
+    fn set_transform(&mut self, transform: Transform);
+    fn build_listner(&self) -> EventListner;
+}
+
 #[derive(Debug)]
 pub struct GuiSquare {
     mesh: sukakpak::Mesh,
@@ -60,32 +83,32 @@ impl GuiSquare {
             transform,
         })
     }
-    pub fn build_listner(&self) -> EventListner {
+}
+impl GuiItem for GuiSquare {
+    fn render(&self, transform: Transform, graphics: &mut RenderingCtx) {
+        let mat = transform.mat() * self.transform.mat();
+        graphics
+            .0
+            .borrow_mut()
+            .draw_mesh(
+                mat.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
+                &self.mesh,
+            )
+            .expect("failed to draw mesh");
+    }
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+    fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform
+    }
+    fn build_listner(&self) -> EventListner {
         let upper_right = self.transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
         let lower_left = self.transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
         EventListner::new(
             Vector2::new(upper_right.x, upper_right.y),
             Vector2::new(lower_left.x, lower_left.y),
         )
-    }
-    pub fn insert(
-        transform: Transform,
-        world: &mut World,
-        default_texture: sukakpak::MeshTexture,
-        hover_texture: sukakpak::MeshTexture,
-        click_texture: sukakpak::MeshTexture,
-        context: Rc<RefCell<Context>>,
-    ) -> Result<()> {
-        let square = GuiSquare::new(
-            transform,
-            default_texture,
-            hover_texture,
-            click_texture,
-            context,
-        )?;
-        let listner = square.build_listner();
-        world.push((square, listner));
-        Ok(())
     }
 }
 #[system(for_each)]
@@ -98,47 +121,15 @@ pub fn react_events(square: &mut GuiSquare, event_listner: &EventListner) {
         square.mesh.bind_texture(square.default_texture);
     }
 }
-
 #[system(for_each)]
-pub fn render_container(container: &VerticalContainer, #[resource] graphics: &mut RenderingCtx) {
-    for (c, _event_collector) in container.items.iter() {
-        let container_mat = container.container.transform.get_translate_mat();
-
-        let mat = container.container.transform.get_translate_mat() * c.transform.mat();
-        let mat = c.transform.mat() * container_mat;
-
-        // let mat = c.transform.mat();
-
-        graphics
-            .0
-            .borrow_mut()
-            .draw_mesh(
-                mat.as_slice()
-                    .iter()
-                    .map(|f| f.to_ne_bytes())
-                    .flatten()
-                    .collect(),
-                &c.mesh,
-            )
-            .expect("failed to draw child");
-    }
-    graphics
-        .0
-        .borrow_mut()
-        .draw_mesh(
-            container.container.transform.to_bytes(),
-            &container.container.mesh,
-        )
-        .expect("failed to draw mesh");
+pub fn render_gui_component(component: &GuiComponent, #[resource] graphics: &mut RenderingCtx) {
+    component
+        .item
+        .lock()
+        .expect("failed to get exclusive lock on gui item")
+        .render(Transform::default(), graphics);
 }
-#[system(for_each)]
-pub fn render_gui(square: &GuiSquare, #[resource] graphics: &mut RenderingCtx) {
-    graphics
-        .0
-        .borrow_mut()
-        .draw_mesh(square.transform.to_bytes(), &square.mesh)
-        .expect("failed to draw mesh");
-}
+
 /// Describes which way to alighn elements in a container
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContainerAlignment {
@@ -154,23 +145,23 @@ pub struct VerticalContainerStyle {
 }
 /// Contains Vertical components of components
 pub struct VerticalContainer {
-    items: Vec<(GuiSquare, EventListner)>,
+    items: Vec<(Box<dyn GuiItem>, EventListner)>,
     container: GuiSquare,
 }
 impl VerticalContainer {
     pub fn new(
-        mut items: Vec<GuiSquare>,
+        mut items: Vec<Box<dyn GuiItem>>,
         style: VerticalContainerStyle,
         root_position: Vector3<f32>,
         context: Rc<RefCell<Context>>,
     ) -> Result<Self> {
         let height: f32 = items
             .iter()
-            .map(|square| square.transform.get_scale().y + style.padding * 2.0)
+            .map(|square| square.get_transform().get_scale().y + style.padding * 2.0)
             .sum();
         let width = items
             .iter()
-            .map(|square| square.transform.get_scale().x + style.padding * 2.0)
+            .map(|square| square.get_transform().get_scale().x + style.padding * 2.0)
             .fold(0.0, |acc, x| if acc > x { acc } else { x });
         let transform = Transform::default()
             .translate(root_position)
@@ -185,15 +176,16 @@ impl VerticalContainer {
                 ContainerAlignment::Center => 0.0,
                 ContainerAlignment::Right => todo!(),
             };
-            let z = 0.01;
             println!("y: {}", y);
-            let item_height = item.transform.get_scale().y;
-            item.transform = item.transform.clone().set_translation(Vector3::new(
+            let item_height = item.get_transform().get_scale().y;
+            let item_transform = item.get_transform().clone().set_translation(Vector3::new(
                 x,
                 y + item_height / 2.0,
                 -0.01,
             ));
-            y += item.transform.get_scale().y + style.padding;
+            item.set_transform(item_transform);
+
+            y += item.get_transform().get_scale().y + style.padding;
         }
         let default_tex = context
             .borrow_mut()
@@ -239,20 +231,30 @@ impl VerticalContainer {
                 .collect(),
         })
     }
-    pub fn build_listner(&self) -> EventListner {
-        self.container.build_listner()
+}
+impl GuiItem for VerticalContainer {
+    fn render(&self, transform: Transform, graphics: &mut RenderingCtx) {
+        for (c, _event_collector) in self.items.iter() {
+            c.render(
+                Transform::default().set_translation(
+                    transform.get_translation() + self.get_transform().get_translation(),
+                ),
+                graphics,
+            );
+        }
+        graphics
+            .0
+            .borrow_mut()
+            .draw_mesh(self.container.transform.to_bytes(), &self.container.mesh)
+            .expect("failed to draw mesh");
     }
-
-    pub fn insert(
-        items: Vec<GuiSquare>,
-        style: VerticalContainerStyle,
-        root_position: Vector3<f32>,
-        world: &mut World,
-        graphics_context: Rc<RefCell<Context>>,
-    ) -> Result<()> {
-        let container = VerticalContainer::new(items, style, root_position, graphics_context)?;
-        let listner = container.build_listner();
-        world.push((container, listner));
-        Ok(())
+    fn get_transform(&self) -> &Transform {
+        &self.container.transform
+    }
+    fn set_transform(&mut self, transform: Transform) {
+        self.container.set_transform(transform)
+    }
+    fn build_listner(&self) -> EventListner {
+        self.container.build_listner()
     }
 }

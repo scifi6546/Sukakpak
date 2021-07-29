@@ -1,19 +1,6 @@
 use legion::*;
 use sukakpak::nalgebra::Vector2;
 
-#[system(for_each)]
-pub fn vert_container_events(container: &mut super::VerticalContainer, listener: &EventListner) {
-    if listener.any_mouse_down() {
-        let container_transform = container.container.transform.get_translate();
-        let mouse_position_rel = listener.get_mouse_pos().unwrap()
-            - Vector2::new(container_transform.x, container_transform.y);
-        for (square, child_listener) in container.items.iter() {
-            if child_listener.contains_point(mouse_position_rel) {
-                println!("contains point");
-            }
-        }
-    }
-}
 /// Collects information for Gui events
 pub struct EventCollector {
     last_mouse_pos: Vector2<f32>,

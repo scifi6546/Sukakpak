@@ -75,34 +75,77 @@ impl sukakpak::Renderable for Game {
             ))
             .expect("failed to build default texture");
 
-        gui::VerticalContainer::insert(
-            vec![
-                gui::GuiSquare::new(
-                    Transform::default().set_scale(Vector3::new(0.2, 0.3, 1.0)),
-                    default_tex,
-                    hover_tex,
-                    click_tex,
+        gui::GuiComponent::insert(
+            Box::new(
+                gui::VerticalContainer::new(
+                    vec![
+                        Box::new(
+                            gui::GuiSquare::new(
+                                Transform::default().set_scale(Vector3::new(0.2, 0.1, 1.0)),
+                                default_tex,
+                                hover_tex,
+                                click_tex,
+                                context.clone(),
+                            )
+                            .expect("failed to build square"),
+                        ),
+                        Box::new(
+                            gui::GuiSquare::new(
+                                Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                                default_tex,
+                                hover_tex,
+                                click_tex,
+                                context.clone(),
+                            )
+                            .expect("failed to build square"),
+                        ),
+                        Box::new(
+                            gui::VerticalContainer::new(
+                                vec![
+                                    Box::new(
+                                        gui::GuiSquare::new(
+                                            Transform::default()
+                                                .set_scale(Vector3::new(0.2, 0.1, 1.0)),
+                                            default_tex,
+                                            hover_tex,
+                                            click_tex,
+                                            context.clone(),
+                                        )
+                                        .expect("failed to build square"),
+                                    ),
+                                    Box::new(
+                                        gui::GuiSquare::new(
+                                            Transform::default()
+                                                .set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                                            default_tex,
+                                            hover_tex,
+                                            click_tex,
+                                            context.clone(),
+                                        )
+                                        .expect("failed to build square"),
+                                    ),
+                                ],
+                                gui::VerticalContainerStyle {
+                                    alignment: gui::ContainerAlignment::Center,
+                                    padding: 0.01,
+                                },
+                                Vector3::new(0.0, 0.0, -0.6),
+                                context.clone(),
+                            )
+                            .expect("failed to create vertical container"),
+                        ),
+                    ],
+                    gui::VerticalContainerStyle {
+                        alignment: gui::ContainerAlignment::Center,
+                        padding: 0.01,
+                    },
+                    Vector3::new(0.0, 0.0, 0.5),
                     context.clone(),
                 )
-                .expect("failed to build square"),
-                gui::GuiSquare::new(
-                    Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
-                    default_tex,
-                    hover_tex,
-                    click_tex,
-                    context.clone(),
-                )
-                .expect("failed to build square"),
-            ],
-            gui::VerticalContainerStyle {
-                alignment: gui::ContainerAlignment::Center,
-                padding: 0.01,
-            },
-            Vector3::new(0.0, 0.0, 0.5),
+                .expect("failed to build vertical container"),
+            ),
             &mut world,
-            context.clone(),
-        )
-        .expect("failed to insert vertical container");
+        );
 
         resources.insert(RenderingCtx::new(&context));
         resources.insert(Camera::default());
@@ -131,7 +174,6 @@ impl sukakpak::Renderable for Game {
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
             .add_system(gui::event::send_events_system())
-            .add_system(gui::event::vert_container_events_system())
             .add_system(gui::react_events_system())
             .add_system(model::render_model_system())
             .build();
@@ -150,8 +192,7 @@ impl sukakpak::Renderable for Game {
             )
             .expect("failed to draw screen surface");
         let mut gui_rendering_schedule = Schedule::builder()
-            .add_system(gui::render_gui_system())
-            .add_system(gui::render_container_system())
+            .add_system(gui::render_gui_component_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
     }
