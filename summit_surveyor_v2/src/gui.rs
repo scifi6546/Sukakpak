@@ -11,6 +11,7 @@ use sukakpak::{
     nalgebra::{Vector2, Vector3, Vector4},
     Context,
 };
+use text::{TextBuilder, TextInfo};
 pub struct GuiComponent {
     pub item: Mutex<Box<dyn GuiItem>>,
 }
@@ -131,6 +132,65 @@ pub fn render_gui_component(component: &GuiComponent, #[resource] graphics: &mut
 }
 
 /// Describes which way to alighn elements in a container
+pub struct TextLabel {
+    text_mesh: sukakpak::Mesh,
+    text_builder: TextBuilder,
+    texture: sukakpak::MeshTexture,
+    transform: Transform,
+}
+impl TextLabel {
+    pub fn new(text: String, transform: Transform, context: Rc<RefCell<Context>>) -> Self {
+        let size = transform.get_scale().x;
+        let mut text_builder = TextBuilder::default();
+        let (rgba_texture, mesh_asset) = text_builder.build_mesh(
+            TextInfo {
+                text_size: [1, 1],
+                max_line_width: 2.0 / size,
+            },
+            text,
+        );
+        println!(
+            "dimensions: ({}, {})",
+            rgba_texture.width(),
+            rgba_texture.height()
+        );
+        let texture = context
+            .borrow_mut()
+            .build_texture(&rgba_texture)
+            .expect("failed to text texture");
+        let text_mesh = context.borrow_mut().build_mesh(mesh_asset, texture);
+        Self {
+            text_mesh,
+            texture,
+            text_builder,
+            transform,
+        }
+    }
+}
+impl GuiItem for TextLabel {
+    fn render(&self, transform: Transform, graphics: &mut RenderingCtx) {
+        let mat = transform.mat() * self.transform.mat();
+        graphics
+            .0
+            .borrow_mut()
+            .draw_mesh(
+                mat.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
+                &self.text_mesh,
+            )
+            .expect("failed to render text");
+    }
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+    fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform
+    }
+    ///todo: figure out geometry properly
+    fn build_listner(&self) -> EventListner {
+        EventListner::new(Vector2::new(0.0, 0.0), Vector2::new(0.0, 0.0))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContainerAlignment {
     Center,

@@ -124,6 +124,12 @@ impl sukakpak::Renderable for Game {
                                         )
                                         .expect("failed to build square"),
                                     ),
+                                    Box::new(gui::TextLabel::new(
+                                        "hello world".to_string(),
+                                        Transform::default()
+                                            .set_scale(Vector3::new(0.01, 0.01, 1.0)),
+                                        context.clone(),
+                                    )),
                                 ],
                                 gui::VerticalContainerStyle {
                                     alignment: gui::ContainerAlignment::Center,
@@ -146,6 +152,18 @@ impl sukakpak::Renderable for Game {
             ),
             &mut world,
         );
+        gui::GuiComponent::insert(
+            Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading long paragraphs?"
+                    .to_string(),
+                Transform::default()
+                    .set_scale(Vector3::new(0.01, 0.01, 1.0))
+                    .translate(Vector3::new(-1.0, 0.0, 0.0)),
+                context.clone(),
+            )),
+            &mut world,
+        )
+        .expect("failed to insert");
 
         resources.insert(RenderingCtx::new(&context));
         resources.insert(Camera::default());
