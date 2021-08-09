@@ -136,19 +136,28 @@ pub struct TextLabel {
     text_mesh: sukakpak::Mesh,
     text_builder: TextBuilder,
     texture: sukakpak::MeshTexture,
-    transform: Transform,
+    /// Transform used for scaling text
+    render_transform: Transform,
+    /// Transform used for communicating size of mesh
+    display_transform: Transform,
 }
 impl TextLabel {
-    pub fn new(text: String, transform: Transform, context: Rc<RefCell<Context>>) -> Self {
+    pub fn new(
+        text: String,
+        text_size: f32,
+        // Determines size of box
+        transform: Transform,
+        context: Rc<RefCell<Context>>,
+    ) -> Self {
         let size = transform.get_scale().x;
+
         let mut text_builder = TextBuilder::default();
-        let (rgba_texture, mesh_asset) = text_builder.build_mesh(
-            TextInfo {
-                text_size: [1, 1],
-                max_line_width: 2.0 / size,
-            },
-            text,
-        );
+        let text_info = TextInfo {
+            text_size: [1, 1],
+            max_line_width: (size * 2.0) / text_size,
+        };
+        println!("text info: {:?}", text_info);
+        let (rgba_texture, mesh_asset) = text_builder.build_mesh(text_info, text);
         println!(
             "dimensions: ({}, {})",
             rgba_texture.width(),
@@ -158,18 +167,39 @@ impl TextLabel {
             .borrow_mut()
             .build_texture(&rgba_texture)
             .expect("failed to text texture");
+        let render_transform = {
+            // max = line_width
+            // mesh width = max*x
+            // x = mesh width/max
+            // 2.0 = max*x
+            // x =
+            let scale_x = transform.get_scale().x;
+            let mut scale = transform.get_scale();
+
+            scale.x = text_size / scale_x;
+            scale.y = text_size / scale_x;
+            let translation = transform.get_translation();
+            transform
+                .clone()
+                .set_scale(scale)
+                .set_translation(translation)
+        };
+
+        println!("{}", render_transform);
+        let display_transform = transform;
         let text_mesh = context.borrow_mut().build_mesh(mesh_asset, texture);
         Self {
             text_mesh,
             texture,
             text_builder,
-            transform,
+            render_transform,
+            display_transform,
         }
     }
 }
 impl GuiItem for TextLabel {
     fn render(&self, transform: Transform, graphics: &mut RenderingCtx) {
-        let mat = transform.mat() * self.transform.mat();
+        let mat = transform.mat() * self.render_transform.mat();
         graphics
             .0
             .borrow_mut()
@@ -180,10 +210,10 @@ impl GuiItem for TextLabel {
             .expect("failed to render text");
     }
     fn get_transform(&self) -> &Transform {
-        &self.transform
+        &self.render_transform
     }
     fn set_transform(&mut self, transform: Transform) {
-        self.transform = transform
+        todo!("rebuild mesh");
     }
     ///todo: figure out geometry properly
     fn build_listner(&self) -> EventListner {

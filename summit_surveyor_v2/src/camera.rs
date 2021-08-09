@@ -63,6 +63,23 @@ impl Transform {
         self.position
     }
 }
+impl std::fmt::Display for Transform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{\n\tposition: <{}, {}, {}>\n\tscale: <{}, {}, {}>\n\tpitch: {}\n\tyaw: {}\n\troll: {}\n}}",
+            self.position.x,
+            self.position.y,
+            self.position.z,
+            self.scale.x,
+            self.scale.y,
+            self.scale.z,
+            self.pitch,
+            self.yaw,
+            self.roll
+        )
+    }
+}
 impl Default for Transform {
     fn default() -> Self {
         Self {

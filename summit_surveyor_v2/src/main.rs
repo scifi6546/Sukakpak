@@ -124,12 +124,6 @@ impl sukakpak::Renderable for Game {
                                         )
                                         .expect("failed to build square"),
                                     ),
-                                    Box::new(gui::TextLabel::new(
-                                        "hello world".to_string(),
-                                        Transform::default()
-                                            .set_scale(Vector3::new(0.01, 0.01, 1.0)),
-                                        context.clone(),
-                                    )),
                                 ],
                                 gui::VerticalContainerStyle {
                                     alignment: gui::ContainerAlignment::Center,
@@ -151,13 +145,15 @@ impl sukakpak::Renderable for Game {
                 .expect("failed to build vertical container"),
             ),
             &mut world,
-        );
+        )
+        .expect("failed to insert?");
         gui::GuiComponent::insert(
             Box::new(gui::TextLabel::new(
-                "hello world, Here is a loooong paragraph, do you like reading long paragraphs?"
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
                     .to_string(),
+                0.006,
                 Transform::default()
-                    .set_scale(Vector3::new(0.01, 0.01, 1.0))
+                    .set_scale(Vector3::new(2.0, 1.0, 1.0))
                     .translate(Vector3::new(-1.0, 0.0, 0.0)),
                 context.clone(),
             )),

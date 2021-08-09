@@ -68,7 +68,7 @@ impl TextBuilder {
 impl Default for TextBuilder {
     fn default() -> Self {
         Self {
-            font: Fonts::from_definitions(12.0, FontDefinitions::default()),
+            font: Fonts::from_definitions(10.0, FontDefinitions::default()),
             tesselator: Tessellator::from_options(TessellationOptions::default()),
         }
     }
