@@ -46,6 +46,15 @@ impl Transform {
             roll: self.roll,
         }
     }
+    pub fn set_yaw(self, yaw: f32) -> Self {
+        Self {
+            scale: self.scale,
+            pitch: self.pitch,
+            position: self.position,
+            yaw: yaw,
+            roll: self.roll,
+        }
+    }
     /// Translates the transform by given delta
     pub fn translate(self, delta: Vector3<f32>) -> Self {
         Self {

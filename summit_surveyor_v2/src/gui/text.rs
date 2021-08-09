@@ -2,7 +2,7 @@ use epaint::{
     text::{FontDefinitions, Fonts, TextStyle},
     TessellationOptions, Tessellator,
 };
-use sukakpak::{image::RgbaImage, MeshAsset};
+use sukakpak::{image::RgbaImage, nalgebra::Vector2, MeshAsset};
 pub struct TextBuilder {
     font: Fonts,
     tesselator: Tessellator,
@@ -13,8 +13,25 @@ pub struct TextInfo {
     /// max width of line in points
     pub max_line_width: f32,
 }
+pub struct BoundingBox {
+    pub min: Vector2<f32>,
+    pub max: Vector2<f32>,
+}
+impl std::fmt::Display for BoundingBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{\n\tmin: <{}, {}>\n\tmax: <{}, {}>\n}}",
+            self.min.x, self.min.y, self.max.x, self.max.y
+        )
+    }
+}
 impl TextBuilder {
-    pub fn build_mesh(&mut self, text_info: TextInfo, text: String) -> (RgbaImage, MeshAsset) {
+    pub fn build_mesh(
+        &mut self,
+        text_info: TextInfo,
+        text: String,
+    ) -> (RgbaImage, BoundingBox, MeshAsset) {
         let mut mesh = epaint::Mesh::default();
         self.tesselator.tessellate_text(
             text_info.text_size,
@@ -33,9 +50,37 @@ impl TextBuilder {
             .map(|v| [*v, *v, *v, *v])
             .flatten()
             .collect();
+        let min_x = mesh
+            .vertices
+            .iter()
+            .map(|v| v.pos.x)
+            .reduce(f32::min)
+            .unwrap_or(0.0);
+        let min_y = mesh
+            .vertices
+            .iter()
+            .map(|v| v.pos.y)
+            .reduce(f32::min)
+            .unwrap_or(0.0);
+        let max_x = mesh
+            .vertices
+            .iter()
+            .map(|v| v.pos.x)
+            .reduce(f32::max)
+            .unwrap_or(0.0);
+        let max_y = mesh
+            .vertices
+            .iter()
+            .map(|v| v.pos.y)
+            .reduce(f32::max)
+            .unwrap_or(0.0);
 
         (
             RgbaImage::from_vec(texture.width as u32, texture.height as u32, image_data).unwrap(),
+            BoundingBox {
+                min: Vector2::new(min_x, min_y),
+                max: Vector2::new(max_x, max_y),
+            },
             MeshAsset {
                 indices: mesh.indices,
                 vertices: mesh

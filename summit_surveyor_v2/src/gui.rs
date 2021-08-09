@@ -31,7 +31,7 @@ pub trait GuiItem: Send {
     /// `transform.mat()*self.transform.mat()`
     fn render(&self, transform: Transform, graphics: &mut RenderingCtx);
     fn get_transform(&self) -> &Transform;
-    fn set_transform(&mut self, transform: Transform);
+    fn set_transform(&mut self, transform: Transform, graphics: &mut RenderingCtx);
     fn build_listner(&self) -> EventListner;
 }
 
@@ -100,7 +100,7 @@ impl GuiItem for GuiSquare {
     fn get_transform(&self) -> &Transform {
         &self.transform
     }
-    fn set_transform(&mut self, transform: Transform) {
+    fn set_transform(&mut self, transform: Transform, _graphics: &mut RenderingCtx) {
         self.transform = transform
     }
     fn build_listner(&self) -> EventListner {
@@ -135,6 +135,9 @@ pub fn render_gui_component(component: &GuiComponent, #[resource] graphics: &mut
 pub struct TextLabel {
     text_mesh: sukakpak::Mesh,
     text_builder: TextBuilder,
+    text_size: f32,
+    /// Text that is displayed
+    text: String,
     texture: sukakpak::MeshTexture,
     /// Transform used for scaling text
     render_transform: Transform,
@@ -152,12 +155,14 @@ impl TextLabel {
         let size = transform.get_scale().x;
 
         let mut text_builder = TextBuilder::default();
+        let max_line_width = (size * 2.0) / text_size;
         let text_info = TextInfo {
             text_size: [1, 1],
-            max_line_width: (size * 2.0) / text_size,
+            max_line_width,
         };
         println!("text info: {:?}", text_info);
-        let (rgba_texture, mesh_asset) = text_builder.build_mesh(text_info, text);
+        let (rgba_texture, bounding_box, mesh_asset) =
+            text_builder.build_mesh(text_info, text.clone());
         println!(
             "dimensions: ({}, {})",
             rgba_texture.width(),
@@ -176,25 +181,102 @@ impl TextLabel {
             let scale_x = transform.get_scale().x;
             let mut scale = transform.get_scale();
 
-            scale.x = text_size / scale_x;
-            scale.y = text_size / scale_x;
+            scale.x = scale_x / max_line_width;
+            scale.y = scale_x / max_line_width;
+            let middle = (bounding_box.max + bounding_box.min) / 2.0;
+            let middle_translation =
+                Vector3::new(-1.0 * middle.x * scale.x, -1.0 * middle.y * scale.x, 0.0);
+            println!("middle_translation: {}", middle_translation);
             let translation = transform.get_translation();
             transform
                 .clone()
                 .set_scale(scale)
                 .set_translation(translation)
+                //    .translate(Vector3::new(scale_x / -2.0, 0.0, 0.0))
+                .translate(middle_translation)
         };
 
         println!("{}", render_transform);
-        let display_transform = transform;
+        println!("bounding box: {}", bounding_box);
+        let display_scale = transform.get_scale();
+        let display_transform = transform.set_scale(Vector3::new(
+            display_scale.x,
+            (bounding_box.max.y - bounding_box.min.y) * render_transform.get_scale().y,
+            1.0,
+        ));
         let text_mesh = context.borrow_mut().build_mesh(mesh_asset, texture);
         Self {
             text_mesh,
             texture,
+            text,
+            text_size,
             text_builder,
             render_transform,
             display_transform,
         }
+    }
+    fn rebuild(
+        &mut self,
+        new_text_size: f32,
+        new_transform: Transform,
+        context: Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        println!("******************* rebuilding text*****************");
+        println!("new transform: {}", new_transform);
+        let text_info = TextInfo {
+            text_size: [1, 1],
+            max_line_width: (new_transform.get_scale().x * 2.0) / new_text_size,
+        };
+        let (rgba_texture, bounding_box, mesh_asset) =
+            self.text_builder.build_mesh(text_info, self.text.clone());
+        println!(
+            "dimensions: ({}, {})",
+            rgba_texture.width(),
+            rgba_texture.height()
+        );
+        context.borrow_mut().delete_texture(self.texture)?;
+        self.texture = context
+            .borrow_mut()
+            .build_texture(&rgba_texture)
+            .expect("failed to text texture");
+        self.render_transform = {
+            // max = line_width
+            // mesh width = max*x
+            // x = mesh width/max
+            // 2.0 = max*x
+            // x =
+            let scale_x = new_transform.get_scale().x;
+            let mut scale = new_transform.get_scale();
+
+            scale.x = new_text_size / scale_x;
+            scale.y = new_text_size / scale_x;
+            let translation = new_transform.get_translation();
+            let middle = (bounding_box.max + bounding_box.min) / 2.0;
+            println!("middle: <{},{}>", middle.x, middle.y);
+            self.render_transform
+                .clone()
+                .set_scale(scale)
+                .set_translation(translation)
+                .translate(Vector3::new(scale_x / -2.0, 0.0, 0.0))
+                .translate(Vector3::new(
+                    -1.0 * middle.x * scale_x,
+                    -1.0 * middle.y * scale_x,
+                    0.0,
+                ))
+        };
+
+        println!("render transform {}", self.render_transform);
+
+        self.display_transform = new_transform.set_scale(Vector3::new(
+            (bounding_box.max.x - bounding_box.min.x) * self.render_transform.get_scale().x,
+            (bounding_box.max.y - bounding_box.min.y) * self.render_transform.get_scale().y,
+            1.0,
+        ));
+
+        context.borrow_mut().delete_mesh(self.text_mesh)?;
+        self.text_mesh = context.borrow_mut().build_mesh(mesh_asset, self.texture);
+        self.text_size = new_text_size;
+        Ok(())
     }
 }
 impl GuiItem for TextLabel {
@@ -210,10 +292,27 @@ impl GuiItem for TextLabel {
             .expect("failed to render text");
     }
     fn get_transform(&self) -> &Transform {
-        &self.render_transform
+        println!("getting transform: {}", self.display_transform);
+        &self.display_transform
     }
-    fn set_transform(&mut self, transform: Transform) {
-        todo!("rebuild mesh");
+    fn set_transform(&mut self, transform: Transform, graphics: &mut RenderingCtx) {
+        *self = Self::new(
+            self.text.clone(),
+            self.text_size,
+            transform,
+            graphics.0.clone(),
+        );
+        return;
+        if self.display_transform.get_scale() != transform.get_scale() {
+            self.rebuild(self.text_size, transform, graphics.0.clone())
+                .expect("failed to rebuild texture mesh after resize");
+        } else {
+            println!("setting transform of textlabel to {}", transform);
+            let scale_x = transform.get_scale().x;
+            self.render_transform = transform
+                .set_scale(self.render_transform.get_scale())
+                .translate(Vector3::new(scale_x / -2.0, 0.0, 0.0));
+        }
     }
     ///todo: figure out geometry properly
     fn build_listner(&self) -> EventListner {
@@ -256,7 +355,6 @@ impl VerticalContainer {
         let transform = Transform::default()
             .translate(root_position)
             .set_scale(Vector3::new(width, height, 1.0));
-        println!("height: {} ", height);
         let mut y = height / -2.0;
 
         for item in items.iter_mut() {
@@ -273,7 +371,7 @@ impl VerticalContainer {
                 y + item_height / 2.0,
                 -0.01,
             ));
-            item.set_transform(item_transform);
+            item.set_transform(item_transform, &mut RenderingCtx(context.clone()));
 
             y += item.get_transform().get_scale().y + style.padding;
         }
@@ -341,8 +439,8 @@ impl GuiItem for VerticalContainer {
     fn get_transform(&self) -> &Transform {
         &self.container.transform
     }
-    fn set_transform(&mut self, transform: Transform) {
-        self.container.set_transform(transform)
+    fn set_transform(&mut self, transform: Transform, graphics: &mut RenderingCtx) {
+        self.container.set_transform(transform, graphics)
     }
     fn build_listner(&self) -> EventListner {
         self.container.build_listner()

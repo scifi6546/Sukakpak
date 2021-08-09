@@ -74,6 +74,7 @@ impl sukakpak::Renderable for Game {
                 Rgba::from([0, 80, 80, 255]),
             ))
             .expect("failed to build default texture");
+        println!("*******************\nBuilding vert continer\n***************");
 
         gui::GuiComponent::insert(
             Box::new(
@@ -134,6 +135,13 @@ impl sukakpak::Renderable for Game {
                             )
                             .expect("failed to create vertical container"),
                         ),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            0.003,
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            context.clone(),
+                        )),
                     ],
                     gui::VerticalContainerStyle {
                         alignment: gui::ContainerAlignment::Center,
@@ -147,6 +155,8 @@ impl sukakpak::Renderable for Game {
             &mut world,
         )
         .expect("failed to insert?");
+
+        println!("*******************\nBuilding Raw Text\n***************");
         gui::GuiComponent::insert(
             Box::new(gui::TextLabel::new(
                 "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
@@ -154,7 +164,7 @@ impl sukakpak::Renderable for Game {
                 0.006,
                 Transform::default()
                     .set_scale(Vector3::new(2.0, 1.0, 1.0))
-                    .translate(Vector3::new(-1.0, 0.0, 0.0)),
+                    .translate(Vector3::new(0.0, 0.0, 0.0)),
                 context.clone(),
             )),
             &mut world,
