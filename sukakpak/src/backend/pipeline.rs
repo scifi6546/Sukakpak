@@ -173,8 +173,14 @@ impl GraphicsPipeline {
             ..Default::default()
         };
         let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState::builder()
-            .blend_enable(false)
             .color_write_mask(vk::ColorComponentFlags::all())
+            .blend_enable(true)
+            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+            .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .color_blend_op(vk::BlendOp::ADD)
+            .src_alpha_blend_factor(vk::BlendFactor::SRC_ALPHA)
+            .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .alpha_blend_op(vk::BlendOp::SUBTRACT)
             .build()];
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op(vk::LogicOp::CLEAR)
