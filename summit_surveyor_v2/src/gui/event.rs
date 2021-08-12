@@ -1,18 +1,28 @@
 use legion::*;
+use std::collections::HashSet;
+use std::time::Duration;
 use sukakpak::nalgebra::Vector2;
 
 /// Collects information for Gui events
 pub struct EventCollector {
-    last_mouse_pos: Vector2<f32>,
-    right_mouse_down: bool,
-    middle_mouse_down: bool,
-    left_mouse_down: bool,
+    pub keycodes_down: HashSet<u32>,
+    pub mouse_delta_pos: Vector2<f32>,
+    pub delta_time: Duration,
+    pub last_mouse_pos: Vector2<f32>,
+    pub right_mouse_down: bool,
+    pub middle_mouse_down: bool,
+    pub left_mouse_down: bool,
 }
 impl EventCollector {
-    pub fn process_events(&mut self, events: &[sukakpak::Event]) {
+    pub fn process_events(&mut self, delta_time: Duration, events: &[sukakpak::Event]) {
+        self.delta_time = delta_time;
+        self.mouse_delta_pos = Vector2::new(0.0, 0.0);
         for event in events {
             match event {
-                sukakpak::Event::MouseMoved { normalized, .. } => self.last_mouse_pos = *normalized,
+                sukakpak::Event::MouseMoved { normalized, .. } => {
+                    self.mouse_delta_pos = normalized - self.last_mouse_pos;
+                    self.last_mouse_pos = *normalized;
+                }
                 sukakpak::Event::MouseDown { button } => match button {
                     sukakpak::MouseButton::Left => self.left_mouse_down = true,
                     sukakpak::MouseButton::Middle => self.middle_mouse_down = true,
@@ -25,14 +35,26 @@ impl EventCollector {
                     sukakpak::MouseButton::Right => self.right_mouse_down = false,
                     sukakpak::MouseButton::Other(_) => {}
                 },
+                sukakpak::Event::KeyDown { scan_code, .. } => {
+                    println!("keydown scancode: {}", scan_code);
+                    self.keycodes_down.insert(*scan_code);
+                }
+                sukakpak::Event::KeyUp { scan_code, .. } => {
+                    println!("key up: {}", scan_code);
+                    self.keycodes_down.remove(scan_code);
+                }
                 _ => {}
             }
         }
     }
+    pub fn clear(&mut self) {}
 }
 impl Default for EventCollector {
     fn default() -> Self {
         Self {
+            keycodes_down: HashSet::new(),
+            delta_time: Default::default(),
+            mouse_delta_pos: Vector2::new(0.0, 0.0),
             last_mouse_pos: Vector2::new(0.0, 0.0),
             right_mouse_down: false,
             middle_mouse_down: false,

@@ -17,7 +17,7 @@ pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{cell::RefCell, path::Path, rc::Rc, time::SystemTime};
+use std::{cell::RefCell, path::Path, rc::Rc, time::Duration, time::SystemTime};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
@@ -47,7 +47,7 @@ impl Sukakpak {
                         &event_collector.pull_events(),
                         &mut renderer,
                         Rc::clone(&context),
-                        delta_time.as_micros() as f32 / 1000.0,
+                        delta_time,
                     ) {
                         FrameStatus::Quit => *control_flow = ControlFlow::Exit,
                         FrameStatus::Continue => (),
@@ -72,7 +72,7 @@ fn run_frame<R: Renderable>(
     events: &[Event],
     renderer: &mut R,
     context: Rc<RefCell<Context>>,
-    delta_time_ms: f32,
+    delta_time: Duration,
 ) -> FrameStatus {
     {
         let mut ctx_borrow = context.borrow_mut();
@@ -82,7 +82,7 @@ fn run_frame<R: Renderable>(
             .expect("failed to start rendering frame");
     }
 
-    renderer.render_frame(events, Rc::clone(&context), delta_time_ms);
+    renderer.render_frame(events, Rc::clone(&context), delta_time);
     let mut ctx_borrow = context.borrow_mut();
     if !ctx_borrow.quit {
         ctx_borrow
@@ -175,7 +175,12 @@ impl Context {
 /// User Provided code that provides draw calls
 pub trait Renderable {
     fn init(context: Rc<RefCell<Context>>) -> Self;
-    fn render_frame(&mut self, events: &[Event], context: Rc<RefCell<Context>>, delta_time_ms: f32);
+    fn render_frame(
+        &mut self,
+        events: &[Event],
+        context: Rc<RefCell<Context>>,
+        delta_time: Duration,
+    );
 }
 #[cfg(test)]
 mod tests {
@@ -191,7 +196,7 @@ mod tests {
             &mut self,
             _events: &[Event],
             context: Rc<RefCell<Context>>,
-            _delta_time: f32,
+            _delta_time: Duration,
         ) {
             let mut ctx_borrow = context.borrow_mut();
             ctx_borrow.quit();
@@ -217,14 +222,24 @@ mod tests {
                 texture,
             }
         }
-        fn render_frame<'a>(&mut self, _events: &[Event], context: Rc<RefCell<Context>>, _dt: f32) {
+        fn render_frame<'a>(
+            &mut self,
+            _events: &[Event],
+            context: Rc<RefCell<Context>>,
+            _dt: Duration,
+        ) {
             let mut ctx_borrow = context.borrow_mut();
             if self.num_frames <= 10_000 {
-                let mat = Matrix4::identity();
-                let mat_ptr = mat.as_ptr() as *const u8;
-                let push = unsafe { std::slice::from_raw_parts(mat_ptr, 16 * 4) };
+                let mat = Matrix4::<f32>::identity();
                 ctx_borrow
-                    .draw_mesh(push, &self.triangle)
+                    .draw_mesh(
+                        mat.as_slice()
+                            .iter()
+                            .map(|f| f.to_ne_bytes())
+                            .flatten()
+                            .collect(),
+                        &self.triangle,
+                    )
                     .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {

@@ -1,5 +1,5 @@
 use std::f32;
-use sukakpak::nalgebra::{Matrix4, Vector3};
+use sukakpak::nalgebra::{Matrix4, Point3, Vector3};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
     position: Vector3<f32>,
@@ -100,6 +100,7 @@ impl Default for Transform {
         }
     }
 }
+#[derive(Clone)]
 pub struct Camera {
     position: Vector3<f32>,
     pitch: f32,
@@ -117,7 +118,7 @@ impl Default for Camera {
             pitch: 0.0,
             yaw: 0.0,
             roll: 0.0,
-            fov: f32::consts::PI,
+            fov: f32::consts::PI / 2.0,
             aspect_ratio: 1.0,
             near_clip: 0.1,
             far_clip: 100.0,
@@ -125,10 +126,40 @@ impl Default for Camera {
     }
 }
 impl Camera {
+    pub fn set_translation(mut self, translation: Vector3<f32>) -> Self {
+        self.position = translation;
+        self
+    }
+    pub fn translate(mut self, translation: Vector3<f32>) -> Self {
+        self.position += translation;
+        self
+    }
+    pub fn set_roll(mut self, roll: f32) -> Self {
+        self.roll = roll;
+        self
+    }
+    pub fn set_pitch(mut self, pitch: f32) -> Self {
+        self.pitch = pitch;
+        self
+    }
+    pub fn set_yaw(mut self, yaw: f32) -> Self {
+        self.yaw = yaw;
+        self
+    }
+    pub fn yaw(&mut self) -> &mut f32 {
+        &mut self.yaw
+    }
+    pub fn pitch(&mut self) -> &mut f32 {
+        &mut self.pitch
+    }
     pub fn to_vec(&self, transform: &Transform) -> Vec<u8> {
         let perspective_mat =
             Matrix4::new_perspective(self.fov, self.aspect_ratio, self.near_clip, self.far_clip);
-        let rotation = Matrix4::from_euler_angles(self.roll, self.pitch, self.yaw);
+        let rotation = Matrix4::face_towards(
+            &Point3::new(0.0, 0.0, 0.0),
+            &Point3::new(self.yaw.sin(), self.pitch.sin(), self.yaw.cos()),
+            &Vector3::new(0.0, 1.0, 0.0),
+        );
         let translation = Matrix4::new_translation(&(-1.0 * self.position));
         (perspective_mat * rotation * translation * transform.mat())
             .as_slice()

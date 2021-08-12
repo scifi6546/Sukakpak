@@ -2,16 +2,18 @@
 mod camera;
 mod gui;
 mod model;
+mod terrain;
 use camera::{Camera, Transform};
 use gui::EventCollector;
 use legion::*;
-use model::{RenderingCtx, ScreenPlane, Terrain};
-use std::{cell::RefCell, rc::Rc};
+use model::{RenderingCtx, ScreenPlane};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
     Context, Event, Sukakpak,
 };
+use terrain::{InsertableTerrain, Terrain};
 struct Game {
     world: World,
     resources: Resources,
@@ -19,7 +21,8 @@ struct Game {
 }
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
-    pub use super::model::{RenderingCtx, Terrain};
+    pub use super::model::{Model, RenderingCtx};
+    pub use super::terrain::Terrain;
 }
 
 impl sukakpak::Renderable for Game {
@@ -38,7 +41,7 @@ impl sukakpak::Renderable for Game {
             .borrow_mut()
             .bind_shader(&sukakpak::BoundFramebuffer::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
-        Terrain::new_flat(Vector2::new(100, 100))
+        Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
             .insert(&mut world, &context)
             .expect("failed to build terrain");
         model::insert_cube(
@@ -172,7 +175,11 @@ impl sukakpak::Renderable for Game {
         .expect("failed to insert");
 
         resources.insert(RenderingCtx::new(&context));
-        resources.insert(Camera::default());
+        resources.insert(
+            Camera::default()
+                .set_translation(Vector3::new(0.0, 2.0, 0.0))
+                .set_yaw(3.14 / 2.0),
+        );
         resources.insert(EventCollector::default());
         let game_render_surface = model::build_screen_plane(context, Vector2::new(1000, 1000), 0.0)
             .expect("faled to create render surface");
@@ -186,9 +193,9 @@ impl sukakpak::Renderable for Game {
         &mut self,
         events: &[Event],
         context: Rc<RefCell<Context>>,
-        _delta_time_ms: f32,
+        delta_time: Duration,
     ) {
-        self.process_events(events);
+        self.process_events(delta_time, events);
 
         context
             .borrow_mut()
@@ -200,6 +207,7 @@ impl sukakpak::Renderable for Game {
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
             .add_system(model::render_model_system())
+            .add_system(terrain_camera_system())
             .build();
         game_renderng_schedule.execute(&mut self.world, &mut self.resources);
         context
@@ -219,14 +227,15 @@ impl sukakpak::Renderable for Game {
             .add_system(gui::render_gui_component_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
+        self.resources.get_mut::<EventCollector>().unwrap().clear();
     }
 }
 impl Game {
-    pub fn process_events(&mut self, events: &[Event]) {
+    pub fn process_events(&mut self, delta_time: Duration, events: &[Event]) {
         self.resources
             .get_mut::<EventCollector>()
             .expect("failed to get event collector")
-            .process_events(events);
+            .process_events(delta_time, events);
     }
 }
 fn main() {
@@ -234,4 +243,29 @@ fn main() {
         default_size: Vector2::new(1000, 1000),
         name: "Summit Surveyor".to_string(),
     });
+}
+#[system(for_each)]
+pub fn terrain_camera(
+    terrain: &InsertableTerrain,
+    #[resource] events: &mut EventCollector,
+    #[resource] camera: &mut Camera,
+) {
+    if events.keycodes_down.contains(&30) {
+        *camera = camera.clone().translate(Vector3::new(-0.01, 0.0, 0.0))
+    }
+
+    if events.keycodes_down.contains(&32) {
+        *camera = camera.clone().translate(Vector3::new(0.01, 0.0, 0.0))
+    }
+
+    if events.keycodes_down.contains(&31) {
+        *camera = camera.clone().translate(Vector3::new(0.0, 0.0, -0.01))
+    }
+    if events.keycodes_down.contains(&17) {
+        *camera = camera.clone().translate(Vector3::new(0.0, 0.0, 0.01))
+    }
+    if events.left_mouse_down {
+        *camera.yaw() += events.mouse_delta_pos.x * events.delta_time.as_secs_f32() * 1000.0;
+        *camera.pitch() += events.mouse_delta_pos.y * events.delta_time.as_secs_f32() * 1000.0;
+    }
 }
