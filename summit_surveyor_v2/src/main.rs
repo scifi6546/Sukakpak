@@ -7,7 +7,7 @@ use camera::{Camera, Transform};
 use gui::EventCollector;
 use legion::*;
 use model::{RenderingCtx, ScreenPlane};
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, f32, rc::Rc, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
@@ -77,7 +77,6 @@ impl sukakpak::Renderable for Game {
                 Rgba::from([0, 80, 80, 255]),
             ))
             .expect("failed to build default texture");
-        println!("*******************\nBuilding vert continer\n***************");
 
         gui::GuiComponent::insert(
             Box::new(
@@ -178,7 +177,7 @@ impl sukakpak::Renderable for Game {
         resources.insert(
             Camera::default()
                 .set_translation(Vector3::new(0.0, 2.0, 0.0))
-                .set_yaw(3.14 / 2.0),
+                .set_yaw(f32::consts::PI / 2.0),
         );
         resources.insert(EventCollector::default());
         let game_render_surface = model::build_screen_plane(context, Vector2::new(1000, 1000), 0.0)

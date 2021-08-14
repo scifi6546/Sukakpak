@@ -24,6 +24,7 @@ impl ResourcePool {
                 instance: core.instance.clone(),
                 device: core.device.clone(),
                 physical_device: core.physical_device,
+                buffer_device_address: false,
                 debug_settings: Default::default(),
             })),
             texture_descriptor_pool: DescriptorPool::new(
@@ -62,6 +63,7 @@ impl ResourcePool {
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
         let buffer = unsafe { core.device.create_buffer(&buffer_create_info, None)? };
         let requirements = unsafe { core.device.get_buffer_memory_requirements(buffer) };
+        println!("requirements: {:?}", requirements);
         let allocation = self.allocator.allocate(&AllocationCreateDesc {
             name: "vertex buffer",
             requirements,
@@ -147,6 +149,7 @@ impl ResourcePool {
             .sharing_mode(sharing_mode);
         let buffer = unsafe { core.device.create_buffer(&buffer_create_info, None)? };
         let requirements = unsafe { core.device.get_buffer_memory_requirements(buffer) };
+        println!("buffer requirements: {:?}", requirements);
         let allocation = self.allocator.allocate(&AllocationCreateDesc {
             name: "vertex buffer",
             requirements,
@@ -493,6 +496,7 @@ impl TextureAllocation {
             panic!("unsupported layout transition")
         };
         unsafe {
+            println!("source: {:?} dest: {:?}", source_stage, dest_stage);
             let buffer = command_pool.create_onetime_buffer(core);
             buffer.core.device.cmd_pipeline_barrier(
                 buffer.command_buffer[0],

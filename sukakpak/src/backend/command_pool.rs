@@ -13,10 +13,12 @@ impl<'a> Drop for OneTimeCommandBuffer<'a> {
                 .device
                 .end_command_buffer(self.command_buffer[0])
                 .expect("failed to end command buer");
-            let submit_info = vk::SubmitInfo::builder().command_buffers(&self.command_buffer);
+            let submit_info = vk::SubmitInfo::builder()
+                .command_buffers(&self.command_buffer)
+                .build();
             self.core
                 .device
-                .queue_submit(self.core.present_queue, &[*submit_info], vk::Fence::null())
+                .queue_submit(self.core.present_queue, &[submit_info], vk::Fence::null())
                 .expect("failed to submit queue");
             self.core
                 .device

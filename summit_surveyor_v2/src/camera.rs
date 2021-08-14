@@ -51,7 +51,7 @@ impl Transform {
             scale: self.scale,
             pitch: self.pitch,
             position: self.position,
-            yaw: yaw,
+            yaw,
             roll: self.roll,
         }
     }

@@ -186,7 +186,6 @@ impl TextLabel {
             let middle = (bounding_box.max + bounding_box.min) / 2.0;
             let middle_translation =
                 Vector3::new(-1.0 * middle.x * scale.x, -1.0 * middle.y * scale.x, 0.0);
-            println!("middle_translation: {}", middle_translation);
             let translation = transform.get_translation();
             transform
                 .clone()
@@ -196,8 +195,6 @@ impl TextLabel {
                 .translate(middle_translation)
         };
 
-        println!("{}", render_transform);
-        println!("bounding box: {}", bounding_box);
         let display_scale = transform.get_scale();
         let display_transform = transform.set_scale(Vector3::new(
             display_scale.x,
@@ -214,69 +211,6 @@ impl TextLabel {
             render_transform,
             display_transform,
         }
-    }
-    fn rebuild(
-        &mut self,
-        new_text_size: f32,
-        new_transform: Transform,
-        context: Rc<RefCell<Context>>,
-    ) -> Result<()> {
-        println!("******************* rebuilding text*****************");
-        println!("new transform: {}", new_transform);
-        let text_info = TextInfo {
-            text_size: [1, 1],
-            max_line_width: (new_transform.get_scale().x * 2.0) / new_text_size,
-        };
-        let (rgba_texture, bounding_box, mesh_asset) =
-            self.text_builder.build_mesh(text_info, self.text.clone());
-        println!(
-            "dimensions: ({}, {})",
-            rgba_texture.width(),
-            rgba_texture.height()
-        );
-        context.borrow_mut().delete_texture(self.texture)?;
-        self.texture = context
-            .borrow_mut()
-            .build_texture(&rgba_texture)
-            .expect("failed to text texture");
-        self.render_transform = {
-            // max = line_width
-            // mesh width = max*x
-            // x = mesh width/max
-            // 2.0 = max*x
-            // x =
-            let scale_x = new_transform.get_scale().x;
-            let mut scale = new_transform.get_scale();
-
-            scale.x = new_text_size / scale_x;
-            scale.y = new_text_size / scale_x;
-            let translation = new_transform.get_translation();
-            let middle = (bounding_box.max + bounding_box.min) / 2.0;
-            println!("middle: <{},{}>", middle.x, middle.y);
-            self.render_transform
-                .clone()
-                .set_scale(scale)
-                .set_translation(translation)
-                .translate(Vector3::new(scale_x / -2.0, 0.0, 0.0))
-                .translate(Vector3::new(
-                    -1.0 * middle.x * scale_x,
-                    -1.0 * middle.y * scale_x,
-                    0.0,
-                ))
-        };
-
-        println!("render transform {}", self.render_transform);
-
-        self.display_transform = new_transform.set_scale(Vector3::new(
-            (bounding_box.max.x - bounding_box.min.x) * self.render_transform.get_scale().x,
-            (bounding_box.max.y - bounding_box.min.y) * self.render_transform.get_scale().y,
-            1.0,
-        ));
-
-        context.borrow_mut().delete_mesh(self.text_mesh)?;
-        self.text_mesh = context.borrow_mut().build_mesh(mesh_asset, self.texture);
-        self.text_size = new_text_size;
-        Ok(())
     }
 }
 impl GuiItem for TextLabel {
@@ -302,17 +236,6 @@ impl GuiItem for TextLabel {
             transform,
             graphics.0.clone(),
         );
-        return;
-        if self.display_transform.get_scale() != transform.get_scale() {
-            self.rebuild(self.text_size, transform, graphics.0.clone())
-                .expect("failed to rebuild texture mesh after resize");
-        } else {
-            println!("setting transform of textlabel to {}", transform);
-            let scale_x = transform.get_scale().x;
-            self.render_transform = transform
-                .set_scale(self.render_transform.get_scale())
-                .translate(Vector3::new(scale_x / -2.0, 0.0, 0.0));
-        }
     }
     ///todo: figure out geometry properly
     fn build_listner(&self) -> EventListner {
@@ -323,8 +246,6 @@ impl GuiItem for TextLabel {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContainerAlignment {
     Center,
-    Left,
-    Right,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerticalContainerStyle {
@@ -360,9 +281,7 @@ impl VerticalContainer {
         for item in items.iter_mut() {
             y += style.padding;
             let x = match style.alignment {
-                ContainerAlignment::Left => todo!(),
                 ContainerAlignment::Center => 0.0,
-                ContainerAlignment::Right => todo!(),
             };
             println!("y: {}", y);
             let item_height = item.get_transform().get_scale().y;
@@ -401,13 +320,7 @@ impl VerticalContainer {
             ))
             .expect("failed to build default texture");
 
-        let container = GuiSquare::new(
-            transform,
-            default_tex,
-            hover_tex,
-            click_tex,
-            context.clone(),
-        )?;
+        let container = GuiSquare::new(transform, default_tex, hover_tex, click_tex, context)?;
         Ok(Self {
             container,
             items: items

@@ -2,6 +2,7 @@ use na::Vector2;
 use std::{
     cell::{RefCell, RefMut},
     rc::Rc,
+    time::Duration,
 };
 use sukakpak::{
     anyhow::Result, nalgebra as na, BoundFramebuffer, Context, Event, Framebuffer, Mesh, MeshAsset,
@@ -71,13 +72,12 @@ impl CloneCraft {
         Ok(())
     }
 }
-fn to_slice(mat: &na::Matrix4<f32>) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(
-            mat.as_ptr() as *const u8,
-            std::mem::size_of::<na::Matrix4<f32>>(),
-        )
-    }
+fn to_slice(mat: &na::Matrix4<f32>) -> Vec<u8> {
+    mat.as_slice()
+        .iter()
+        .map(|f| f.to_ne_bytes())
+        .flatten()
+        .collect()
 }
 const CUBE_DIMENSIONS: usize = 1;
 impl sukakpak::Renderable for CloneCraft {
@@ -148,7 +148,12 @@ impl sukakpak::Renderable for CloneCraft {
             plane,
         }
     }
-    fn render_frame(&mut self, events: &[Event], context: Rc<RefCell<Context>>, delta_time: f32) {
+    fn render_frame(
+        &mut self,
+        events: &[Event],
+        context: Rc<RefCell<Context>>,
+        delta_time: Duration,
+    ) {
         for e in events.iter() {
             match e {
                 Event::MouseMoved { normalized, .. } => self.cube_pos = *normalized,
@@ -163,7 +168,7 @@ impl sukakpak::Renderable for CloneCraft {
                     }
                 }
                 Event::ScrollContinue { delta } => {
-                    self.cube_scale += delta.delta.y * delta_time * 0.01;
+                    self.cube_scale += delta.delta.y * delta_time.as_secs_f32() * 0.01;
                 }
                 _ => (),
             }
@@ -226,6 +231,6 @@ impl sukakpak::Renderable for CloneCraft {
         ctx_ref
             .draw_mesh(to_slice(&plane_mat), &self.plane)
             .expect("failed to draw");
-        self.frame_counter += delta_time;
+        self.frame_counter += delta_time.as_secs_f32();
     }
 }

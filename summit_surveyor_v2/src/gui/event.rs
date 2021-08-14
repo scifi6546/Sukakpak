@@ -98,9 +98,9 @@ pub enum MouseButtonEvent {
 impl MouseButtonEvent {
     /// returns true if click event is active
     pub fn clicked(&self) -> bool {
-        match self {
-            &MouseButtonEvent::None => false,
-            &MouseButtonEvent::Clicked { .. } => true,
+        match *self {
+            MouseButtonEvent::None => false,
+            MouseButtonEvent::Clicked { .. } => true,
         }
     }
 }
@@ -129,11 +129,13 @@ impl EventListner {
         (point.x < self.upper_right_corner.x && point.y < self.upper_right_corner.y)
             && (point.x > self.lower_left_corner.x && point.y > self.lower_left_corner.y)
     }
+    #[allow(dead_code)]
     pub fn any_mouse_down(&self) -> bool {
         self.left_mouse_down != MouseButtonEvent::None
             || self.middle_mouse_down != MouseButtonEvent::None
             || self.right_mouse_down != MouseButtonEvent::None
     }
+    #[allow(dead_code)]
     pub fn new(upper_right_corner: Vector2<f32>, lower_left_corner: Vector2<f32>) -> Self {
         Self {
             mouse_hovered: MouseButtonEvent::None,
@@ -145,6 +147,7 @@ impl EventListner {
         }
     }
     /// If any mouse is down gets cursor position
+    #[allow(dead_code)]
     pub fn get_mouse_pos(&self) -> Option<Vector2<f32>> {
         match self.right_mouse_down {
             MouseButtonEvent::Clicked { position } => Some(position),

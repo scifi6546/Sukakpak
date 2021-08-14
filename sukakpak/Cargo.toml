@@ -14,7 +14,7 @@ tobj = "3.0.1"
 nalgebra = "0.27.1"
 anyhow = "1.0.40"
 ash-window = "0.6.0"
-gpu-allocator = "0.7.0"
+gpu-allocator = "0.8.0"
 phf = {version="0.8.0",features=["macros"]}
 image = "0.23.14"
 thiserror = "1.0.25"
