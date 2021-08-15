@@ -16,6 +16,11 @@ pub struct Grid<T> {
     data: Vec<T>,
     dimensions: Vector2<usize>,
 }
+impl<T> Grid<T> {
+    pub fn from_fn<F: Fn(u32, u32) -> T>(f: F) -> Self {
+        todo!()
+    }
+}
 impl Terrain {
     pub fn new_flat(dimensions: Vector2<usize>) -> Self {
         let heights = vec![0.0; dimensions.x * dimensions.y];
