@@ -1,29 +1,47 @@
 use super::prelude::{Model, Transform};
 use legion::*;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Mutex};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::Vector2,
     Context,
 };
-pub struct InsertableTerrain {}
-pub struct Terrain {
-    heights: Vec<f32>,
-    dimensions: Vector2<usize>,
-}
 pub struct Grid<T> {
     data: Vec<T>,
     dimensions: Vector2<usize>,
 }
 impl<T> Grid<T> {
-    pub fn from_fn<F: Fn(u32, u32) -> T>(f: F) -> Self {
-        todo!()
+    pub fn from_fn<F: Fn(usize, usize) -> T>(f: F, dimensions: Vector2<usize>) -> Self {
+        let mut data = vec![];
+        data.reserve(dimensions.x * dimensions.y);
+        for x in 0..dimensions.x {
+            for y in 0..dimensions.y {
+                data.push(f(x, y));
+            }
+        }
+        Self { dimensions, data }
     }
+    pub fn get(&self, x: usize, y: usize) -> &T {
+        assert!(x < self.dimensions.x);
+        assert!(y < self.dimensions.y);
+        &self.data[x * self.dimensions.y + y]
+    }
+    pub fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
+        assert!(x < self.dimensions.x);
+        assert!(y < self.dimensions.y);
+        &mut self.data[x * self.dimensions.y + y]
+    }
+}
+pub struct InsertableTerrain {}
+pub struct Terrain {
+    heights: Grid<f32>,
+
+    dimensions: Vector2<usize>,
 }
 impl Terrain {
     pub fn new_flat(dimensions: Vector2<usize>) -> Self {
-        let heights = vec![0.0; dimensions.x * dimensions.y];
+        let heights = Grid::from_fn(|_, _| 0.0, dimensions);
         Self {
             heights,
             dimensions,
@@ -44,12 +62,28 @@ impl Terrain {
                 heights.push(height);
             }
         }
+        let heights = Grid::from_fn(
+            move |x, y| {
+                let radius = ((x as f32 - center.x).powi(2) + (y as f32 - center.y).powi(2)).sqrt();
+                center_height + radius * slope
+            },
+            dimensions,
+        );
         Self {
             heights,
             dimensions,
         }
     }
-    pub fn insert(&self, world: &mut World, context: &Rc<RefCell<Context>>) -> Result<()> {
+    pub fn insert(
+        &self,
+        world: &mut World,
+        resources: &mut Resources,
+        context: &Rc<RefCell<Context>>,
+    ) -> Result<()> {
+        let graph_layer: Box<dyn GraphLayer> = self.into();
+        let mut layers = resources
+            .get_mut_or_insert::<Vec<Mutex<Box<dyn GraphLayer>>>>((vec![Mutex::new(self.into())]));
+        layers.push(Mutex::new(graph_layer));
         let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,
@@ -137,14 +171,51 @@ impl Terrain {
                 ],
             },
         };
+
         let model = Model::new(context.borrow_mut().build_mesh(mesh, texture));
         world.push((InsertableTerrain {}, Transform::default(), model, texture));
         Ok(())
     }
     fn get(&self, x: usize, y: usize) -> f32 {
-        self.heights[x * self.dimensions.y + y]
+        *self.heights.get(x, y)
     }
 }
+struct TerrainWeight(f32);
+pub struct TerrainGraphLayer {
+    grid: Grid<TerrainWeight>,
+}
+impl From<&Terrain> for TerrainGraphLayer {
+    fn from(t: &Terrain) -> Self {
+        let mut data = vec![];
+        data.reserve(t.heights.dimensions.x * t.heights.dimensions.y);
+        for x in 0..t.heights.dimensions.x {
+            for y in 0..t.heights.dimensions.y {
+                data.push(TerrainWeight(*t.heights.get(x, y)));
+            }
+        }
+        Self {
+            grid: Grid {
+                data,
+                dimensions: t.heights.dimensions,
+            },
+        }
+    }
+}
+impl From<&Terrain> for Box<dyn GraphLayer> {
+    fn from(t: &Terrain) -> Self {
+        let layer: TerrainGraphLayer = t.into();
+        Box::new(layer)
+    }
+}
+impl GraphLayer for TerrainGraphLayer {
+    fn get_children(&self, point: &GraphNode) -> Vec<(GraphWeight, GraphWeight)> {
+        todo!()
+    }
+    fn get_distance(&self, start_point: &GraphNode, end_point: &GraphNode) -> GraphWeight {
+        todo!()
+    }
+}
+
 pub struct GraphNode(pub Vector2<usize>);
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum GraphWeight {
@@ -203,7 +274,7 @@ impl std::iter::Sum for GraphWeight {
         iter.fold(GraphWeight::Some(0), |acc, x| acc + x)
     }
 }
-pub trait GraphLayer {
+pub trait GraphLayer: Send {
     /// Gets nodes connected to a node on a graph
     fn get_children(&self, point: &GraphNode) -> Vec<(GraphWeight, GraphWeight)>;
     /// gets weight connecting two points. If points are not connecte infinity is
