@@ -25,7 +25,7 @@ pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{GraphLayer, GraphNode, GraphWeight};
     pub use super::model::{Model, RenderingCtx};
-    pub use super::terrain::{GraphLayer, Terrain};
+    pub use super::terrain::Terrain;
 }
 
 impl sukakpak::Renderable for Game {

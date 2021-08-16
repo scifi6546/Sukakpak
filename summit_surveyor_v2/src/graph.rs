@@ -57,7 +57,7 @@ impl std::iter::Sum for GraphWeight {
         iter.fold(GraphWeight::Some(0), |acc, x| acc + x)
     }
 }
-pub trait GraphLayer {
+pub trait GraphLayer: Send {
     /// Gets nodes connected to a node on a graph
     fn get_children(&self, point: &GraphNode) -> Vec<(GraphWeight, GraphWeight)>;
     /// gets weight connecting two points. If points are not connecte infinity is
