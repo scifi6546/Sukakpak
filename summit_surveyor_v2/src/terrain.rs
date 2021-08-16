@@ -27,6 +27,9 @@ impl<T> Grid<T> {
         assert!(y < self.dimensions.y);
         &self.data[x * self.dimensions.y + y]
     }
+    pub fn dimensions(&self) -> Vector2<usize> {
+        self.dimensions
+    }
     #[allow(dead_code)]
     pub fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
         assert!(x < self.dimensions.x);
@@ -76,107 +79,110 @@ impl Terrain {
         }
     }
     pub fn insert(
-        &self,
+        self,
         world: &mut World,
         resources: &mut Resources,
         context: &Rc<RefCell<Context>>,
     ) -> Result<()> {
-        let graph_layer: Box<dyn GraphLayer> = self.into();
-        let mut layers = resources.get_mut_or_insert::<Vec<Mutex<Box<dyn GraphLayer>>>>(vec![]);
-        layers.push(Mutex::new(graph_layer));
-        let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
-            100,
-            100,
-            Rgba::from([200, 200, 200, 200]),
-        ))?;
-        let mut vertices = vec![];
-        let mut indices = vec![];
-        let mut idx = 0;
-        for x in 0..self.dimensions.x - 1 {
-            for y in 0..self.dimensions.y - 1 {
-                //Vertex 0:
-                //position
-                vertices.push(x as f32);
-                vertices.push(self.get(x, y));
-                vertices.push(y as f32);
+        let graph_layer: Box<dyn GraphLayer> = (&self).into();
+        {
+            let mut layers = resources.get_mut_or_insert::<Vec<Mutex<Box<dyn GraphLayer>>>>(vec![]);
+            layers.push(Mutex::new(graph_layer));
+            let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([200, 200, 200, 200]),
+            ))?;
+            let mut vertices = vec![];
+            let mut indices = vec![];
+            let mut idx = 0;
+            for x in 0..self.dimensions.x - 1 {
+                for y in 0..self.dimensions.y - 1 {
+                    //Vertex 0:
+                    //position
+                    vertices.push(x as f32);
+                    vertices.push(self.get(x, y));
+                    vertices.push(y as f32);
 
-                //texture coord
-                vertices.push(0.0);
-                vertices.push(0.0);
-                //normal
-                vertices.push(0.0);
-                vertices.push(1.0);
-                vertices.push(0.0);
+                    //texture coord
+                    vertices.push(0.0);
+                    vertices.push(0.0);
+                    //normal
+                    vertices.push(0.0);
+                    vertices.push(1.0);
+                    vertices.push(0.0);
 
-                //Vertex 1
+                    //Vertex 1
 
-                //position
-                vertices.push((x + 1) as f32);
-                vertices.push(self.get(x + 1, y));
-                vertices.push(y as f32);
+                    //position
+                    vertices.push((x + 1) as f32);
+                    vertices.push(self.get(x + 1, y));
+                    vertices.push(y as f32);
 
-                //texture coord
-                vertices.push(1.0);
-                vertices.push(0.0);
-                //normal
-                vertices.push(0.0);
-                vertices.push(1.0);
-                vertices.push(0.0);
-                //Vertex2
+                    //texture coord
+                    vertices.push(1.0);
+                    vertices.push(0.0);
+                    //normal
+                    vertices.push(0.0);
+                    vertices.push(1.0);
+                    vertices.push(0.0);
+                    //Vertex2
 
-                //position
-                vertices.push((x) as f32);
-                vertices.push(self.get(y + 1, x));
-                vertices.push((y + 1) as f32);
+                    //position
+                    vertices.push((x) as f32);
+                    vertices.push(self.get(y + 1, x));
+                    vertices.push((y + 1) as f32);
 
-                //texture coord
-                vertices.push(0.0);
-                vertices.push(1.0);
-                //normal
-                vertices.push(0.0);
-                vertices.push(1.0);
-                vertices.push(0.0);
-                //Vertex3
+                    //texture coord
+                    vertices.push(0.0);
+                    vertices.push(1.0);
+                    //normal
+                    vertices.push(0.0);
+                    vertices.push(1.0);
+                    vertices.push(0.0);
+                    //Vertex3
 
-                //position
-                vertices.push((x + 1) as f32);
-                vertices.push(self.get(y + 1, x + 1));
-                vertices.push((y + 1) as f32);
+                    //position
+                    vertices.push((x + 1) as f32);
+                    vertices.push(self.get(y + 1, x + 1));
+                    vertices.push((y + 1) as f32);
 
-                //texture coord
-                vertices.push(1.0);
-                vertices.push(1.0);
-                //normal
-                vertices.push(0.0);
-                vertices.push(1.0);
-                vertices.push(0.0);
-                indices.push(idx);
-                indices.push(idx + 2);
-                indices.push(idx + 1);
+                    //texture coord
+                    vertices.push(1.0);
+                    vertices.push(1.0);
+                    //normal
+                    vertices.push(0.0);
+                    vertices.push(1.0);
+                    vertices.push(0.0);
+                    indices.push(idx);
+                    indices.push(idx + 2);
+                    indices.push(idx + 1);
 
-                indices.push(idx + 2);
-                indices.push(idx + 3);
-                indices.push(idx + 1);
-                idx += 4;
+                    indices.push(idx + 2);
+                    indices.push(idx + 3);
+                    indices.push(idx + 1);
+                    idx += 4;
+                }
             }
-        }
-        let mesh = sukakpak::MeshAsset {
-            indices,
-            vertices: vertices.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
-            vertex_layout: sukakpak::VertexLayout {
-                components: vec![
-                    sukakpak::VertexComponent::Vec3F32,
-                    sukakpak::VertexComponent::Vec2F32,
-                    sukakpak::VertexComponent::Vec3F32,
-                ],
-            },
-        };
+            let mesh = sukakpak::MeshAsset {
+                indices,
+                vertices: vertices.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
+                vertex_layout: sukakpak::VertexLayout {
+                    components: vec![
+                        sukakpak::VertexComponent::Vec3F32,
+                        sukakpak::VertexComponent::Vec2F32,
+                        sukakpak::VertexComponent::Vec3F32,
+                    ],
+                },
+            };
 
-        let model = Model::new(context.borrow_mut().build_mesh(mesh, texture));
-        world.push((InsertableTerrain {}, Transform::default(), model, texture));
+            let model = Model::new(context.borrow_mut().build_mesh(mesh, texture));
+            world.push((InsertableTerrain {}, Transform::default(), model, texture));
+        }
+        resources.insert(self);
         Ok(())
     }
-    fn get(&self, x: usize, y: usize) -> f32 {
+    pub fn get(&self, x: usize, y: usize) -> f32 {
         *self.heights.get(x, y)
     }
 }
@@ -208,8 +214,34 @@ impl From<&Terrain> for Box<dyn GraphLayer> {
     }
 }
 impl GraphLayer for TerrainGraphLayer {
-    fn get_children(&self, point: &GraphNode) -> Vec<(GraphWeight, GraphWeight)> {
-        todo!()
+    fn get_children(&self, point: &GraphNode) -> Vec<(GraphNode, GraphWeight)> {
+        let pos = point.0;
+        let mut v = vec![];
+        if pos.x > 0 {
+            v.push((
+                GraphNode(Vector2::new(pos.x - 1, pos.y)),
+                GraphWeight::Some(1),
+            ));
+        }
+        if pos.y > 0 {
+            v.push((
+                GraphNode(Vector2::new(pos.x, pos.y - 1)),
+                GraphWeight::Some(1),
+            ));
+        }
+        if pos.x < self.grid.dimensions().x - 1 {
+            v.push((
+                GraphNode(Vector2::new(pos.x + 1, pos.y)),
+                GraphWeight::Some(1),
+            ));
+        }
+        if pos.y < self.grid.dimensions().y - 1 {
+            v.push((
+                GraphNode(Vector2::new(pos.x, pos.y + 1)),
+                GraphWeight::Some(1),
+            ));
+        }
+        v
     }
     fn get_distance(&self, start_point: &GraphNode, end_point: &GraphNode) -> GraphWeight {
         todo!()

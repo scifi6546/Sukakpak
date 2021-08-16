@@ -23,7 +23,7 @@ struct Game {
 }
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
-    pub use super::graph::{GraphLayer, GraphNode, GraphWeight};
+    pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphWeight, Path};
     pub use super::model::{Model, RenderingCtx};
     pub use super::terrain::Terrain;
 }
@@ -177,6 +177,17 @@ impl sukakpak::Renderable for Game {
         .expect("failed to insert");
 
         resources.insert(RenderingCtx::new(&context));
+        for x in 0..10 {
+            for y in 0..1 {
+                skiier::Skiier::insert(
+                    Vector2::new(x, y),
+                    Vector2::new(x + 10, y + 10),
+                    &mut world,
+                    &mut resources,
+                )
+                .expect("failed to build skiier");
+            }
+        }
         resources.insert(
             Camera::default()
                 .set_translation(Vector3::new(0.0, 2.0, 0.0))
