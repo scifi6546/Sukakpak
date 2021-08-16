@@ -3,6 +3,7 @@ mod camera;
 mod graph;
 mod gui;
 mod model;
+mod skiier;
 mod terrain;
 use camera::{Camera, Transform};
 use gui::EventCollector;
@@ -24,7 +25,7 @@ pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{GraphLayer, GraphNode, GraphWeight};
     pub use super::model::{Model, RenderingCtx};
-    pub use super::terrain::Terrain;
+    pub use super::terrain::{GraphLayer, Terrain};
 }
 
 impl sukakpak::Renderable for Game {
@@ -44,7 +45,7 @@ impl sukakpak::Renderable for Game {
             .bind_shader(&sukakpak::BoundFramebuffer::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
         Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
-            .insert(&mut world, &context)
+            .insert(&mut world, &mut resources, &context)
             .expect("failed to build terrain");
         model::insert_cube(
             Transform::default()
@@ -205,6 +206,7 @@ impl sukakpak::Renderable for Game {
             ))
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
+            .add_system(skiier::skiier_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
             .add_system(model::render_model_system())
