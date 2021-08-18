@@ -1,7 +1,7 @@
 use super::prelude::{
-    dijkstra, GraphLayer, GraphNode, Model, Path, RenderingCtx, Terrain, Transform,
+    dijkstra, GraphLayer, GraphNode, GraphWeight, Model, RenderingCtx, Terrain, Transform,
 };
-use legion::systems::CommandBuffer;
+mod decision_tree;
 use legion::*;
 use std::sync::Mutex;
 use sukakpak::{
@@ -46,14 +46,14 @@ impl Skiier {
                 .map(|p| {
                     let x = p.0 .0.x;
                     let z = p.0 .0.y;
-                    let y = terrain.get(x, z);
+                    let y = terrain.get_height(x, z);
                     Vector3::new(x as f32, y as f32, z as f32)
                 })
                 .collect(),
             t: 0.0,
         };
         let transform = Transform::default().set_translation(follow.points[0]);
-        let mut r_ctx: &RenderingCtx = &resources.get_mut().unwrap();
+        let r_ctx: &RenderingCtx = &resources.get_mut().unwrap();
         let texture = r_ctx.0.borrow_mut().build_texture(&RgbaImage::from_pixel(
             100,
             100,

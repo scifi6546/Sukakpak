@@ -1,7 +1,7 @@
 use priority_queue::PriorityQueue;
 use std::{cmp::Reverse, collections::HashMap, sync::Mutex};
 pub use sukakpak::nalgebra::Vector2;
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq)]
 pub struct GraphNode(pub Vector2<usize>);
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum GraphWeight {
@@ -60,7 +60,13 @@ impl std::iter::Sum for GraphWeight {
         iter.fold(GraphWeight::Some(0), |acc, x| acc + x)
     }
 }
+pub enum GraphType {
+    Terrain,
+    Lift { start: GraphNode, end: GraphNode },
+}
 pub trait GraphLayer: Send {
+    /// gets the type of Graph
+    fn get_type(&self) -> GraphType;
     /// Gets nodes connected to a node on a graph
     fn get_children(&self, point: &GraphNode) -> Vec<(GraphNode, GraphWeight)>;
     /// gets weight connecting two points. If points are not connecte infinity is
@@ -88,8 +94,11 @@ impl Path {
     pub fn len(&self) -> usize {
         self.path.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     pub fn endpoint(&self) -> Option<&GraphNode> {
-        if self.path.len() > 0 {
+        if !self.path.is_empty() {
             Some(&self.path[self.path.len() - 1].0)
         } else {
             None
@@ -129,7 +138,7 @@ pub fn dijkstra(
     //inserting first node
     queue.push(source.clone(), Reverse(GraphWeight::Some(0)));
     distance.insert(source.clone(), GraphWeight::Some(0));
-    while queue.is_empty() == false {
+    while !queue.is_empty() {
         let (best_vertex, parent_distance) = queue.pop().unwrap();
         //getting neighbors
         for (child, child_distance) in graph.iter().flat_map(|g| {
@@ -150,7 +159,7 @@ pub fn dijkstra(
                 distance.insert(child.clone(), total_distance.clone());
                 previous.insert(child.clone(), (best_vertex.clone(), child_distance.clone()));
 
-                queue.push(child.clone(), Reverse(total_distance.into()));
+                queue.push(child.clone(), Reverse(total_distance));
             }
         }
     }
@@ -163,7 +172,7 @@ pub fn dijkstra(
             current = (node.clone(), weight.clone().clone());
         } else {
             return Path {
-                path: path.iter().rev().map(|p| p.clone()).collect(),
+                path: path.iter().rev().cloned().collect(),
             };
         }
     }

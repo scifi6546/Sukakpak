@@ -1,7 +1,9 @@
+#![allow(unknown_lints)]
 #![allow(clippy::nonstandard_macro_braces)]
 mod camera;
 mod graph;
 mod gui;
+mod lift;
 mod model;
 mod skiier;
 mod terrain;
@@ -15,7 +17,7 @@ use sukakpak::{
     nalgebra::{Vector2, Vector3},
     Context, Event, Sukakpak,
 };
-use terrain::{InsertableTerrain, Terrain};
+use terrain::Terrain;
 struct Game {
     world: World,
     resources: Resources,
@@ -23,7 +25,7 @@ struct Game {
 }
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
-    pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphWeight, Path};
+    pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::model::{Model, RenderingCtx};
     pub use super::terrain::Terrain;
 }
@@ -177,6 +179,10 @@ impl sukakpak::Renderable for Game {
         .expect("failed to insert");
 
         resources.insert(RenderingCtx::new(&context));
+        Schedule::builder()
+            .add_system(lift::insert_lift_system())
+            .build()
+            .execute(&mut world, &mut resources);
         for x in 0..10 {
             for y in 0..1 {
                 skiier::Skiier::insert(
@@ -258,12 +264,8 @@ fn main() {
         name: "Summit Surveyor".to_string(),
     });
 }
-#[system(for_each)]
-pub fn terrain_camera(
-    terrain: &InsertableTerrain,
-    #[resource] events: &mut EventCollector,
-    #[resource] camera: &mut Camera,
-) {
+#[system]
+pub fn terrain_camera(#[resource] events: &mut EventCollector, #[resource] camera: &mut Camera) {
     if events.keycodes_down.contains(&30) {
         *camera = camera.clone().translate(Vector3::new(-0.01, 0.0, 0.0))
     }

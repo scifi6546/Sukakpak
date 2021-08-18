@@ -1,4 +1,4 @@
-use super::prelude::{GraphLayer, GraphNode, GraphWeight, Model, Transform};
+use super::prelude::{GraphLayer, GraphNode, GraphType, GraphWeight, Model, Transform};
 use legion::*;
 use std::{cell::RefCell, rc::Rc, sync::Mutex};
 use sukakpak::{
@@ -101,7 +101,7 @@ impl Terrain {
                     //Vertex 0:
                     //position
                     vertices.push(x as f32);
-                    vertices.push(self.get(x, y));
+                    vertices.push(self.get_height(x, y));
                     vertices.push(y as f32);
 
                     //texture coord
@@ -116,7 +116,7 @@ impl Terrain {
 
                     //position
                     vertices.push((x + 1) as f32);
-                    vertices.push(self.get(x + 1, y));
+                    vertices.push(self.get_height(x + 1, y));
                     vertices.push(y as f32);
 
                     //texture coord
@@ -130,7 +130,7 @@ impl Terrain {
 
                     //position
                     vertices.push((x) as f32);
-                    vertices.push(self.get(y + 1, x));
+                    vertices.push(self.get_height(y + 1, x));
                     vertices.push((y + 1) as f32);
 
                     //texture coord
@@ -144,7 +144,7 @@ impl Terrain {
 
                     //position
                     vertices.push((x + 1) as f32);
-                    vertices.push(self.get(y + 1, x + 1));
+                    vertices.push(self.get_height(y + 1, x + 1));
                     vertices.push((y + 1) as f32);
 
                     //texture coord
@@ -182,7 +182,7 @@ impl Terrain {
         resources.insert(self);
         Ok(())
     }
-    pub fn get(&self, x: usize, y: usize) -> f32 {
+    pub fn get_height(&self, x: usize, y: usize) -> f32 {
         *self.heights.get(x, y)
     }
 }
@@ -214,6 +214,9 @@ impl From<&Terrain> for Box<dyn GraphLayer> {
     }
 }
 impl GraphLayer for TerrainGraphLayer {
+    fn get_type(&self) -> GraphType {
+        GraphType::Terrain
+    }
     fn get_children(&self, point: &GraphNode) -> Vec<(GraphNode, GraphWeight)> {
         let pos = point.0;
         let mut v = vec![];
