@@ -1,7 +1,9 @@
 use super::prelude::{
-    dijkstra, GraphLayer, GraphNode, GraphWeight, Model, RenderingCtx, Terrain, Transform,
+    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, RenderingCtx, Terrain,
+    Transform,
 };
 mod decision_tree;
+use decision_tree::DecisionTree;
 use legion::*;
 use std::sync::Mutex;
 use sukakpak::{
@@ -66,7 +68,8 @@ impl Skiier {
                 .build_mesh(sukakpak::MeshAsset::new_cube(), texture),
         );
         println!("path: {}", path);
-        world.push((Skiier {}, follow, transform, model));
+        let (decison_tree, cost) = DecisionTree::new(GraphNode(start), layers);
+        world.push((Skiier {}, follow, transform, model, decison_tree, cost));
         Ok(())
     }
 }

@@ -3,7 +3,7 @@ use std::{cmp::Reverse, collections::HashMap, sync::Mutex};
 pub use sukakpak::nalgebra::Vector2;
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq)]
 pub struct GraphNode(pub Vector2<usize>);
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq)]
 pub enum GraphWeight {
     Some(i32),
     Infinity,
@@ -96,6 +96,12 @@ impl Path {
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+    pub fn cost(&self) -> GraphWeight {
+        self.path
+            .iter()
+            .map(|(_node, weight)| weight)
+            .fold(GraphWeight::Some(0), |acc, x| acc + *x)
     }
     pub fn endpoint(&self) -> Option<&GraphNode> {
         if !self.path.is_empty() {
