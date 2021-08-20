@@ -3,16 +3,18 @@ use super::*;
 //To go up I need to know the end and start pos
 //To Go down the start and end are supplied
 //
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct DecisionCost {
     pub cost: GraphWeight,
     pub end: GraphNode,
+    pub path: Path,
 }
 impl DecisionCost {
     pub fn inf() -> Self {
         Self {
             cost: GraphWeight::Infinity,
             end: GraphNode(Vector2::new(0, 0)),
+            path: Default::default(),
         }
     }
 }
@@ -26,9 +28,10 @@ pub struct GoToLift {
 }
 impl Decision for GoToLift {
     fn get_cost(&self, start: GraphNode, layers: &Vec<Mutex<Box<dyn GraphLayer>>>) -> DecisionCost {
-        let goto_cost = dijkstra(&start, &self.start, layers).cost();
+        let path = dijkstra(&start, &self.start, layers);
         DecisionCost {
-            cost: goto_cost + GraphWeight::Some(1),
+            cost: path.cost() + GraphWeight::Some(1),
+            path,
             end: self.end,
         }
     }
@@ -85,6 +88,7 @@ impl DecisionTree {
         let cost = if let Some(child_cost) = cost {
             DecisionCost {
                 cost: child_cost.cost + root_cost.cost,
+                path: child_cost.path,
                 end: child_cost.end,
             }
         } else {
