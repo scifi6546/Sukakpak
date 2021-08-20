@@ -100,6 +100,7 @@ impl DecisionTree {
         )
     }
 }
+///Gets possible decisions for a given
 fn get_decisions(layers: &[Mutex<Box<dyn GraphLayer>>]) -> Vec<Box<dyn Decision>> {
     layers
         .iter()

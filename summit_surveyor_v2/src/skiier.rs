@@ -1,5 +1,5 @@
 use super::prelude::{
-    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, RenderingCtx, Terrain,
+    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, Path, RenderingCtx, Terrain,
     Transform,
 };
 mod decision_tree;

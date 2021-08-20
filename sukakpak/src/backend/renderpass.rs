@@ -140,7 +140,7 @@ impl RenderPass {
         self.acquire_next_image(core)?;
         let image_index = self.image_index.unwrap();
         core.device
-            .wait_for_fences(&[self.fences[image_index as usize]], true, 1000)?;
+            .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)?;
         core.device.begin_command_buffer(
             self.command_buffers[image_index as usize],
             &vk::CommandBufferBeginInfo::builder(),
