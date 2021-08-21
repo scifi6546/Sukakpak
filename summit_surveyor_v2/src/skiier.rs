@@ -3,15 +3,17 @@ use super::prelude::{
     Transform,
 };
 mod decision_tree;
-use decision_tree::DecisionTree;
+use decision_tree::{DecisionCost, DecisionTree};
 use legion::*;
-use std::sync::Mutex;
+use std::{sync::Mutex, time::Duration};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
 };
 pub struct FollowPath {
+    start: GraphNode,
+    end: GraphNode,
     points: Vec<Vector3<f32>>,
     t: f32,
 }
@@ -28,21 +30,24 @@ impl FollowPath {
             *self.points.last().unwrap()
         }
     }
+    pub fn at_end(&self) -> bool {
+        self.t >= self.points.len() as f32
+    }
 }
 pub struct Skiier {}
 impl Skiier {
     pub fn insert(
         start: Vector2<usize>,
-        end: Vector2<usize>,
         world: &mut World,
         resources: &mut Resources,
     ) -> Result<()> {
         let layers: &Vec<Mutex<Box<dyn GraphLayer>>> = &resources.get().unwrap();
-        let path = dijkstra(&GraphNode(start), &GraphNode(end), layers.as_slice());
         let terrain: &Terrain = &resources.get().unwrap();
 
         let (decison_tree, cost, path) = DecisionTree::new(GraphNode(start), layers);
         let follow = FollowPath {
+            start: path.get(0).unwrap().0,
+            end: *path.endpoint().unwrap(),
             points: path
                 .path
                 .iter()
@@ -73,7 +78,44 @@ impl Skiier {
         Ok(())
     }
 }
+/// Recalculates path once at end of following it
 #[system(for_each)]
-pub fn skiier(path: &mut FollowPath, transform: &mut Transform) {
-    *transform = transform.clone().set_translation(path.incr(0.01));
+pub fn skiier_path(
+    follow_path: &mut FollowPath,
+    decison_tree: &mut DecisionTree,
+    cost: &mut DecisionCost,
+    #[resource] layers: &Vec<Mutex<Box<dyn GraphLayer>>>,
+    #[resource] terrain: &Terrain,
+) {
+    if follow_path.at_end() {
+        let (new_decison_tree, new_cost, new_path) = DecisionTree::new(follow_path.end, layers);
+        *follow_path = FollowPath {
+            start: follow_path.start,
+            end: follow_path.end,
+            points: new_path
+                .path
+                .iter()
+                .map(|p| {
+                    let x = p.0 .0.x;
+                    let z = p.0 .0.y;
+                    let y = terrain.get_height(x, z);
+                    Vector3::new(x as f32, y as f32, z as f32)
+                })
+                .collect(),
+            t: 0.0,
+        };
+        *cost = new_cost;
+        *decison_tree = new_decison_tree;
+    }
+}
+
+#[system(for_each)]
+pub fn skiier(
+    path: &mut FollowPath,
+    transform: &mut Transform,
+    #[resource] duration: &mut Duration,
+) {
+    *transform = transform
+        .clone()
+        .set_translation(path.incr(100.0 * duration.as_secs_f32()));
 }

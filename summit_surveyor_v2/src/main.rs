@@ -185,13 +185,8 @@ impl sukakpak::Renderable for Game {
             .execute(&mut world, &mut resources);
         for x in 0..10 {
             for y in 0..1 {
-                skiier::Skiier::insert(
-                    Vector2::new(x, y),
-                    Vector2::new(x + 10, y + 10),
-                    &mut world,
-                    &mut resources,
-                )
-                .expect("failed to build skiier");
+                skiier::Skiier::insert(Vector2::new(x, y), &mut world, &mut resources)
+                    .expect("failed to build skiier");
             }
         }
         resources.insert(
@@ -214,6 +209,7 @@ impl sukakpak::Renderable for Game {
         context: Rc<RefCell<Context>>,
         delta_time: Duration,
     ) {
+        self.resources.insert(delta_time);
         self.process_events(delta_time, events);
 
         context
@@ -224,6 +220,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
             .add_system(skiier::skiier_system())
+            .add_system(skiier::skiier_path_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
             .add_system(model::render_model_system())

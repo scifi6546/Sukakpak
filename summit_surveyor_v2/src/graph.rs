@@ -103,6 +103,9 @@ impl Path {
             .map(|(_node, weight)| weight)
             .fold(GraphWeight::Some(0), |acc, x| acc + *x)
     }
+    pub fn get(&self, idx: usize) -> Option<&(GraphNode, GraphWeight)> {
+        self.path.get(idx)
+    }
     pub fn endpoint(&self) -> Option<&GraphNode> {
         if !self.path.is_empty() {
             Some(&self.path[self.path.len() - 1].0)
