@@ -38,6 +38,7 @@ impl Decision for GoToLift {
 }
 pub struct DecisionTree {
     root: Mutex<Box<dyn Decision>>,
+    root_end: GraphNode,
     children: Vec<DecisionTree>,
 }
 impl DecisionTree {
@@ -85,6 +86,7 @@ impl DecisionTree {
         } else {
             (vec![], None)
         };
+        let root_end = root_cost.end;
         let cost = if let Some(child_cost) = cost {
             DecisionCost {
                 cost: child_cost.cost + root_cost.cost,
@@ -98,10 +100,14 @@ impl DecisionTree {
         (
             Self {
                 root: Mutex::new(root),
+                root_end,
                 children,
             },
             cost,
         )
+    }
+    pub fn next(self, layers: &Vec<Mutex<Box<dyn GraphLayer>>>, recurse_levels: u8) -> Self {
+        todo!()
     }
 }
 ///Gets possible decisions for a given
