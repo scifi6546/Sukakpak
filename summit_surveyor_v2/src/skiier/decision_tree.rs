@@ -46,6 +46,7 @@ impl Decision for GoToLift {
 }
 pub struct DecisionTree {
     root: Mutex<Box<dyn Decision>>,
+    root_end: GraphNode,
     children: Vec<DecisionTree>,
 }
 impl DecisionTree {
@@ -116,12 +117,13 @@ impl DecisionTree {
                 root_path.append(lowest_cost_path.as_ref().unwrap()),
             )
         } else {
-            (root_cost, root_path)
+            (root_cost.clone(), root_path)
         };
 
         (
             Self {
                 root: Mutex::new(root),
+                root_end: root_cost.end,
                 children,
             },
             cost,
