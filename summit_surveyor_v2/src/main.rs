@@ -3,6 +3,7 @@
 mod camera;
 mod graph;
 mod gui;
+mod hud;
 mod lift;
 mod model;
 mod skiier;
@@ -26,6 +27,7 @@ struct Game {
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
+    pub use super::gui::{GuiComponent, GuiItem, TextLabel};
     pub use super::model::{Model, RenderingCtx};
     pub use super::terrain::Terrain;
 }
@@ -181,6 +183,7 @@ impl sukakpak::Renderable for Game {
         resources.insert(RenderingCtx::new(&context));
         Schedule::builder()
             .add_system(lift::insert_lift_system())
+            .add_system(hud::build_hud_system())
             .build()
             .execute(&mut world, &mut resources);
         for x in 0..10 {
@@ -220,6 +223,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
             .add_system(skiier::skiier_system())
+            .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
@@ -242,6 +246,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to draw screen surface");
         let mut gui_rendering_schedule = Schedule::builder()
             .add_system(gui::render_gui_component_system())
+            .add_system(hud::render_hud_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
         self.resources.get_mut::<EventCollector>().unwrap().clear();

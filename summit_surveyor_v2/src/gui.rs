@@ -130,7 +130,6 @@ pub fn render_gui_component(component: &GuiComponent, #[resource] graphics: &mut
         .expect("failed to get exclusive lock on gui item")
         .render(Transform::default(), graphics);
 }
-
 /// Describes which way to alighn elements in a container
 pub struct TextLabel {
     text_mesh: sukakpak::Mesh,
@@ -152,32 +151,20 @@ impl TextLabel {
         transform: Transform,
         context: Rc<RefCell<Context>>,
     ) -> Self {
-        let size = transform.get_scale().x;
-
         let mut text_builder = TextBuilder::default();
+        let size = transform.get_scale().x;
         let max_line_width = (size * 2.0) / text_size;
         let text_info = TextInfo {
             text_size: [1, 1],
             max_line_width,
         };
-        println!("text info: {:?}", text_info);
         let (rgba_texture, bounding_box, mesh_asset) =
             text_builder.build_mesh(text_info, text.clone());
-        println!(
-            "dimensions: ({}, {})",
-            rgba_texture.width(),
-            rgba_texture.height()
-        );
         let texture = context
             .borrow_mut()
             .build_texture(&rgba_texture)
             .expect("failed to text texture");
         let render_transform = {
-            // max = line_width
-            // mesh width = max*x
-            // x = mesh width/max
-            // 2.0 = max*x
-            // x =
             let scale_x = transform.get_scale().x;
             let mut scale = transform.get_scale();
 
