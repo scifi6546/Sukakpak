@@ -41,6 +41,7 @@ impl Skiier {
         let path = dijkstra(&GraphNode(start), &GraphNode(end), layers.as_slice());
         let terrain: &Terrain = &resources.get().unwrap();
 
+        let (decison_tree, cost, path) = DecisionTree::new(GraphNode(start), layers);
         let follow = FollowPath {
             points: path
                 .path
@@ -68,7 +69,6 @@ impl Skiier {
                 .build_mesh(sukakpak::MeshAsset::new_cube(), texture),
         );
         println!("path: {}", path);
-        let (decison_tree, cost) = DecisionTree::new(GraphNode(start), layers);
         world.push((Skiier {}, follow, transform, model, decison_tree, cost));
         Ok(())
     }
