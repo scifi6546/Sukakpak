@@ -6,6 +6,7 @@ use nalgebra::Vector2;
 use thiserror::Error;
 mod command_pool;
 mod framebuffer;
+mod freelist;
 mod render_core;
 mod renderpass;
 mod resource_pool;

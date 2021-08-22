@@ -1,2 +1,2 @@
 [workspace]
-members = ["main","sukakpak","ass_lib","ass_bin","summit_surveyor","summit_surveyor_v2"]
+members = ["main","sukakpak","ass_lib","ass_bin","summit_surveyor_v2"]
