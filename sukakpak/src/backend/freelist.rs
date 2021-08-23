@@ -14,6 +14,8 @@ impl<T> Freelist {
             self.by_renderpass.insert(renderpass, vec![item]);
         }
     }
-    /// Frees a component
-    pub fn try_free() {}
+    /// Marks a component as to be freed
+    pub fn try_free(&self, item: T) {
+        self.to_free.push(item)
+    }
 }
