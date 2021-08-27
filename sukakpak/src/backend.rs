@@ -20,7 +20,7 @@ use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDe
 use render_core::Core;
 pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
-use renderpass::{ClearOp, RenderMesh, RenderPass};
+use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass};
 use resource_pool::{
     DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
@@ -177,15 +177,6 @@ impl Backend {
                 )?),
         })
     }
-    pub fn free_vertices(&mut self, id: VertexBufferID) -> Result<()> {
-        let buffer = self
-            .vertex_buffers
-            .remove(id.buffer_index)
-            .expect("buffer not found");
-
-        buffer.free(&mut self.core, &mut self.resource_pool)?;
-        Ok(())
-    }
     pub fn allocate_indicies(&mut self, indicies: Vec<u32>) -> Result<IndexBufferID> {
         Ok(IndexBufferID {
             buffer_index: self
@@ -196,14 +187,6 @@ impl Backend {
                     indicies,
                 )?),
         })
-    }
-    pub fn free_indices(&mut self, idx_buffer: IndexBufferID) -> Result<()> {
-        let buffer = self
-            .index_buffers
-            .remove(idx_buffer.buffer_index)
-            .expect("buffer not found");
-        buffer.free(&mut self.core, &mut self.resource_pool)?;
-        Ok(())
     }
     pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
         Ok(TextureID {
@@ -274,6 +257,16 @@ impl Backend {
         framebuffer.rebuild_framebuffer(&mut self.core, &self.resource_pool, shader)?;
         Ok(())
     }
+    /// Frees mesh data, can be called at any time as freeing waits untill data is unused by
+    /// renderpasses
+    pub fn free_mesh(&mut self, mesh: &MeshID) -> Result<()> {
+        let ids = RenderMeshIds {
+            index_buffer_id: mesh.indices.buffer_index,
+            vertex_buffer_id: mesh.vertices.buffer_index,
+        };
+        self.renderpass.free_mesh(ids);
+        Ok(())
+    }
 
     pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &MeshID) -> Result<()> {
         let texture_descriptor_set = match mesh.texture {
@@ -301,6 +294,10 @@ impl Backend {
         };
         let render_mesh = RenderMesh {
             push,
+            ids: RenderMeshIds {
+                index_buffer_id: mesh.indices.buffer_index,
+                vertex_buffer_id: mesh.vertices.buffer_index,
+            },
             vertex_buffer: self.vertex_buffers.get(mesh.vertices.buffer_index).unwrap(),
             index_buffer: self.index_buffers.get(mesh.indices.buffer_index).unwrap(),
         };
@@ -345,7 +342,21 @@ impl Backend {
         if self.bound_framebuffer != BoundFramebuffer::ScreenFramebuffer {
             self.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)?;
         }
-        self.renderpass.submit_draw(&mut self.core)?;
+        let free_data = self.renderpass.submit_draw(&mut self.core)?;
+        for ids in free_data.meshes.iter() {
+            let buffer = self
+                .vertex_buffers
+                .remove(ids.vertex_buffer_id)
+                .expect("buffer not found");
+
+            buffer.free(&mut self.core, &mut self.resource_pool)?;
+            let buffer = self
+                .index_buffers
+                .remove(ids.index_buffer_id)
+                .expect("buffer not found");
+
+            buffer.free(&mut self.core, &mut self.resource_pool)?;
+        }
         let r = self.renderpass.swap_framebuffer(&mut self.core);
         if let Err(r) = r {
             if r == vk::Result::ERROR_OUT_OF_DATE_KHR {

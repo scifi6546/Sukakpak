@@ -2,13 +2,13 @@ use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
 };
-pub type RenderpassID = usize;
-#[derive(Default)]
-pub struct Freelist<T: Eq + Hash + Clone> {
+pub type RenderpassID = u32;
+#[derive(Debug)]
+pub struct FreeList<T: Eq + Hash + Clone> {
     too_free: HashSet<T>,
     by_renderpass: HashMap<RenderpassID, Vec<T>>,
 }
-impl<T: Eq + Hash + Clone> Freelist<T> {
+impl<T: Eq + Hash + Clone> FreeList<T> {
     /// Marks the item as used
     pub fn push(&mut self, item: T, renderpass: RenderpassID) {
         if self.by_renderpass.contains_key(&renderpass) {
@@ -38,16 +38,24 @@ impl<T: Eq + Hash + Clone> Freelist<T> {
         return out_free;
     }
 }
+impl<T: Eq + Hash + Clone> Default for FreeList<T> {
+    fn default() -> Self {
+        Self {
+            too_free: HashSet::new(),
+            by_renderpass: HashMap::new(),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn build_freelist() {
-        let _list = Freelist::<u32>::default();
+        let _list = FreeList::<u32>::default();
     }
     #[test]
     fn run_simple_render() {
-        let mut list: Freelist<u32> = Default::default();
+        let mut list: FreeList<u32> = Default::default();
         list.push(1, 0);
         let r = list
             .finish_renderpass(0)
@@ -65,7 +73,7 @@ mod tests {
     }
     #[test]
     fn multiple_renders() {
-        let mut list: Freelist<u32> = Default::default();
+        let mut list: FreeList<u32> = Default::default();
         list.push(1, 0);
         list.push(1, 1);
         let r = list

@@ -17,6 +17,7 @@ pub struct CloneCraft {
     cube_scale: f32,
     cube_pos: na::Vector2<f32>,
     sphere: Mesh,
+    num_frames: u32,
     textured_cube: Mesh,
     #[allow(dead_code)]
     mountain_tex: MeshTexture,
@@ -145,6 +146,7 @@ impl sukakpak::Renderable for CloneCraft {
             mountain_tex,
             alt_fb_mesh,
             cube_pos: Vector2::new(0.0, 0.0),
+            num_frames: 0,
             plane,
         }
     }
@@ -174,6 +176,17 @@ impl sukakpak::Renderable for CloneCraft {
             }
         }
         let mut ctx_ref = context.borrow_mut();
+        if self.num_frames >= 10 {
+            let delete_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), self.mountain_tex);
+            let mat = self.camera_matrix
+                * na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0))
+                * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                    &na::Vector3::new(0.1, 0.1, 0.1),
+                    &na::Point3::new(0.0, 0.0, 0.0),
+                );
+            ctx_ref.draw_mesh(to_slice(&mat), &delete_cube);
+            ctx_ref.delete_mesh(delete_cube);
+        }
         ctx_ref
             .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.framebuffer))
             .expect("failed to bind");
@@ -232,5 +245,6 @@ impl sukakpak::Renderable for CloneCraft {
             .draw_mesh(to_slice(&plane_mat), &self.plane)
             .expect("failed to draw");
         self.frame_counter += delta_time.as_secs_f32();
+        self.num_frames += 1;
     }
 }

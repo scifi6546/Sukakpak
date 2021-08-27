@@ -124,9 +124,7 @@ impl Context {
     }
     /// Deletes Mesh. Mesh not be used in current draw call.
     pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
-        self.backend.free_vertices(mesh.vertices)?;
-        self.backend.free_indices(mesh.indices)?;
-        Ok(())
+        self.backend.free_mesh(&mesh)
     }
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<MeshTexture> {
         Ok(MeshTexture::RegularTexture(

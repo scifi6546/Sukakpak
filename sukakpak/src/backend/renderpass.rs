@@ -4,14 +4,24 @@ use super::{
 };
 use anyhow::Result;
 use ash::{version::DeviceV1_0, vk};
+use generational_arena::Index as ArenaIndex;
 use nalgebra::Vector2;
+use std::collections::HashSet;
 mod semaphore_buffer;
+use free_list::FreeList;
 use semaphore_buffer::SemaphoreBuffer;
 pub enum ClearOp {
     ClearColor,
     DoNotClear,
 }
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+/// Contains ids of resoures used by mesh
+pub struct RenderMeshIds {
+    pub vertex_buffer_id: ArenaIndex,
+    pub index_buffer_id: ArenaIndex,
+}
 pub struct RenderMesh<'a> {
+    pub ids: RenderMeshIds,
     //pub uniform_data: HashMap<String, &'a [u8]>,
     pub push: Vec<u8>,
     pub vertex_buffer: &'a VertexBufferAllocation,
@@ -26,11 +36,35 @@ pub struct OffsetData {
     /// offset in `std::mem::size_of::<u32>()*1*indicies`
     pub index_offset: usize,
 }
+/// Keeps track of data used in renderpass
+#[derive(Default, Debug)]
+struct RenderpassGarbageCollector {
+    mesh_freelist: FreeList<RenderMeshIds>,
+}
+impl RenderpassGarbageCollector {
+    /// Marks data as used in given renderpass
+    pub fn push(&mut self, id: RenderMeshIds, renderpass_id: u32) {
+        self.mesh_freelist.push(id, renderpass_id);
+    }
+    /// marks data as to free. Data is only allowed to be released once renderpasse that use the
+    /// resource are done.
+    pub fn try_free(&mut self, id: RenderMeshIds) {
+        self.mesh_freelist.try_free(id);
+    }
+    /// Marks a renderpass as done and returns all meshes that are no longer in use
+    pub fn finish_renderpass(&mut self, renderpass_id: u32) -> HashSet<RenderMeshIds> {
+        self.mesh_freelist.finish_renderpass(renderpass_id)
+    }
+}
+pub struct FreedMeshes {
+    pub meshes: HashSet<RenderMeshIds>,
+}
 pub struct RenderPass {
     command_buffers: Vec<vk::CommandBuffer>,
     fences: Vec<vk::Fence>,
     semaphore_buffer: SemaphoreBuffer,
     image_available_semaphore: [vk::Semaphore; 1],
+    garbage_collector: RenderpassGarbageCollector,
     image_index: Option<u32>,
 }
 impl RenderPass {
@@ -74,6 +108,7 @@ impl RenderPass {
             fences,
             semaphore_buffer,
             image_available_semaphore,
+            garbage_collector: Default::default(),
             image_index: None,
         }
     }
@@ -86,6 +121,7 @@ impl RenderPass {
         mesh: RenderMesh,
     ) -> Result<()> {
         if let Some(image_index) = self.image_index {
+            self.garbage_collector.push(mesh.ids, image_index);
             unsafe {
                 core.device.cmd_bind_vertex_buffers(
                     self.command_buffers[image_index as usize],
@@ -209,13 +245,22 @@ impl RenderPass {
             panic!("renderpass should be started first")
         }
     }
-    pub fn submit_draw(&mut self, core: &mut Core) -> Result<()> {
+    #[must_use]
+    pub fn submit_draw(&mut self, core: &mut Core) -> Result<FreedMeshes> {
         if let Some(image_index) = self.image_index {
             unsafe {
                 core.device
                     .cmd_end_render_pass(self.command_buffers[image_index as usize]);
                 core.device
                     .end_command_buffer(self.command_buffers[image_index as usize])?;
+                core.device.wait_for_fences(
+                    &[self.fences[image_index as usize]],
+                    true,
+                    u64::MAX,
+                )?;
+            }
+
+            unsafe {
                 core.device
                     .reset_fences(&[self.fences[image_index as usize]])?;
                 let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
@@ -233,11 +278,24 @@ impl RenderPass {
                     self.fences[image_index as usize],
                 )?;
             }
-            Ok(())
+            println!(
+                "before freeing index: {}\n{:#?}",
+                image_index, self.garbage_collector
+            );
+            let meshes = self.garbage_collector.finish_renderpass(image_index);
+            println!(
+                "after freeing index: {}\n{:#?}",
+                image_index, self.garbage_collector
+            );
+            Ok(FreedMeshes { meshes })
         } else {
             self.acquire_next_image(core)?;
             self.submit_draw(core)
         }
+    }
+    /// Marks a mesh for freeing but it is only freed once it is unused by inprogress renderpasses
+    pub fn free_mesh(&mut self, mesh: RenderMeshIds) {
+        self.garbage_collector.try_free(mesh)
     }
     pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         if let Some(image_index) = self.image_index {
