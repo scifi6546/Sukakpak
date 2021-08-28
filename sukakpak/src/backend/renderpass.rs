@@ -59,13 +59,18 @@ impl RenderpassGarbageCollector {
 pub struct FreedMeshes {
     pub meshes: HashSet<RenderMeshIds>,
 }
+type ImageIndex = u32;
+
+type RenderpassId = u32;
+
 pub struct RenderPass {
-    command_buffers: Vec<vk::CommandBuffer>,
+    command_buffers: Vec<(RenderpassId, vk::CommandBuffer)>,
     fences: Vec<vk::Fence>,
     semaphore_buffer: SemaphoreBuffer,
     image_available_semaphore: [vk::Semaphore; 1],
     garbage_collector: RenderpassGarbageCollector,
-    image_index: Option<u32>,
+    image_index: Option<(ImageIndex, RenderpassId)>,
+    highest_renderpass_id: RenderpassId,
 }
 impl RenderPass {
     pub fn new(
@@ -77,11 +82,15 @@ impl RenderPass {
             .command_buffer_count(framebuffer_target.framebuffers.len() as u32)
             .command_pool(command_pool.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY);
-        let command_buffers = unsafe {
+        let command_buffers: Vec<(RenderpassId, vk::CommandBuffer)> = unsafe {
             core.device
                 .allocate_command_buffers(&command_buffer_allocate_info)
                 .expect("failed to allocate command buffer")
-        };
+        }
+        .drain(..)
+        .enumerate()
+        .map(|(i, cmd_buff)| (i as u32, cmd_buff))
+        .collect();
 
         let fences: Vec<vk::Fence> = command_buffers
             .iter()
@@ -109,6 +118,7 @@ impl RenderPass {
             semaphore_buffer,
             image_available_semaphore,
             garbage_collector: Default::default(),
+            highest_renderpass_id: 0,
             image_index: None,
         }
     }
@@ -120,24 +130,24 @@ impl RenderPass {
         screen_dimensions: Vector2<u32>,
         mesh: RenderMesh,
     ) -> Result<()> {
-        if let Some(image_index) = self.image_index {
-            self.garbage_collector.push(mesh.ids, image_index);
+        if let Some((image_index, renderpass_id)) = self.image_index {
+            self.garbage_collector.push(mesh.ids, renderpass_id);
             unsafe {
                 core.device.cmd_bind_vertex_buffers(
-                    self.command_buffers[image_index as usize],
+                    self.command_buffers[image_index as usize].1,
                     0,
                     &[mesh.vertex_buffer.buffer],
                     &[0],
                 );
                 core.device.cmd_bind_index_buffer(
-                    self.command_buffers[image_index as usize],
+                    self.command_buffers[image_index as usize].1,
                     mesh.index_buffer.buffer,
                     0,
                     vk::IndexType::UINT32,
                 );
 
                 core.device.cmd_bind_descriptor_sets(
-                    self.command_buffers[image_index as usize],
+                    self.command_buffers[image_index as usize].1,
                     vk::PipelineBindPoint::GRAPHICS,
                     framebuffer.pipeline.pipeline_layout,
                     0,
@@ -146,7 +156,7 @@ impl RenderPass {
                 );
                 if !mesh.push.is_empty() {
                     core.device.cmd_push_constants(
-                        self.command_buffers[image_index as usize],
+                        self.command_buffers[image_index as usize].1,
                         framebuffer.pipeline.pipeline_layout,
                         vk::ShaderStageFlags::VERTEX,
                         0,
@@ -155,7 +165,7 @@ impl RenderPass {
                 }
 
                 core.device.cmd_draw_indexed(
-                    self.command_buffers[image_index as usize],
+                    self.command_buffers[image_index as usize].1,
                     mesh.index_buffer.num_indices() as u32,
                     1,
                     0,
@@ -174,11 +184,11 @@ impl RenderPass {
     /// begins rendering a frame, builds renderpass with selected frame
     pub unsafe fn begin_frame(&mut self, core: &mut Core, framebuffer: &Framebuffer) -> Result<()> {
         self.acquire_next_image(core)?;
-        let image_index = self.image_index.unwrap();
+        let (image_index, renderpass_id) = self.image_index.unwrap();
         core.device
             .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)?;
         core.device.begin_command_buffer(
-            self.command_buffers[image_index as usize],
+            self.command_buffers[image_index as usize].1,
             &vk::CommandBufferBeginInfo::builder(),
         )?;
         self.begin_renderpass(core, framebuffer, ClearOp::ClearColor)
@@ -190,7 +200,7 @@ impl RenderPass {
         framebuffer: &Framebuffer,
         clear_op: ClearOp,
     ) -> Result<()> {
-        let image_index = self
+        let (image_index, rendeprass_id) = self
             .image_index
             .expect("invalid usage frame should be started with begin frame");
         unsafe {
@@ -221,25 +231,26 @@ impl RenderPass {
                     },
                 ]);
             core.device.cmd_begin_render_pass(
-                self.command_buffers[image_index as usize],
+                self.command_buffers[image_index as usize].1,
                 &renderpass_info,
                 vk::SubpassContents::INLINE,
             );
             core.device.cmd_bind_pipeline(
-                self.command_buffers[image_index as usize],
+                self.command_buffers[image_index as usize].1,
                 vk::PipelineBindPoint::GRAPHICS,
                 match clear_op {
                     ClearOp::ClearColor => framebuffer.pipeline.clear_pipeline.graphics_pipeline,
                     ClearOp::DoNotClear => framebuffer.pipeline.load_pipeline.graphics_pipeline,
                 },
             );
+            self.command_buffers[image_index as usize].0 = rendeprass_id;
             Ok(())
         }
     }
     pub unsafe fn end_renderpass(&mut self, core: &mut Core) -> Result<()> {
-        if let Some(image_index) = self.image_index {
+        if let Some((image_index, _renderpass_id)) = self.image_index {
             core.device
-                .cmd_end_render_pass(self.command_buffers[image_index as usize]);
+                .cmd_end_render_pass(self.command_buffers[image_index as usize].1);
             Ok(())
         } else {
             panic!("renderpass should be started first")
@@ -247,12 +258,12 @@ impl RenderPass {
     }
     #[must_use]
     pub fn submit_draw(&mut self, core: &mut Core) -> Result<FreedMeshes> {
-        if let Some(image_index) = self.image_index {
+        if let Some((image_index, renderpass_id)) = self.image_index {
             unsafe {
                 core.device
-                    .cmd_end_render_pass(self.command_buffers[image_index as usize]);
+                    .cmd_end_render_pass(self.command_buffers[image_index as usize].1);
                 core.device
-                    .end_command_buffer(self.command_buffers[image_index as usize])?;
+                    .end_command_buffer(self.command_buffers[image_index as usize].1)?;
                 core.device.wait_for_fences(
                     &[self.fences[image_index as usize]],
                     true,
@@ -264,7 +275,7 @@ impl RenderPass {
                 core.device
                     .reset_fences(&[self.fences[image_index as usize]])?;
                 let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
-                let command_buffers = [self.command_buffers[image_index as usize]];
+                let command_buffers = [self.command_buffers[image_index as usize].1];
                 let signal_semaphores = [submit_semaphore.finished_semaphore];
 
                 let submit_info = *vk::SubmitInfo::builder()
@@ -282,7 +293,7 @@ impl RenderPass {
                 "before freeing index: {}\n{:#?}",
                 image_index, self.garbage_collector
             );
-            let meshes = self.garbage_collector.finish_renderpass(image_index);
+            let meshes = self.garbage_collector.finish_renderpass(renderpass_id);
             println!(
                 "after freeing index: {}\n{:#?}",
                 image_index, self.garbage_collector
@@ -298,7 +309,7 @@ impl RenderPass {
         self.garbage_collector.try_free(mesh)
     }
     pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
-        if let Some(image_index) = self.image_index {
+        if let Some((image_index, rendeprass_id)) = self.image_index {
             let indices = [image_index];
             let swapchain = [core.swapchain];
             let wait_semaphore = [self.semaphore_buffer.last_semaphore()];
@@ -318,7 +329,7 @@ impl RenderPass {
             self.swap_framebuffer(core)
         }
     }
-    //aquires new image index and populates self.image_index
+    /// aquires new image index and populates self.image_index
     pub fn acquire_next_image(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         let (image_index, _) = unsafe {
             core.swapchain_loader.acquire_next_image(
@@ -328,11 +339,12 @@ impl RenderPass {
                 vk::Fence::null(),
             )
         }?;
-        self.image_index = Some(image_index);
+        self.highest_renderpass_id += 1;
+        self.image_index = Some((image_index, self.highest_renderpass_id));
         Ok(())
     }
     pub fn get_image_index(&mut self, core: &mut Core) -> Result<usize> {
-        if let Some(idx) = self.image_index {
+        if let Some((idx, _renderpass_id)) = self.image_index {
             Ok(idx as usize)
         } else {
             self.acquire_next_image(core)?;
