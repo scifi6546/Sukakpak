@@ -148,7 +148,6 @@ impl ResourcePool {
             .sharing_mode(sharing_mode);
         let buffer = unsafe { core.device.create_buffer(&buffer_create_info, None)? };
         let requirements = unsafe { core.device.get_buffer_memory_requirements(buffer) };
-        println!("buffer requirements: {:?}", requirements);
         let allocation = self.allocator.allocate(&AllocationCreateDesc {
             name: "vertex buffer",
             requirements,

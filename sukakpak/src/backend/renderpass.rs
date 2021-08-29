@@ -14,11 +14,38 @@ pub enum ClearOp {
     ClearColor,
     DoNotClear,
 }
+/// describes id for resource
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ResourceId {
+    VertexBufferID(ArenaIndex),
+    IndexBufferID(ArenaIndex),
+    UserTexture(ArenaIndex),
+    Framebuffer(ArenaIndex),
+}
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum TextureId {
+    UserTexture(ArenaIndex),
+    Framebuffer(ArenaIndex),
+}
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 /// Contains ids of resoures used by mesh
 pub struct RenderMeshIds {
     pub vertex_buffer_id: ArenaIndex,
     pub index_buffer_id: ArenaIndex,
+    pub texture_id: TextureId,
+}
+impl RenderMeshIds {
+    /// Converts to array if resource ids
+    pub fn to_resource_ids(&self) -> [ResourceId; 3] {
+        [
+            ResourceId::VertexBufferID(self.vertex_buffer_id),
+            ResourceId::IndexBufferID(self.index_buffer_id),
+            match self.texture_id {
+                TextureId::UserTexture(id) => ResourceId::UserTexture(id),
+                TextureId::Framebuffer(id) => ResourceId::Framebuffer(id),
+            },
+        ]
+    }
 }
 pub struct RenderMesh<'a> {
     pub ids: RenderMeshIds,
@@ -39,20 +66,24 @@ pub struct OffsetData {
 /// Keeps track of data used in renderpass
 #[derive(Default, Debug)]
 struct RenderpassGarbageCollector {
-    mesh_freelist: FreeList<RenderMeshIds>,
+    mesh_freelist: FreeList<ResourceId>,
 }
 impl RenderpassGarbageCollector {
     /// Marks data as used in given renderpass
     pub fn push(&mut self, id: RenderMeshIds, renderpass_id: u32) {
-        self.mesh_freelist.push(id, renderpass_id);
+        for item in id.to_resource_ids() {
+            self.mesh_freelist.push(item, renderpass_id);
+        }
     }
     /// marks data as to free. Data is only allowed to be released once renderpasse that use the
     /// resource are done.
     pub fn try_free(&mut self, id: RenderMeshIds) {
-        self.mesh_freelist.try_free(id);
+        for item in id.to_resource_ids() {
+            self.mesh_freelist.try_free(item);
+        }
     }
     /// Marks a renderpass as done and returns all meshes that are no longer in use
-    pub fn finish_renderpass(&mut self, renderpass_id: u32) -> HashSet<RenderMeshIds> {
+    pub fn finish_renderpass(&mut self, renderpass_id: u32) -> HashSet<ResourceId> {
         self.mesh_freelist.finish_renderpass(renderpass_id)
     }
 }
@@ -65,7 +96,7 @@ type RenderpassId = u32;
 
 pub struct RenderPass {
     command_buffers: Vec<(RenderpassId, vk::CommandBuffer)>,
-    fences: Vec<vk::Fence>,
+    fences: Vec<(Option<RenderpassId>, vk::Fence)>,
     semaphore_buffer: SemaphoreBuffer,
     image_available_semaphore: [vk::Semaphore; 1],
     garbage_collector: RenderpassGarbageCollector,
@@ -92,15 +123,18 @@ impl RenderPass {
         .map(|(i, cmd_buff)| (i as u32, cmd_buff))
         .collect();
 
-        let fences: Vec<vk::Fence> = command_buffers
+        let fences: Vec<_> = command_buffers
             .iter()
             .map(|_| {
                 let fence_create_info =
                     vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
                 unsafe {
-                    core.device
-                        .create_fence(&fence_create_info, None)
-                        .expect("failed to create fence")
+                    (
+                        None,
+                        core.device
+                            .create_fence(&fence_create_info, None)
+                            .expect("failed to create fence"),
+                    )
                 }
             })
             .collect();
@@ -186,7 +220,7 @@ impl RenderPass {
         self.acquire_next_image(core)?;
         let (image_index, renderpass_id) = self.image_index.unwrap();
         core.device
-            .wait_for_fences(&[self.fences[image_index as usize]], true, u64::MAX)?;
+            .wait_for_fences(&[self.fences[image_index as usize].1], true, u64::MAX)?;
         core.device.begin_command_buffer(
             self.command_buffers[image_index as usize].1,
             &vk::CommandBufferBeginInfo::builder(),
@@ -257,23 +291,21 @@ impl RenderPass {
         }
     }
     #[must_use]
-    pub fn submit_draw(&mut self, core: &mut Core) -> Result<FreedMeshes> {
+    pub fn submit_draw(&mut self, core: &mut Core) -> Result<HashSet<ResourceId>> {
         if let Some((image_index, renderpass_id)) = self.image_index {
             unsafe {
                 core.device
                     .cmd_end_render_pass(self.command_buffers[image_index as usize].1);
                 core.device
                     .end_command_buffer(self.command_buffers[image_index as usize].1)?;
+
                 core.device.wait_for_fences(
-                    &[self.fences[image_index as usize]],
+                    &[self.fences[image_index as usize].1],
                     true,
                     u64::MAX,
                 )?;
-            }
-
-            unsafe {
                 core.device
-                    .reset_fences(&[self.fences[image_index as usize]])?;
+                    .reset_fences(&[self.fences[image_index as usize].1])?;
                 let submit_semaphore = self.semaphore_buffer.get_semaphore(core)?;
                 let command_buffers = [self.command_buffers[image_index as usize].1];
                 let signal_semaphores = [submit_semaphore.finished_semaphore];
@@ -286,19 +318,17 @@ impl RenderPass {
                 core.device.queue_submit(
                     core.present_queue,
                     &[submit_info],
-                    self.fences[image_index as usize],
+                    self.fences[image_index as usize].1,
                 )?;
             }
-            println!(
-                "before freeing index: {}\n{:#?}",
-                image_index, self.garbage_collector
-            );
-            let meshes = self.garbage_collector.finish_renderpass(renderpass_id);
-            println!(
-                "after freeing index: {}\n{:#?}",
-                image_index, self.garbage_collector
-            );
-            Ok(FreedMeshes { meshes })
+            if let Some(free_id) = self.fences[image_index as usize].0 {
+                let meshes = self.garbage_collector.finish_renderpass(free_id);
+                self.fences[image_index as usize].0 = Some(renderpass_id);
+                Ok(meshes)
+            } else {
+                self.fences[image_index as usize].0 = Some(renderpass_id);
+                Ok(HashSet::new())
+            }
         } else {
             self.acquire_next_image(core)?;
             self.submit_draw(core)
@@ -309,7 +339,7 @@ impl RenderPass {
         self.garbage_collector.try_free(mesh)
     }
     pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
-        if let Some((image_index, rendeprass_id)) = self.image_index {
+        if let Some((image_index, _rendeprass_id)) = self.image_index {
             let indices = [image_index];
             let swapchain = [core.swapchain];
             let wait_semaphore = [self.semaphore_buffer.last_semaphore()];
@@ -352,24 +382,36 @@ impl RenderPass {
         }
     }
     pub fn wait_idle(&mut self, core: &mut Core) {
+        let fences = self
+            .fences
+            .iter()
+            .map(|(_id, fence)| fence)
+            .cloned()
+            .collect::<Vec<_>>();
         unsafe {
             core.device
-                .wait_for_fences(&self.fences, true, u64::MAX)
+                .wait_for_fences(&fences, true, u64::MAX)
                 .expect("failed to wait for fence");
             core.device.device_wait_idle().expect("failed to wait idle");
         }
     }
     pub fn free(&mut self, core: &mut Core) {
         self.wait_idle(core);
+        let fences = self
+            .fences
+            .iter()
+            .map(|(_id, fence)| fence)
+            .cloned()
+            .collect::<Vec<_>>();
         unsafe {
             core.device
-                .wait_for_fences(&self.fences, true, 10000000)
+                .wait_for_fences(&fences, true, 10000000)
                 .expect("failed to wait for fence");
             core.device.device_wait_idle().expect("failed to wait idle");
             core.device
                 .destroy_semaphore(self.image_available_semaphore[0], None);
             self.semaphore_buffer.free(core);
-            for fence in self.fences.iter() {
+            for (_id, fence) in self.fences.iter() {
                 core.device.destroy_fence(*fence, None);
             }
         }

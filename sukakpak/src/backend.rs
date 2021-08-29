@@ -37,6 +37,10 @@ pub enum RenderError {
     #[error("Shader: {shader:} not found")]
     ShaderNotFound { shader: String },
 }
+struct RefCounter<T> {
+    counter: usize,
+    data: T,
+}
 pub struct Backend {
     #[allow(dead_code)]
     shaders: HashMap<String, ShaderDescription>,
@@ -263,6 +267,14 @@ impl Backend {
         let ids = RenderMeshIds {
             index_buffer_id: mesh.indices.buffer_index,
             vertex_buffer_id: mesh.vertices.buffer_index,
+            texture_id: match mesh.texture {
+                MeshTexture::RegularTexture(texture) => {
+                    renderpass::TextureId::UserTexture(texture.buffer_index)
+                }
+                MeshTexture::Framebuffer(texture) => {
+                    renderpass::TextureId::Framebuffer(texture.buffer_index)
+                }
+            },
         };
         self.renderpass.free_mesh(ids);
         Ok(())
@@ -297,6 +309,14 @@ impl Backend {
             ids: RenderMeshIds {
                 index_buffer_id: mesh.indices.buffer_index,
                 vertex_buffer_id: mesh.vertices.buffer_index,
+                texture_id: match mesh.texture {
+                    MeshTexture::RegularTexture(texture) => {
+                        renderpass::TextureId::UserTexture(texture.buffer_index)
+                    }
+                    MeshTexture::Framebuffer(texture) => {
+                        renderpass::TextureId::Framebuffer(texture.buffer_index)
+                    }
+                },
             },
             vertex_buffer: self.vertex_buffers.get(mesh.vertices.buffer_index).unwrap(),
             index_buffer: self.index_buffers.get(mesh.indices.buffer_index).unwrap(),
@@ -343,19 +363,18 @@ impl Backend {
             self.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)?;
         }
         let free_data = self.renderpass.submit_draw(&mut self.core)?;
-        for ids in free_data.meshes.iter() {
-            let buffer = self
-                .vertex_buffers
-                .remove(ids.vertex_buffer_id)
-                .expect("buffer not found");
+        for id in free_data.iter() {
+            match id {
+                renderpass::ResourceId::VertexBufferID(id) => {
+                    let buffer = self.vertex_buffers.remove(*id).expect("buffer not found");
+                    buffer.free(&mut self.core, &mut self.resource_pool)?;
+                }
 
-            buffer.free(&mut self.core, &mut self.resource_pool)?;
-            let buffer = self
-                .index_buffers
-                .remove(ids.index_buffer_id)
-                .expect("buffer not found");
-
-            buffer.free(&mut self.core, &mut self.resource_pool)?;
+                renderpass::ResourceId::IndexBufferID(id) => {
+                    let buffer = self.index_buffers.remove(*id).expect("buffer not found");
+                    buffer.free(&mut self.core, &mut self.resource_pool)?;
+                }
+            }
         }
         let r = self.renderpass.swap_framebuffer(&mut self.core);
         if let Err(r) = r {

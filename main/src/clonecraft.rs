@@ -176,17 +176,17 @@ impl sukakpak::Renderable for CloneCraft {
             }
         }
         let mut ctx_ref = context.borrow_mut();
-        if self.num_frames >= 10 {
-            let delete_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), self.mountain_tex);
-            let mat = self.camera_matrix
-                * na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0))
-                * na::Matrix4::new_nonuniform_scaling_wrt_point(
-                    &na::Vector3::new(0.1, 0.1, 0.1),
-                    &na::Point3::new(0.0, 0.0, 0.0),
-                );
-            ctx_ref.draw_mesh(to_slice(&mat), &delete_cube);
-            ctx_ref.delete_mesh(delete_cube);
-        }
+        let delete_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), self.mountain_tex);
+        let mat = self.camera_matrix
+            * na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0))
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &na::Vector3::new(0.1, 0.1, 0.1),
+                &na::Point3::new(0.0, 0.0, 0.0),
+            );
+        ctx_ref
+            .draw_mesh(to_slice(&mat), &delete_cube)
+            .expect("failed to draw");
+        ctx_ref.delete_mesh(delete_cube).expect("failed to delete");
         ctx_ref
             .bind_framebuffer(&BoundFramebuffer::UserFramebuffer(self.framebuffer))
             .expect("failed to bind");
