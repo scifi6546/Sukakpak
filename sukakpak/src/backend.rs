@@ -6,6 +6,7 @@ use nalgebra::Vector2;
 use thiserror::Error;
 mod command_pool;
 mod framebuffer;
+mod ref_counter;
 mod render_core;
 mod renderpass;
 mod resource_pool;
@@ -17,13 +18,15 @@ use framebuffer::{
 };
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
+use ref_counter::{RefCounter, RefrenceStatus};
 use render_core::Core;
 pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
-use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass};
+use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass, ResourceId};
 use resource_pool::{
     DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
 };
+use std::collections::HashSet;
 use std::{collections::HashMap, path::Path};
 
 pub struct BackendCreateInfo {
@@ -37,18 +40,15 @@ pub enum RenderError {
     #[error("Shader: {shader:} not found")]
     ShaderNotFound { shader: String },
 }
-struct RefCounter<T> {
-    counter: usize,
-    data: T,
-}
 pub struct Backend {
     #[allow(dead_code)]
     shaders: HashMap<String, ShaderDescription>,
     window: winit::window::Window,
     vertex_buffers: Arena<VertexBufferAllocation>,
     index_buffers: Arena<IndexBufferAllocation>,
-    textures: Arena<TextureAllocation>,
-    framebuffer_arena: Arena<AttachableFramebuffer>,
+    textures: Arena<RefCounter<TextureAllocation>>,
+    to_free_textures: HashSet<MeshTexture>,
+    framebuffer_arena: Arena<RefCounter<AttachableFramebuffer>>,
     command_pool: CommandPool,
     resource_pool: ResourcePool,
     main_framebuffer: Framebuffer,
@@ -58,28 +58,29 @@ pub struct Backend {
     main_shader: ShaderDescription,
     core: Core,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct VertexBufferID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct IndexBufferID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TextureID {
     buffer_index: ArenaIndex,
 }
-#[derive(Clone, Copy, Debug)]
+/// Enum allowig both framebuffers and textures to be bound to mesh
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MeshTexture {
     RegularTexture(TextureID),
     Framebuffer(FramebufferID),
 }
 #[derive(Clone, Copy, Debug)]
 pub struct MeshID {
-    pub vertices: VertexBufferID,
-    pub texture: MeshTexture,
-    pub indices: IndexBufferID,
+    vertices: VertexBufferID,
+    texture: MeshTexture,
+    indices: IndexBufferID,
 }
 impl MeshID {
     pub fn bind_texture(&mut self, tex: MeshTexture) {
@@ -89,7 +90,7 @@ impl MeshID {
         self.texture = MeshTexture::Framebuffer(fb);
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FramebufferID {
     buffer_index: ArenaIndex,
 }
@@ -164,6 +165,32 @@ impl Backend {
             vertex_buffers: Arena::new(),
             framebuffer_arena: Arena::new(),
             textures: Arena::new(),
+            to_free_textures: HashSet::new(),
+        })
+    }
+    pub fn build_mesh(
+        &mut self,
+        verticies: Vec<u8>,
+        vertex_layout: VertexLayout,
+        indicies: Vec<u32>,
+        texture: MeshTexture,
+    ) -> Result<MeshID> {
+        match texture {
+            MeshTexture::RegularTexture(id) => self
+                .textures
+                .get_mut(id.buffer_index)
+                .unwrap()
+                .incr_refrence(),
+            MeshTexture::Framebuffer(id) => self
+                .framebuffer_arena
+                .get_mut(id.buffer_index)
+                .unwrap()
+                .incr_refrence(),
+        };
+        Ok(MeshID {
+            vertices: self.allocate_verticies(verticies, vertex_layout)?,
+            indices: self.allocate_indicies(indicies)?,
+            texture,
         })
     }
     pub fn allocate_verticies(
@@ -194,30 +221,73 @@ impl Backend {
     }
     pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
         Ok(TextureID {
-            buffer_index: self.textures.insert(self.resource_pool.allocate_texture(
-                &mut self.core,
-                &mut self.command_pool,
-                texture,
-            )?),
+            buffer_index: self.textures.insert(RefCounter::new(
+                self.resource_pool.allocate_texture(
+                    &mut self.core,
+                    &mut self.command_pool,
+                    texture,
+                )?,
+                0,
+            )),
         })
     }
-    pub fn free_texture(&mut self, tex_id: TextureID) -> Result<()> {
-        let texture = self
-            .textures
-            .remove(tex_id.buffer_index)
-            .expect("texture not found");
-        texture.free(&mut self.core, &mut self.resource_pool)?;
+    /// Lazily frees textures once the texture is no longer in use
+    pub fn free_texture(&mut self, tex: MeshTexture) -> Result<()> {
+        self.to_free_textures.insert(tex);
         Ok(())
+    }
+    /// Scans resources and frees all resources that need to be freed
+    pub fn collect_garbage(&mut self) -> Result<()> {
+        for tex in self.to_free_textures.iter() {
+            match tex {
+                MeshTexture::RegularTexture(id) => {
+                    let num_refrences = self.textures.get(id.buffer_index).unwrap().refrences();
+                    if num_refrences == 0
+                        && !self
+                            .renderpass
+                            .is_resource_used(&ResourceId::UserTexture(id.buffer_index))
+                    {
+                        self.textures
+                            .remove(id.buffer_index)
+                            .unwrap()
+                            .drain()
+                            .free(&mut self.core, &mut self.resource_pool)?;
+                    }
+                }
+                MeshTexture::Framebuffer(id) => {
+                    let num_refrences = self
+                        .framebuffer_arena
+                        .get(id.buffer_index)
+                        .unwrap()
+                        .refrences();
+                    if num_refrences == 0
+                        && !self
+                            .renderpass
+                            .is_resource_used(&ResourceId::Framebuffer(id.buffer_index))
+                    {
+                        self.framebuffer_arena
+                            .remove(id.buffer_index)
+                            .unwrap()
+                            .drain()
+                            .free(&mut self.core, &mut self.resource_pool);
+                    }
+                }
+            }
+        }
+        todo!()
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
         Ok(FramebufferID {
-            buffer_index: self.framebuffer_arena.insert(AttachableFramebuffer::new(
-                &mut self.core,
-                &mut self.command_pool,
-                &mut self.resource_pool,
-                &self.main_shader,
-                resolution,
-            )?),
+            buffer_index: self.framebuffer_arena.insert(RefCounter::new(
+                AttachableFramebuffer::new(
+                    &mut self.core,
+                    &mut self.command_pool,
+                    &mut self.resource_pool,
+                    &self.main_shader,
+                    resolution,
+                )?,
+                0,
+            )),
         })
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
@@ -227,6 +297,7 @@ impl Backend {
                 .framebuffer_arena
                 .get(id.buffer_index)
                 .unwrap()
+                .get()
                 .get_framebuffer(),
         };
         unsafe {
@@ -255,6 +326,7 @@ impl Backend {
                     .framebuffer_arena
                     .get_mut(id.buffer_index)
                     .unwrap()
+                    .get_mut()
                     .framebuffer
             }
         };
@@ -264,6 +336,20 @@ impl Backend {
     /// Frees mesh data, can be called at any time as freeing waits untill data is unused by
     /// renderpasses
     pub fn free_mesh(&mut self, mesh: &MeshID) -> Result<()> {
+        match mesh.texture {
+            MeshTexture::RegularTexture(texture) => {
+                self.textures
+                    .get_mut(texture.buffer_index)
+                    .unwrap()
+                    .decr_refrence();
+            }
+            MeshTexture::Framebuffer(framebuffer) => {
+                self.framebuffer_arena
+                    .get_mut(framebuffer.buffer_index)
+                    .unwrap()
+                    .decr_refrence();
+            }
+        }
         let ids = RenderMeshIds {
             index_buffer_id: mesh.indices.buffer_index,
             vertex_buffer_id: mesh.vertices.buffer_index,
@@ -286,6 +372,7 @@ impl Backend {
                 self.textures
                     .get(texture.buffer_index)
                     .unwrap()
+                    .get()
                     .descriptor_set
             }
             MeshTexture::Framebuffer(fb) => {
@@ -298,8 +385,9 @@ impl Backend {
                     ));
                 } else {
                     self.framebuffer_arena
-                        .get(fb.buffer_index)
+                        .get_mut(fb.buffer_index)
                         .unwrap()
+                        .get_mut()
                         .get_descriptor_set(self.renderpass.get_image_index(&mut self.core)?)
                 }
             }
@@ -331,6 +419,7 @@ impl Backend {
                         .framebuffer_arena
                         .get(fb.buffer_index)
                         .unwrap()
+                        .get()
                         .framebuffer
                 }
             },
@@ -349,8 +438,9 @@ impl Backend {
                     BoundFramebuffer::UserFramebuffer(fb) => {
                         &self
                             .framebuffer_arena
-                            .get(fb.buffer_index)
+                            .get_mut(fb.buffer_index)
                             .unwrap()
+                            .get_mut()
                             .framebuffer
                     }
                 },
@@ -362,6 +452,7 @@ impl Backend {
         if self.bound_framebuffer != BoundFramebuffer::ScreenFramebuffer {
             self.bind_framebuffer(&BoundFramebuffer::ScreenFramebuffer)?;
         }
+
         let free_data = self.renderpass.submit_draw(&mut self.core)?;
         for id in free_data.iter() {
             match id {
@@ -374,6 +465,8 @@ impl Backend {
                     let buffer = self.index_buffers.remove(*id).expect("buffer not found");
                     buffer.free(&mut self.core, &mut self.resource_pool)?;
                 }
+                ResourceId::UserTexture(_) => (),
+                ResourceId::Framebuffer(_) => (),
             }
         }
         let r = self.renderpass.swap_framebuffer(&mut self.core);
@@ -450,11 +543,13 @@ impl Drop for Backend {
                     .expect("failed to free buffer");
             }
             for (_idx, tex) in self.textures.drain() {
-                tex.free(&mut self.core, &mut self.resource_pool)
+                tex.drain()
+                    .free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free textures");
             }
             for (_idx, mut fb) in self.framebuffer_arena.drain() {
-                fb.free(&mut self.core, &mut self.resource_pool)
+                fb.get_mut()
+                    .free(&mut self.core, &mut self.resource_pool)
                     .expect("failed to free");
             }
             self.renderpass.free(&mut self.core);

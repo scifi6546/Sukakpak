@@ -82,6 +82,10 @@ impl RenderpassGarbageCollector {
             self.mesh_freelist.try_free(item);
         }
     }
+    /// returns true if the resource is used by a renderpass
+    pub fn is_used(&self, resource: &ResourceId) -> bool {
+        self.mesh_freelist.is_used(resource)
+    }
     /// Marks a renderpass as done and returns all meshes that are no longer in use
     pub fn finish_renderpass(&mut self, renderpass_id: u32) -> HashSet<ResourceId> {
         self.mesh_freelist.finish_renderpass(renderpass_id)
@@ -337,6 +341,14 @@ impl RenderPass {
     /// Marks a mesh for freeing but it is only freed once it is unused by inprogress renderpasses
     pub fn free_mesh(&mut self, mesh: RenderMeshIds) {
         self.garbage_collector.try_free(mesh)
+    }
+    /// checks if resource is used. if it is returns true
+    pub fn is_resource_used(&self, resource: &ResourceId) -> bool {
+        self.is_resource_used(resource)
+    }
+    /// Marks a resource for freeing. Todo: free reosurce
+    pub fn free_resource(&mut self, resource: ResourceId) -> Result<()> {
+        todo!()
     }
     pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         if let Some((image_index, _rendeprass_id)) = self.image_index {

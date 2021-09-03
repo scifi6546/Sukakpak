@@ -17,9 +17,20 @@ impl<T: Eq + Hash + Clone> FreeList<T> {
             self.by_renderpass.insert(renderpass, vec![item]);
         }
     }
-    /// Marks a component as to be freed
+    /// Marks a component as to be freed, if it
     pub fn try_free(&mut self, item: T) {
         self.too_free.insert(item);
+    }
+    /// returns wheter the item is used in a renderpass
+    pub fn is_used(&self, item: &T) -> bool {
+        for (_pass, data) in self.by_renderpass.iter() {
+            for data_item in data.iter() {
+                if data_item == item {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     /// Returns all items to free in a renderpass
     pub fn finish_renderpass(&mut self, done_renderpass: RenderpassID) -> HashSet<T> {
@@ -70,6 +81,26 @@ mod tests {
             .copied()
             .collect::<Vec<_>>();
         assert_eq!(r2, vec![1]);
+    }
+    #[test]
+    fn test_is_used() {
+        let mut list: FreeList<u32> = Default::default();
+        list.push(1, 0);
+        assert_eq!(list.is_used(&1), true);
+        let r = list
+            .finish_renderpass(0)
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(r.len(), 0);
+        list.try_free(1);
+        let r2 = list
+            .finish_renderpass(0)
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(r2, vec![1]);
+        assert_eq!(list.is_used(&1), false);
     }
     #[test]
     fn multiple_renders() {

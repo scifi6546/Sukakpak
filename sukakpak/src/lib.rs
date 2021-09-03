@@ -109,18 +109,9 @@ impl Context {
             quit: false,
         }
     }
-    pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Mesh {
-        Mesh {
-            vertices: self
-                .backend
-                .allocate_verticies(mesh.vertices, mesh.vertex_layout)
-                .expect("failed to allocate mesh"),
-            indices: self
-                .backend
-                .allocate_indicies(mesh.indices)
-                .expect("failed to allocate indicies"),
-            texture,
-        }
+    pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Result<Mesh> {
+        self.backend
+            .build_mesh(mesh.vertices, mesh.vertex_layout, mesh.indices, texture)
     }
     /// Deletes Mesh. Mesh not be used in current draw call.
     pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
@@ -134,7 +125,9 @@ impl Context {
     /// Deletes Texture. Texture must not be used in current draw call.
     pub fn delete_texture(&mut self, tex: MeshTexture) -> Result<()> {
         match tex {
-            MeshTexture::RegularTexture(texture) => self.backend.free_texture(texture),
+            MeshTexture::RegularTexture(texture) => self
+                .backend
+                .free_texture(MeshTexture::RegularTexture(texture)),
             MeshTexture::Framebuffer(_fb) => todo!("free framebuffer"),
         }
     }

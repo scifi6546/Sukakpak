@@ -99,7 +99,9 @@ impl sukakpak::Renderable for CloneCraft {
             ))
             .expect("failed to build texture");
         let sphere_obj = MeshAsset::from_obj("sphere.obj").expect("");
-        let sphere = ctx_ref.build_mesh(sphere_obj, red_texture);
+        let sphere = ctx_ref
+            .build_mesh(sphere_obj, red_texture)
+            .expect("failed to build circle");
         let mountain_tex = ctx_ref
             .build_texture(
                 &image::io::Reader::open("./assets/mtn.JPG")
@@ -109,9 +111,15 @@ impl sukakpak::Renderable for CloneCraft {
                     .to_rgba8(),
             )
             .expect("failed to build texture");
-        let textured_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), mountain_tex);
-        let triangle = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
-        let delete = ctx_ref.build_mesh(MeshAsset::new_cube(), red_texture);
+        let textured_cube = ctx_ref
+            .build_mesh(MeshAsset::new_cube(), mountain_tex)
+            .expect("failed to build cube");
+        let triangle = ctx_ref
+            .build_mesh(MeshAsset::new_cube(), red_texture)
+            .expect("failed to build mesh");
+        let delete = ctx_ref
+            .build_mesh(MeshAsset::new_cube(), red_texture)
+            .expect("failed to build mesh");
         ctx_ref.delete_mesh(delete).expect("failed to delete");
         let delete = ctx_ref
             .build_texture(&image)
@@ -123,12 +131,15 @@ impl sukakpak::Renderable for CloneCraft {
         let alt_fb = ctx_ref
             .build_framebuffer(na::Vector2::new(1000, 1000))
             .expect("failed to build frame buffer");
-        let alt_fb_mesh =
-            ctx_ref.build_mesh(MeshAsset::new_plane(), MeshTexture::Framebuffer(alt_fb));
+        let alt_fb_mesh = ctx_ref
+            .build_mesh(MeshAsset::new_plane(), MeshTexture::Framebuffer(alt_fb))
+            .expect("failed to build fb mesh");
         ctx_ref
             .bind_shader(&BoundFramebuffer::UserFramebuffer(framebuffer), "alt")
             .expect("failed to bind");
-        let mut plane = ctx_ref.build_mesh(MeshAsset::new_plane(), red_texture);
+        let mut plane = ctx_ref
+            .build_mesh(MeshAsset::new_plane(), red_texture)
+            .expect("failed to build plane");
         plane.bind_framebuffer(framebuffer);
         let camera_matrix =
             *na::Perspective3::new(1.0, std::f32::consts::PI as f32 / 4.0, 1.0, 1000.0).as_matrix();
@@ -176,7 +187,9 @@ impl sukakpak::Renderable for CloneCraft {
             }
         }
         let mut ctx_ref = context.borrow_mut();
-        let delete_cube = ctx_ref.build_mesh(MeshAsset::new_cube(), self.mountain_tex);
+        let delete_cube = ctx_ref
+            .build_mesh(MeshAsset::new_cube(), self.mountain_tex)
+            .expect("failed to build");
         let mat = self.camera_matrix
             * na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, -10.0))
             * na::Matrix4::new_nonuniform_scaling_wrt_point(
