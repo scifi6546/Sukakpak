@@ -359,6 +359,7 @@ impl RenderPass {
                 .wait_semaphores(&wait_semaphore)
                 .swapchains(&swapchain)
                 .image_indices(&indices);
+            println!("present info \n {:x?}", *present_info);
             unsafe {
                 core.swapchain_loader
                     .queue_present(core.present_queue, &present_info)?;

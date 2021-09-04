@@ -86,9 +86,8 @@ fn run_frame<R: Renderable>(
     let mut ctx_borrow = context.borrow_mut();
     if !ctx_borrow.quit {
         ctx_borrow
-            .backend
             .finish_render()
-            .expect("failed to swap framebuffer");
+            .expect("failed to finish rendering");
         FrameStatus::Continue
     } else {
         FrameStatus::Quit
@@ -108,6 +107,11 @@ impl Context {
             backend,
             quit: false,
         }
+    }
+    /// Does steps for finshing rendering
+    fn finish_render(&mut self) -> Result<()> {
+        self.backend.finish_render()?;
+        self.backend.collect_garbage()
     }
     pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Result<Mesh> {
         self.backend

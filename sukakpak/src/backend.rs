@@ -269,12 +269,12 @@ impl Backend {
                             .remove(id.buffer_index)
                             .unwrap()
                             .drain()
-                            .free(&mut self.core, &mut self.resource_pool);
+                            .free(&mut self.core, &mut self.resource_pool)?;
                     }
                 }
             }
         }
-        todo!()
+        Ok(())
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
         Ok(FramebufferID {
