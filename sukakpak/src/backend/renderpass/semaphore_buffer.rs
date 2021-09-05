@@ -17,6 +17,9 @@ impl SemaphoreBuffer {
     pub fn reset(&mut self) {
         self.index = 0;
     }
+    pub fn set_first_semaphore(&mut self, semaphore: vk::Semaphore) {
+        self.semaphores[0] = semaphore
+    }
     pub fn first_semaphore(&self) -> vk::Semaphore {
         self.semaphores[0]
     }

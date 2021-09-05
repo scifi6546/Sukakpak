@@ -82,14 +82,6 @@ pub struct MeshID {
     texture: MeshTexture,
     indices: IndexBufferID,
 }
-impl MeshID {
-    pub fn bind_texture(&mut self, tex: MeshTexture) {
-        self.texture = tex;
-    }
-    pub fn bind_framebuffer(&mut self, fb: FramebufferID) {
-        self.texture = MeshTexture::Framebuffer(fb);
-    }
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FramebufferID {
     buffer_index: ArenaIndex,
@@ -175,23 +167,68 @@ impl Backend {
         indicies: Vec<u32>,
         texture: MeshTexture,
     ) -> Result<MeshID> {
-        match texture {
-            MeshTexture::RegularTexture(id) => self
-                .textures
-                .get_mut(id.buffer_index)
-                .unwrap()
-                .incr_refrence(),
-            MeshTexture::Framebuffer(id) => self
-                .framebuffer_arena
-                .get_mut(id.buffer_index)
-                .unwrap()
-                .incr_refrence(),
-        };
+        self.incr_texture_refrences(&texture);
         Ok(MeshID {
             vertices: self.allocate_verticies(verticies, vertex_layout)?,
             indices: self.allocate_indicies(indicies)?,
             texture,
         })
+    }
+    /// Decrements refrences on mesh texture, and marks for freeing if refrences is zero
+    /// Preconditions:
+    /// Mesh texture is valid and has more then 0 refrences
+    fn decr_texture_refrences(&mut self, texture: &MeshTexture) {
+        match texture {
+            MeshTexture::RegularTexture(id) => {
+                let texture_ref = self.textures.get_mut(id.buffer_index).unwrap();
+                texture_ref.decr_refrence();
+                if texture_ref.refrences() == 0 {
+                    self.to_free_textures.insert(texture.clone());
+                }
+            }
+            MeshTexture::Framebuffer(id) => {
+                let texture_ref = self.framebuffer_arena.get_mut(id.buffer_index).unwrap();
+                texture_ref.decr_refrence();
+                if texture_ref.refrences() == 0 {
+                    self.to_free_textures.insert(texture.clone());
+                }
+            }
+        };
+    }
+    /// Increments refrences on mesh texture
+    /// Preconditions:
+    /// None
+    pub fn incr_texture_refrences(&mut self, texture: &MeshTexture) {
+        match texture {
+            MeshTexture::RegularTexture(id) => {
+                let texture_ref = self.textures.get_mut(id.buffer_index).unwrap();
+                texture_ref.incr_refrence();
+                if texture_ref.refrences() == 1 {
+                    if self.to_free_textures.remove(texture) == false {
+                        panic!(
+                            "invalid state: texture had zero refrences but it was not in to free"
+                        )
+                    }
+                }
+            }
+            MeshTexture::Framebuffer(id) => {
+                let framebuffer_ref = self.framebuffer_arena.get_mut(id.buffer_index).unwrap();
+                framebuffer_ref.incr_refrence();
+                if framebuffer_ref.refrences() == 1 {
+                    if self.to_free_textures.remove(texture) == false {
+                        panic!(
+                            "invalid state: texture had zero refrences but it was not in to free"
+                        )
+                    }
+                }
+            }
+        };
+    }
+    pub fn bind_texture(&mut self, mesh: &mut MeshID, texture: MeshTexture) -> Result<()> {
+        self.decr_texture_refrences(&mesh.texture);
+        mesh.texture = texture;
+        self.incr_texture_refrences(&mesh.texture);
+        Ok(())
     }
     pub fn allocate_verticies(
         &mut self,
@@ -220,7 +257,7 @@ impl Backend {
         })
     }
     pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
-        Ok(TextureID {
+        let texture = TextureID {
             buffer_index: self.textures.insert(RefCounter::new(
                 self.resource_pool.allocate_texture(
                     &mut self.core,
@@ -229,7 +266,10 @@ impl Backend {
                 )?,
                 0,
             )),
-        })
+        };
+        self.to_free_textures
+            .insert(MeshTexture::RegularTexture(texture));
+        Ok(texture)
     }
     /// Lazily frees textures once the texture is no longer in use
     pub fn free_texture(&mut self, tex: MeshTexture) -> Result<()> {
@@ -277,7 +317,7 @@ impl Backend {
         Ok(())
     }
     pub fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<FramebufferID> {
-        Ok(FramebufferID {
+        let framebuffer = FramebufferID {
             buffer_index: self.framebuffer_arena.insert(RefCounter::new(
                 AttachableFramebuffer::new(
                     &mut self.core,
@@ -288,7 +328,11 @@ impl Backend {
                 )?,
                 0,
             )),
-        })
+        };
+        self.to_free_textures
+            .insert(MeshTexture::Framebuffer(framebuffer));
+
+        Ok(framebuffer)
     }
     pub fn bind_framebuffer(&mut self, framebuffer_id: &BoundFramebuffer) -> Result<()> {
         let framebuffer = match *framebuffer_id {
@@ -336,20 +380,7 @@ impl Backend {
     /// Frees mesh data, can be called at any time as freeing waits untill data is unused by
     /// renderpasses
     pub fn free_mesh(&mut self, mesh: &MeshID) -> Result<()> {
-        match mesh.texture {
-            MeshTexture::RegularTexture(texture) => {
-                self.textures
-                    .get_mut(texture.buffer_index)
-                    .unwrap()
-                    .decr_refrence();
-            }
-            MeshTexture::Framebuffer(framebuffer) => {
-                self.framebuffer_arena
-                    .get_mut(framebuffer.buffer_index)
-                    .unwrap()
-                    .decr_refrence();
-            }
-        }
+        self.decr_texture_refrences(&mesh.texture);
         let ids = RenderMeshIds {
             index_buffer_id: mesh.indices.buffer_index,
             vertex_buffer_id: mesh.vertices.buffer_index,

@@ -140,7 +140,7 @@ impl sukakpak::Renderable for CloneCraft {
         let mut plane = ctx_ref
             .build_mesh(MeshAsset::new_plane(), red_texture)
             .expect("failed to build plane");
-        plane.bind_framebuffer(framebuffer);
+        ctx_ref.bind_texture(&mut plane, &MeshTexture::Framebuffer(framebuffer));
         let camera_matrix =
             *na::Perspective3::new(1.0, std::f32::consts::PI as f32 / 4.0, 1.0, 1000.0).as_matrix();
         Self {
@@ -172,12 +172,18 @@ impl sukakpak::Renderable for CloneCraft {
                 Event::MouseMoved { normalized, .. } => self.cube_pos = *normalized,
                 Event::MouseDown { button } => {
                     if button == &MouseButton::Left {
-                        self.triangle.bind_texture(self.blue_texture)
+                        context
+                            .borrow_mut()
+                            .bind_texture(&mut self.triangle, &self.blue_texture)
+                            .expect("failed to bind texture");
                     }
                 }
                 Event::MouseUp { button } => {
                     if button == &MouseButton::Left {
-                        self.triangle.bind_texture(self.red_texture)
+                        context
+                            .borrow_mut()
+                            .bind_texture(&mut self.triangle, &self.red_texture)
+                            .expect("failed to bind texture");
                     }
                 }
                 Event::ScrollContinue { delta } => {
@@ -234,9 +240,13 @@ impl sukakpak::Renderable for CloneCraft {
                         * rot
                         * na::Matrix4::new_translation(&na::Vector3::new(-0.5, -0.5, -0.5));
                     let mut new_mesh = self.triangle.clone();
-                    new_mesh.bind_texture(self.blue_texture);
+                    ctx_ref
+                        .bind_texture(&mut new_mesh, &self.blue_texture)
+                        .expect("failed to bind texture");
                     if y % 2 == 0 {
-                        new_mesh.bind_texture(self.red_texture);
+                        ctx_ref
+                            .bind_texture(&mut new_mesh, &self.red_texture)
+                            .expect("failed to bind texture");
                     }
                     ctx_ref
                         .draw_mesh(to_slice(&mat), &new_mesh)

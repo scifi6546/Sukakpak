@@ -117,6 +117,12 @@ impl Context {
         self.backend
             .build_mesh(mesh.vertices, mesh.vertex_layout, mesh.indices, texture)
     }
+    /// Binds a texture.
+    /// Preconditions
+    /// None
+    pub fn bind_texture(&mut self, mesh: &mut Mesh, texture: &MeshTexture) -> Result<()> {
+        self.backend.bind_texture(mesh, texture.clone())
+    }
     /// Deletes Mesh. Mesh not be used in current draw call.
     pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
         self.backend.free_mesh(&mesh)
