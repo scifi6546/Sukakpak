@@ -362,7 +362,7 @@ impl IndexBufferAllocation {
     pub fn num_indices(&self) -> usize {
         self.buffer_size / size_of::<u32>()
     }
-    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         resource_pool.allocator.free(self.allocation.clone())?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
@@ -377,7 +377,7 @@ pub struct VertexBufferAllocation {
     pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
-    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         resource_pool.allocator.free(self.allocation.clone())?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
@@ -494,7 +494,6 @@ impl TextureAllocation {
             panic!("unsupported layout transition")
         };
         unsafe {
-            println!("source: {:?} dest: {:?}", source_stage, dest_stage);
             let buffer = command_pool.create_onetime_buffer(core);
             buffer.core.device.cmd_pipeline_barrier(
                 buffer.command_buffer[0],

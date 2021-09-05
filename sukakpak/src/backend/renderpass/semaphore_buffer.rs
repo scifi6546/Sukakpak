@@ -51,12 +51,9 @@ impl SemaphoreBuffer {
         self.semaphores[len - 1]
     }
     pub fn free(&mut self, core: &mut Core) {
-        for (i, semaphore) in self.semaphores.iter().enumerate() {
-            //skipping first element
-            if i != 0 {
-                unsafe {
-                    core.device.destroy_semaphore(*semaphore, None);
-                }
+        for semaphore in self.semaphores.iter() {
+            unsafe {
+                core.device.destroy_semaphore(*semaphore, None);
             }
         }
         //unsafe {

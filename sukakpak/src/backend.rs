@@ -244,7 +244,6 @@ impl Backend {
     }
     /// Lazily frees textures once the texture is no longer in use
     pub fn free_texture(&mut self, tex: MeshTexture) -> Result<()> {
-        println!("going to free texture: {:?}", tex);
         self.to_free_textures.insert(tex);
         Ok(())
     }
@@ -260,7 +259,6 @@ impl Backend {
                             .renderpass
                             .is_resource_used(&ResourceId::UserTexture(id.buffer_index))
                     {
-                        println!("removing texture: {:?}", id);
                         freed_textures.push(*tex);
                         self.textures
                             .remove(id.buffer_index)
@@ -472,7 +470,7 @@ impl Backend {
                         let tex = self.models.get(*id).unwrap().texture.clone();
                         self.decr_texture_refrences(&tex);
                     }
-                    let mut model = self.models.get_mut(*id).unwrap();
+                    let mut model = self.models.remove(*id).unwrap();
 
                     model
                         .indices

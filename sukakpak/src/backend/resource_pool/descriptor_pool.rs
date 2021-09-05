@@ -44,7 +44,6 @@ impl DescriptorPool {
             .map(|(name, descriptor)| {
                 (name.clone(), {
                     let layout_binding = [descriptor.layout_binding];
-                    println!("making layout: {:?}", layout_binding);
                     let layout_create_info =
                         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&layout_binding);
                     let layouts = [unsafe {
