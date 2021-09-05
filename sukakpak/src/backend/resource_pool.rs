@@ -362,8 +362,8 @@ impl IndexBufferAllocation {
     pub fn num_indices(&self) -> usize {
         self.buffer_size / size_of::<u32>()
     }
-    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
-        resource_pool.allocator.free(self.allocation)?;
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        resource_pool.allocator.free(self.allocation.clone())?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
         }
@@ -377,8 +377,8 @@ pub struct VertexBufferAllocation {
     pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
-    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
-        resource_pool.allocator.free(self.allocation)?;
+    pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        resource_pool.allocator.free(self.allocation.clone())?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
         }

@@ -110,30 +110,45 @@ impl Context {
     }
     /// Does steps for finshing rendering
     fn finish_render(&mut self) -> Result<()> {
+        self.check_state();
         self.backend.finish_render()?;
+        self.check_state();
         self.backend.collect_garbage()
     }
     pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Result<Mesh> {
-        self.backend
-            .build_mesh(mesh.vertices, mesh.vertex_layout, mesh.indices, texture)
+        self.check_state();
+        let mesh =
+            self.backend
+                .build_mesh(mesh.vertices, mesh.vertex_layout, mesh.indices, texture)?;
+        self.check_state();
+        Ok(mesh)
     }
     /// Binds a texture.
     /// Preconditions
     /// None
     pub fn bind_texture(&mut self, mesh: &mut Mesh, texture: &MeshTexture) -> Result<()> {
-        self.backend.bind_texture(mesh, texture.clone())
+        self.check_state();
+        self.backend.bind_texture(mesh, texture.clone())?;
+        self.check_state();
+        Ok(())
     }
     /// Deletes Mesh. Mesh not be used in current draw call.
     pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
-        self.backend.free_mesh(&mesh)
+        self.check_state();
+        self.backend.free_mesh(&mesh)?;
+        self.check_state();
+        Ok(())
     }
     pub fn build_texture(&mut self, image: &RgbaImage) -> Result<MeshTexture> {
-        Ok(MeshTexture::RegularTexture(
-            self.backend.allocate_texture(image)?,
-        ))
+        self.check_state();
+        let mesh = MeshTexture::RegularTexture(self.backend.allocate_texture(image)?);
+        self.check_state();
+
+        Ok(mesh)
     }
     /// Deletes Texture. Texture must not be used in current draw call.
     pub fn delete_texture(&mut self, tex: MeshTexture) -> Result<()> {
+        self.check_state();
         match tex {
             MeshTexture::RegularTexture(texture) => self
                 .backend
@@ -142,7 +157,10 @@ impl Context {
         }
     }
     pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Mesh) -> Result<()> {
-        self.backend.draw_mesh(push, mesh)
+        self.check_state();
+        self.backend.draw_mesh(push, mesh)?;
+        self.check_state();
+        Ok(())
     }
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
         self.backend.build_framebuffer(resolution)
@@ -150,11 +168,16 @@ impl Context {
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
     pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
-        println!("binding shader: {}", shader);
-        self.backend.bind_shader(framebuffer, shader)
+        self.check_state();
+        self.backend.bind_shader(framebuffer, shader)?;
+        self.check_state();
+        Ok(())
     }
     pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
-        self.backend.bind_framebuffer(bound_framebuffer)
+        self.check_state();
+        self.backend.bind_framebuffer(bound_framebuffer)?;
+        self.check_state();
+        Ok(())
     }
     pub fn get_screen_size(&self) -> Vector2<u32> {
         self.backend.get_screen_size()
@@ -166,11 +189,19 @@ impl Context {
         todo!("force draw")
     }
     pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
-        self.backend.load_shader(path, shader_name)
+        self.check_state();
+        self.backend.load_shader(path, shader_name)?;
+        self.check_state();
+        Ok(())
     }
     /// quits the program once `render_frame` finishes
     pub fn quit(&mut self) {
         self.quit = true;
+    }
+    /// Checks state. If state validation feature is enabled
+    fn check_state(&mut self) {
+        #[cfg(feature = "state_validation")]
+        self.backend.check_state();
     }
 }
 /// User Provided code that provides draw calls

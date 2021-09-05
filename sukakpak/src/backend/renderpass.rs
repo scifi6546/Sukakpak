@@ -17,8 +17,7 @@ pub enum ClearOp {
 /// describes id for resource
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ResourceId {
-    VertexBufferID(ArenaIndex),
-    IndexBufferID(ArenaIndex),
+    Mesh(ArenaIndex),
     UserTexture(ArenaIndex),
     Framebuffer(ArenaIndex),
 }
@@ -28,18 +27,16 @@ pub enum TextureId {
     Framebuffer(ArenaIndex),
 }
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-/// Contains ids of resoures used by mesh
+/// Contains ids of resoures used by mesh, used to track resource use
 pub struct RenderMeshIds {
-    pub vertex_buffer_id: ArenaIndex,
-    pub index_buffer_id: ArenaIndex,
+    pub mesh_id: ArenaIndex,
     pub texture_id: TextureId,
 }
 impl RenderMeshIds {
     /// Converts to array if resource ids
-    pub fn to_resource_ids(&self) -> [ResourceId; 3] {
+    pub fn to_resource_ids(&self) -> [ResourceId; 2] {
         [
-            ResourceId::VertexBufferID(self.vertex_buffer_id),
-            ResourceId::IndexBufferID(self.index_buffer_id),
+            ResourceId::Mesh(self.mesh_id),
             match self.texture_id {
                 TextureId::UserTexture(id) => ResourceId::UserTexture(id),
                 TextureId::Framebuffer(id) => ResourceId::Framebuffer(id),

@@ -22,4 +22,7 @@ cfg-if="1.0"
 ass_lib = {path = "../ass_lib"}
 free_list = {path = "../free_list"}
 [features]
+default = ["full_debug"]
+full_debug = ["state_validation"]
 no_validation=[]
+state_validation = []

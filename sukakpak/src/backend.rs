@@ -44,8 +44,7 @@ pub struct Backend {
     #[allow(dead_code)]
     shaders: HashMap<String, ShaderDescription>,
     window: winit::window::Window,
-    vertex_buffers: Arena<VertexBufferAllocation>,
-    index_buffers: Arena<IndexBufferAllocation>,
+    models: Arena<Model>,
     textures: Arena<RefCounter<TextureAllocation>>,
     to_free_textures: HashSet<MeshTexture>,
     framebuffer_arena: Arena<RefCounter<AttachableFramebuffer>>,
@@ -76,11 +75,15 @@ pub enum MeshTexture {
     RegularTexture(TextureID),
     Framebuffer(FramebufferID),
 }
+/// Complete Mesh
+pub struct Model {
+    vertices: VertexBufferAllocation,
+    indices: IndexBufferAllocation,
+    texture: MeshTexture,
+}
 #[derive(Clone, Copy, Debug)]
 pub struct MeshID {
-    vertices: VertexBufferID,
-    texture: MeshTexture,
-    indices: IndexBufferID,
+    buffer_index: ArenaIndex,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FramebufferID {
@@ -153,8 +156,7 @@ impl Backend {
             shaders,
             bound_framebuffer: BoundFramebuffer::ScreenFramebuffer,
             screen_dimensions,
-            index_buffers: Arena::new(),
-            vertex_buffers: Arena::new(),
+            models: Arena::new(),
             framebuffer_arena: Arena::new(),
             textures: Arena::new(),
             to_free_textures: HashSet::new(),
@@ -168,10 +170,22 @@ impl Backend {
         texture: MeshTexture,
     ) -> Result<MeshID> {
         self.incr_texture_refrences(&texture);
+
+        let vertices =
+            self.resource_pool
+                .allocate_vertex_buffer(&mut self.core, verticies, vertex_layout)?;
+        let indices = self.resource_pool.allocate_index_buffer(
+            &mut self.core,
+            &mut self.command_pool,
+            indicies,
+        )?;
+
         Ok(MeshID {
-            vertices: self.allocate_verticies(verticies, vertex_layout)?,
-            indices: self.allocate_indicies(indicies)?,
-            texture,
+            buffer_index: self.models.insert(Model {
+                vertices,
+                indices,
+                texture,
+            }),
         })
     }
     /// Decrements refrences on mesh texture, and marks for freeing if refrences is zero
@@ -182,16 +196,10 @@ impl Backend {
             MeshTexture::RegularTexture(id) => {
                 let texture_ref = self.textures.get_mut(id.buffer_index).unwrap();
                 texture_ref.decr_refrence();
-                if texture_ref.refrences() == 0 {
-                    self.to_free_textures.insert(texture.clone());
-                }
             }
             MeshTexture::Framebuffer(id) => {
                 let texture_ref = self.framebuffer_arena.get_mut(id.buffer_index).unwrap();
                 texture_ref.decr_refrence();
-                if texture_ref.refrences() == 0 {
-                    self.to_free_textures.insert(texture.clone());
-                }
             }
         };
     }
@@ -201,60 +209,25 @@ impl Backend {
     pub fn incr_texture_refrences(&mut self, texture: &MeshTexture) {
         match texture {
             MeshTexture::RegularTexture(id) => {
-                let texture_ref = self.textures.get_mut(id.buffer_index).unwrap();
-                texture_ref.incr_refrence();
-                if texture_ref.refrences() == 1 {
-                    if self.to_free_textures.remove(texture) == false {
-                        panic!(
-                            "invalid state: texture had zero refrences but it was not in to free"
-                        )
-                    }
+                let texture_option = self.textures.get_mut(id.buffer_index);
+                if texture_option.is_none() {
+                    panic!("texture : {:?} does not exist", id);
                 }
+                let texture_ref = texture_option.unwrap();
+                texture_ref.incr_refrence();
             }
             MeshTexture::Framebuffer(id) => {
                 let framebuffer_ref = self.framebuffer_arena.get_mut(id.buffer_index).unwrap();
                 framebuffer_ref.incr_refrence();
-                if framebuffer_ref.refrences() == 1 {
-                    if self.to_free_textures.remove(texture) == false {
-                        panic!(
-                            "invalid state: texture had zero refrences but it was not in to free"
-                        )
-                    }
-                }
             }
         };
     }
-    pub fn bind_texture(&mut self, mesh: &mut MeshID, texture: MeshTexture) -> Result<()> {
-        self.decr_texture_refrences(&mesh.texture);
-        mesh.texture = texture;
-        self.incr_texture_refrences(&mesh.texture);
+    pub fn bind_texture(&mut self, mesh_id: &mut MeshID, texture: MeshTexture) -> Result<()> {
+        let old_texture = self.models.get(mesh_id.buffer_index).unwrap().texture;
+        self.decr_texture_refrences(&old_texture);
+        self.models.get_mut(mesh_id.buffer_index).unwrap().texture = texture;
+        self.incr_texture_refrences(&texture);
         Ok(())
-    }
-    pub fn allocate_verticies(
-        &mut self,
-        mesh: Vec<u8>,
-        vertex_layout: VertexLayout,
-    ) -> Result<VertexBufferID> {
-        Ok(VertexBufferID {
-            buffer_index: self
-                .vertex_buffers
-                .insert(self.resource_pool.allocate_vertex_buffer(
-                    &mut self.core,
-                    mesh,
-                    vertex_layout,
-                )?),
-        })
-    }
-    pub fn allocate_indicies(&mut self, indicies: Vec<u32>) -> Result<IndexBufferID> {
-        Ok(IndexBufferID {
-            buffer_index: self
-                .index_buffers
-                .insert(self.resource_pool.allocate_index_buffer(
-                    &mut self.core,
-                    &mut self.command_pool,
-                    indicies,
-                )?),
-        })
     }
     pub fn allocate_texture(&mut self, texture: &RgbaImage) -> Result<TextureID> {
         let texture = TextureID {
@@ -267,17 +240,17 @@ impl Backend {
                 0,
             )),
         };
-        self.to_free_textures
-            .insert(MeshTexture::RegularTexture(texture));
         Ok(texture)
     }
     /// Lazily frees textures once the texture is no longer in use
     pub fn free_texture(&mut self, tex: MeshTexture) -> Result<()> {
+        println!("going to free texture: {:?}", tex);
         self.to_free_textures.insert(tex);
         Ok(())
     }
     /// Scans resources and frees all resources that need to be freed
     pub fn collect_garbage(&mut self) -> Result<()> {
+        let mut freed_textures: Vec<MeshTexture> = vec![];
         for tex in self.to_free_textures.iter() {
             match tex {
                 MeshTexture::RegularTexture(id) => {
@@ -287,6 +260,8 @@ impl Backend {
                             .renderpass
                             .is_resource_used(&ResourceId::UserTexture(id.buffer_index))
                     {
+                        println!("removing texture: {:?}", id);
+                        freed_textures.push(*tex);
                         self.textures
                             .remove(id.buffer_index)
                             .unwrap()
@@ -305,6 +280,7 @@ impl Backend {
                             .renderpass
                             .is_resource_used(&ResourceId::Framebuffer(id.buffer_index))
                     {
+                        freed_textures.push(*tex);
                         self.framebuffer_arena
                             .remove(id.buffer_index)
                             .unwrap()
@@ -312,6 +288,11 @@ impl Backend {
                             .free(&mut self.core, &mut self.resource_pool)?;
                     }
                 }
+            }
+        }
+        for tex in freed_textures.iter() {
+            if self.to_free_textures.remove(tex) == false {
+                panic!("invalid state texture not in free list")
             }
         }
         Ok(())
@@ -379,12 +360,11 @@ impl Backend {
     }
     /// Frees mesh data, can be called at any time as freeing waits untill data is unused by
     /// renderpasses
-    pub fn free_mesh(&mut self, mesh: &MeshID) -> Result<()> {
-        self.decr_texture_refrences(&mesh.texture);
+    pub fn free_mesh(&mut self, mesh_id: &MeshID) -> Result<()> {
+        let texture = self.models.get(mesh_id.buffer_index).unwrap().texture;
         let ids = RenderMeshIds {
-            index_buffer_id: mesh.indices.buffer_index,
-            vertex_buffer_id: mesh.vertices.buffer_index,
-            texture_id: match mesh.texture {
+            mesh_id: mesh_id.buffer_index,
+            texture_id: match texture {
                 MeshTexture::RegularTexture(texture) => {
                     renderpass::TextureId::UserTexture(texture.buffer_index)
                 }
@@ -397,7 +377,8 @@ impl Backend {
         Ok(())
     }
 
-    pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &MeshID) -> Result<()> {
+    pub fn draw_mesh(&mut self, push: Vec<u8>, mesh_id: &MeshID) -> Result<()> {
+        let mesh = self.models.get(mesh_id.buffer_index).unwrap();
         let texture_descriptor_set = match mesh.texture {
             MeshTexture::RegularTexture(texture) => {
                 self.textures
@@ -426,8 +407,7 @@ impl Backend {
         let render_mesh = RenderMesh {
             push,
             ids: RenderMeshIds {
-                index_buffer_id: mesh.indices.buffer_index,
-                vertex_buffer_id: mesh.vertices.buffer_index,
+                mesh_id: mesh_id.buffer_index,
                 texture_id: match mesh.texture {
                     MeshTexture::RegularTexture(texture) => {
                         renderpass::TextureId::UserTexture(texture.buffer_index)
@@ -437,8 +417,8 @@ impl Backend {
                     }
                 },
             },
-            vertex_buffer: self.vertex_buffers.get(mesh.vertices.buffer_index).unwrap(),
-            index_buffer: self.index_buffers.get(mesh.indices.buffer_index).unwrap(),
+            vertex_buffer: &mesh.vertices,
+            index_buffer: &mesh.indices,
         };
         let descriptor_set = [texture_descriptor_set];
         self.renderpass.draw_mesh(
@@ -487,14 +467,19 @@ impl Backend {
         let free_data = self.renderpass.submit_draw(&mut self.core)?;
         for id in free_data.iter() {
             match id {
-                renderpass::ResourceId::VertexBufferID(id) => {
-                    let buffer = self.vertex_buffers.remove(*id).expect("buffer not found");
-                    buffer.free(&mut self.core, &mut self.resource_pool)?;
-                }
+                ResourceId::Mesh(id) => {
+                    {
+                        let tex = self.models.get(*id).unwrap().texture.clone();
+                        self.decr_texture_refrences(&tex);
+                    }
+                    let mut model = self.models.get_mut(*id).unwrap();
 
-                renderpass::ResourceId::IndexBufferID(id) => {
-                    let buffer = self.index_buffers.remove(*id).expect("buffer not found");
-                    buffer.free(&mut self.core, &mut self.resource_pool)?;
+                    model
+                        .indices
+                        .free(&mut self.core, &mut self.resource_pool)?;
+                    model
+                        .vertices
+                        .free(&mut self.core, &mut self.resource_pool)?;
                 }
                 ResourceId::UserTexture(_) => (),
                 ResourceId::Framebuffer(_) => (),
@@ -505,11 +490,9 @@ impl Backend {
             if r == vk::Result::ERROR_OUT_OF_DATE_KHR {
                 let new_size = self.window.inner_size();
                 let new_size = Vector2::new(new_size.width, new_size.height);
-                println!("out of date khr");
                 self.resize_renderer(new_size)?;
                 Ok(())
             } else if r == vk::Result::SUBOPTIMAL_KHR {
-                println!("sub optimal khr");
                 Ok(())
             } else {
                 Err(anyhow::anyhow!("Vk result: {}", r))
@@ -560,18 +543,45 @@ impl Backend {
             .insert(shader_name.to_string(), load_from_fs(path)?.into());
         Ok(())
     }
+    /// Validates state, panics if state is invalid
+    /// Warning: may be slow
+    pub fn check_state(&mut self) {
+        let mut num_correct_refrences: HashMap<MeshTexture, usize> = HashMap::new();
+        for (_id, mesh) in self.models.iter() {
+            if num_correct_refrences.contains_key(&mesh.texture) {
+                let num_ref = num_correct_refrences.get_mut(&mesh.texture).unwrap();
+                *num_ref += 1;
+            } else {
+                num_correct_refrences.insert(mesh.texture, 1);
+            }
+            match mesh.texture {
+                MeshTexture::RegularTexture(id) => {
+                    if self.textures.get(id.buffer_index).is_none() {
+                        panic!("texture: {:?} does not exist", id)
+                    }
+                }
+                MeshTexture::Framebuffer(id) => {
+                    if self.framebuffer_arena.get(id.buffer_index).is_none() {
+                        panic!("framebuffer: {:?} does not exist", id)
+                    }
+                }
+            }
+        }
+    }
 }
 impl Drop for Backend {
     fn drop(&mut self) {
         self.renderpass.wait_idle(&mut self.core);
         unsafe {
-            for (_idx, mesh) in self.vertex_buffers.drain() {
-                mesh.free(&mut self.core, &mut self.resource_pool)
-                    .expect("failed to free mesh");
-            }
-            for (_idx, buff) in self.index_buffers.drain() {
-                buff.free(&mut self.core, &mut self.resource_pool)
-                    .expect("failed to free buffer");
+            for (idx, mut model) in self.models.drain() {
+                model
+                    .vertices
+                    .free(&mut self.core, &mut self.resource_pool)
+                    .expect("failed to free vertex buffer");
+                model
+                    .indices
+                    .free(&mut self.core, &mut self.resource_pool)
+                    .expect("failed to free index buffer");
             }
             for (_idx, tex) in self.textures.drain() {
                 tex.drain()
