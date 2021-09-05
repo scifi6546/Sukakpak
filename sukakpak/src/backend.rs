@@ -18,7 +18,7 @@ use framebuffer::{
 };
 use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
-use ref_counter::{RefCounter, RefrenceStatus};
+use ref_counter::RefCounter;
 use render_core::Core;
 pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
@@ -470,7 +470,7 @@ impl Backend {
                         let tex = self.models.get(*id).unwrap().texture.clone();
                         self.decr_texture_refrences(&tex);
                     }
-                    let mut model = self.models.remove(*id).unwrap();
+                    let model = self.models.remove(*id).unwrap();
 
                     model
                         .indices
@@ -571,7 +571,7 @@ impl Drop for Backend {
     fn drop(&mut self) {
         self.renderpass.wait_idle(&mut self.core);
         unsafe {
-            for (idx, mut model) in self.models.drain() {
+            for (_idx, model) in self.models.drain() {
                 model
                     .vertices
                     .free(&mut self.core, &mut self.resource_pool)

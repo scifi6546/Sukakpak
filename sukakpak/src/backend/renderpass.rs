@@ -83,17 +83,10 @@ impl RenderpassGarbageCollector {
             self.mesh_freelist.try_free(item);
         }
     }
-    /// returns true if the resource is used by a renderpass
-    pub fn is_used(&self, resource: &ResourceId) -> bool {
-        self.mesh_freelist.is_used(resource)
-    }
     /// Marks a renderpass as done and returns all meshes that are no longer in use
     pub fn finish_renderpass(&mut self, renderpass_id: u32) -> HashSet<ResourceId> {
         self.mesh_freelist.finish_renderpass(renderpass_id)
     }
-}
-pub struct FreedMeshes {
-    pub meshes: HashSet<RenderMeshIds>,
 }
 type ImageIndex = u32;
 
@@ -228,7 +221,7 @@ impl RenderPass {
     /// begins rendering a frame, builds renderpass with selected frame
     pub unsafe fn begin_frame(&mut self, core: &mut Core, framebuffer: &Framebuffer) -> Result<()> {
         self.acquire_next_image(core)?;
-        let (image_index, renderpass_id) = self.image_index.unwrap();
+        let (image_index, _renderpass_id) = self.image_index.unwrap();
         core.device
             .wait_for_fences(&[self.fences[image_index as usize].1], true, u64::MAX)?;
         core.device.begin_command_buffer(
@@ -353,10 +346,6 @@ impl RenderPass {
     /// checks if resource is used. if it is returns true
     pub fn is_resource_used(&self, resource: &ResourceId) -> bool {
         self.garbage_collector.is_resource_used(resource)
-    }
-    /// Marks a resource for freeing. Todo: free reosurce
-    pub fn free_resource(&mut self, resource: ResourceId) -> Result<()> {
-        todo!()
     }
     pub fn swap_framebuffer(&mut self, core: &mut Core) -> std::result::Result<(), vk::Result> {
         if let Some((image_index, _rendeprass_id)) = self.image_index {

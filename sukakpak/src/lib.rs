@@ -2,23 +2,91 @@ pub use anyhow;
 use anyhow::Result;
 mod backend;
 mod events;
-use backend::Backend;
-pub use backend::{
-    BoundFramebuffer, FramebufferID as Framebuffer, MeshID as Mesh, MeshTexture,
-    TextureID as Texture, VertexComponent, VertexLayout,
-};
+use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, MeshTexture, TextureID};
+
+pub use backend::{BackendCreateInfo as CreateInfo, VertexComponent, VertexLayout};
 use events::EventCollector;
 pub use events::{Event, MouseButton};
 pub use image;
 use image::RgbaImage;
 mod mesh;
-pub use backend::BackendCreateInfo as CreateInfo;
 pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 pub use nalgebra;
 use nalgebra as na;
 use nalgebra::Vector2;
-use std::{cell::RefCell, path::Path, rc::Rc, time::Duration, time::SystemTime};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+    time::Duration,
+    time::SystemTime,
+};
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
+pub struct Mesh {
+    mesh: MeshID,
+    backend: Arc<Mutex<Backend>>,
+}
+impl Drop for Mesh {
+    fn drop(&mut self) {
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .free_mesh(&self.mesh)
+            .expect("failed to free mesh");
+    }
+}
+
+pub struct Texture {
+    texture: TextureID,
+    backend: Arc<Mutex<Backend>>,
+}
+impl Drop for Texture {
+    fn drop(&mut self) {
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .free_texture(MeshTexture::RegularTexture(self.texture))
+            .expect("failed to free texture");
+    }
+}
+pub struct Framebuffer {
+    framebuffer: FramebufferID,
+    backend: Arc<Mutex<Backend>>,
+}
+/// Represents framebuffers that can be drawn to
+pub enum Bindable<'a> {
+    UserFramebuffer(&'a Framebuffer),
+    ScreenFramebuffer,
+}
+impl From<Bindable<'_>> for BoundFramebuffer {
+    fn from(bind: Bindable) -> Self {
+        match bind {
+            Bindable::UserFramebuffer(fb) => Self::UserFramebuffer(fb.framebuffer),
+            Bindable::ScreenFramebuffer => Self::ScreenFramebuffer,
+        }
+    }
+}
+impl Drop for Framebuffer {
+    fn drop(&mut self) {
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .free_texture(MeshTexture::Framebuffer(self.framebuffer))
+            .expect("failed to free texture");
+    }
+}
+pub enum DrawableTexture<'a> {
+    Texture(&'a Texture),
+    Framebuffer(&'a Framebuffer),
+}
+impl From<DrawableTexture<'_>> for MeshTexture {
+    fn from(tex: DrawableTexture) -> Self {
+        match tex {
+            DrawableTexture::Texture(tex) => Self::RegularTexture(tex.texture),
+            DrawableTexture::Framebuffer(fb) => Self::Framebuffer(fb.framebuffer),
+        }
+    }
+}
+
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
 unsafe impl Send for Context {}
@@ -27,10 +95,9 @@ impl Sukakpak {
     pub fn new<R: 'static + Renderable>(create_info: CreateInfo) -> ! {
         let event_loop = winit::event_loop::EventLoop::new();
 
-        let context = Rc::new(RefCell::new(Context::new(
-            Backend::new(create_info, &event_loop).expect("failed to create backend"),
-        )));
-        let mut renderer = R::init(Rc::clone(&context));
+        let context =
+            Context::new(Backend::new(create_info, &event_loop).expect("failed to create backend"));
+        let mut renderer = R::init(context.clone());
 
         let mut event_collector = EventCollector::new();
         let mut system_time = SystemTime::now();
@@ -38,15 +105,14 @@ impl Sukakpak {
         event_loop.run(move |event, _, control_flow| {
             match event {
                 WinitEvent::WindowEvent { event, .. } => {
-                    let ctx_borrow = context.borrow_mut();
-                    event_collector.push_event(event, &ctx_borrow.backend)
+                    event_collector.push_event(event, &context.backend.lock().unwrap())
                 }
                 WinitEvent::MainEventsCleared => {
                     let delta_time = system_time.elapsed().expect("failed to get time");
                     match run_frame(
                         &event_collector.pull_events(),
                         &mut renderer,
-                        Rc::clone(&context),
+                        context.clone(),
                         delta_time,
                     ) {
                         FrameStatus::Quit => *control_flow = ControlFlow::Exit,
@@ -71,148 +137,184 @@ enum FrameStatus {
 fn run_frame<R: Renderable>(
     events: &[Event],
     renderer: &mut R,
-    context: Rc<RefCell<Context>>,
+    mut context: Context,
     delta_time: Duration,
 ) -> FrameStatus {
     {
-        let mut ctx_borrow = context.borrow_mut();
-        ctx_borrow
+        context
             .backend
+            .lock()
+            .expect("failed to get lock")
             .begin_render()
             .expect("failed to start rendering frame");
     }
 
-    renderer.render_frame(events, Rc::clone(&context), delta_time);
-    let mut ctx_borrow = context.borrow_mut();
-    if !ctx_borrow.quit {
-        ctx_borrow
-            .finish_render()
-            .expect("failed to finish rendering");
+    renderer.render_frame(events, context.clone(), delta_time);
+
+    if *context.quit.lock().expect("failed to get lock") == false {
+        context.finish_render().expect("failed to finish rendering");
         FrameStatus::Continue
     } else {
         FrameStatus::Quit
     }
 }
 
+#[derive(Clone)]
 pub struct Context {
-    backend: Backend,
-    //true if quit is signaled
-    quit: bool,
+    backend: Arc<Mutex<Backend>>,
+    /// true if quit is signaled
+    quit: Arc<Mutex<bool>>,
 }
 
 //draws meshes. Will draw on update_uniform, bind_framebuffer, or force_draw
 impl Context {
     fn new(backend: Backend) -> Self {
         Self {
-            backend,
-            quit: false,
+            backend: Arc::new(Mutex::new(backend)),
+            quit: Arc::new(Mutex::new(false)),
         }
     }
     /// Does steps for finshing rendering
     fn finish_render(&mut self) -> Result<()> {
         self.check_state();
-        self.backend.finish_render()?;
+        {
+            let mut backend_lock = self.backend.lock().expect("failed to get lock");
+            backend_lock.finish_render()?;
+            backend_lock.collect_garbage()?;
+        }
         self.check_state();
-        self.backend.collect_garbage()
+        Ok(())
     }
-    pub fn build_mesh(&mut self, mesh: MeshAsset, texture: MeshTexture) -> Result<Mesh> {
+    pub fn build_mesh(&mut self, mesh: MeshAsset, texture: DrawableTexture) -> Result<Mesh> {
         self.check_state();
-        let mesh =
-            self.backend
-                .build_mesh(mesh.vertices, mesh.vertex_layout, mesh.indices, texture)?;
+        let mesh = self
+            .backend
+            .lock()
+            .expect("failed to get lock")
+            .build_mesh(
+                mesh.vertices,
+                mesh.vertex_layout,
+                mesh.indices,
+                texture.into(),
+            )?;
+
         self.check_state();
-        Ok(mesh)
+        Ok(Mesh {
+            mesh,
+            backend: self.backend.clone(),
+        })
     }
     /// Binds a texture.
     /// Preconditions
     /// None
-    pub fn bind_texture(&mut self, mesh: &mut Mesh, texture: &MeshTexture) -> Result<()> {
+    pub fn bind_texture(&mut self, mesh: &mut Mesh, texture: DrawableTexture) -> Result<()> {
         self.check_state();
-        self.backend.bind_texture(mesh, texture.clone())?;
-        self.check_state();
-        Ok(())
-    }
-    /// Deletes Mesh. Mesh not be used in current draw call.
-    pub fn delete_mesh(&mut self, mesh: Mesh) -> Result<()> {
-        self.check_state();
-        self.backend.free_mesh(&mesh)?;
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .bind_texture(&mut mesh.mesh, texture.into())?;
         self.check_state();
         Ok(())
     }
-    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<MeshTexture> {
+    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<Texture> {
         self.check_state();
-        let mesh = MeshTexture::RegularTexture(self.backend.allocate_texture(image)?);
+        let texture = self
+            .backend
+            .lock()
+            .expect("failed to get lock")
+            .allocate_texture(image)?;
+
         self.check_state();
 
-        Ok(mesh)
+        Ok(Texture {
+            texture,
+            backend: self.backend.clone(),
+        })
     }
     /// Deletes Texture. Texture must not be used in current draw call.
     pub fn delete_texture(&mut self, tex: MeshTexture) -> Result<()> {
         self.check_state();
-        match tex {
-            MeshTexture::RegularTexture(texture) => self
-                .backend
-                .free_texture(MeshTexture::RegularTexture(texture)),
-            MeshTexture::Framebuffer(_fb) => todo!("free framebuffer"),
-        }
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .free_texture(tex)?;
+        self.check_state();
+        Ok(())
     }
     pub fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Mesh) -> Result<()> {
         self.check_state();
-        self.backend.draw_mesh(push, mesh)?;
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .draw_mesh(push, &mesh.mesh)?;
         self.check_state();
         Ok(())
     }
     pub fn build_framebuffer(&mut self, resolution: na::Vector2<u32>) -> Result<Framebuffer> {
-        self.backend.build_framebuffer(resolution)
+        let framebuffer = self
+            .backend
+            .lock()
+            .expect("failed to get lock")
+            .build_framebuffer(resolution)
+            .expect("failed to build framebuffer");
+        Ok(Framebuffer {
+            framebuffer,
+            backend: self.backend.clone(),
+        })
     }
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
-    pub fn bind_shader(&mut self, framebuffer: &BoundFramebuffer, shader: &str) -> Result<()> {
+    pub fn bind_shader(&mut self, framebuffer: Bindable, shader: &str) -> Result<()> {
         self.check_state();
-        self.backend.bind_shader(framebuffer, shader)?;
+
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .bind_shader(&framebuffer.into(), shader)?;
         self.check_state();
         Ok(())
     }
-    pub fn bind_framebuffer(&mut self, bound_framebuffer: &BoundFramebuffer) -> Result<()> {
-        self.check_state();
-        self.backend.bind_framebuffer(bound_framebuffer)?;
+
+    pub fn bind_framebuffer(&mut self, framebuffer: Bindable) -> Result<()> {
+        self.backend
+            .lock()
+            .unwrap()
+            .bind_framebuffer(&framebuffer.into())?;
         self.check_state();
         Ok(())
     }
     pub fn get_screen_size(&self) -> Vector2<u32> {
-        self.backend.get_screen_size()
-    }
-    pub fn update_uniform(&mut self) {
-        todo!("update uniform")
-    }
-    pub fn force_draw(&mut self) {
-        todo!("force draw")
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .get_screen_size()
     }
     pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
         self.check_state();
-        self.backend.load_shader(path, shader_name)?;
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .load_shader(path, shader_name)?;
         self.check_state();
         Ok(())
     }
     /// quits the program once `render_frame` finishes
     pub fn quit(&mut self) {
-        self.quit = true;
+        *self.quit.lock().unwrap() = true;
     }
     /// Checks state. If state validation feature is enabled
     fn check_state(&mut self) {
         #[cfg(feature = "state_validation")]
-        self.backend.check_state();
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .check_state();
     }
 }
 /// User Provided code that provides draw calls
 pub trait Renderable {
-    fn init(context: Rc<RefCell<Context>>) -> Self;
-    fn render_frame(
-        &mut self,
-        events: &[Event],
-        context: Rc<RefCell<Context>>,
-        delta_time: Duration,
-    );
+    fn init(context: Context) -> Self;
+    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration);
 }
 #[cfg(test)]
 mod tests {
@@ -221,17 +323,16 @@ mod tests {
 
     struct EmptyRenderable {}
     impl Renderable for EmptyRenderable {
-        fn init<'a>(_context: Rc<RefCell<Context>>) -> Self {
+        fn init<'a>(_context: Context) -> Self {
             Self {}
         }
         fn render_frame<'a>(
             &mut self,
             _events: &[Event],
-            context: Rc<RefCell<Context>>,
+            mut context: Context,
             _delta_time: Duration,
         ) {
-            let mut ctx_borrow = context.borrow_mut();
-            ctx_borrow.quit();
+            context.quit();
         }
     }
     struct TriangleRenderable {
@@ -241,29 +342,24 @@ mod tests {
         texture: MeshTexture,
     }
     impl Renderable for TriangleRenderable {
-        fn init<'a>(context: Rc<RefCell<Context>>) -> Self {
-            let mut ctx_borrow = context.borrow_mut();
+        fn init<'a>(mut context: Context) -> Self {
             let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
-            let texture = ctx_borrow
+            let texture = context
                 .build_texture(&image)
                 .expect("failed to create image");
-            let triangle = ctx_borrow.build_mesh(MeshAsset::new_triangle(), texture);
+            let triangle = context
+                .build_mesh(MeshAsset::new_triangle(), texture)
+                .unwrap();
             Self {
                 triangle,
                 num_frames: 0,
                 texture,
             }
         }
-        fn render_frame<'a>(
-            &mut self,
-            _events: &[Event],
-            context: Rc<RefCell<Context>>,
-            _dt: Duration,
-        ) {
-            let mut ctx_borrow = context.borrow_mut();
+        fn render_frame<'a>(&mut self, _events: &[Event], mut context: Context, _dt: Duration) {
             if self.num_frames <= 10_000 {
                 let mat = Matrix4::<f32>::identity();
-                ctx_borrow
+                context
                     .draw_mesh(
                         mat.as_slice()
                             .iter()
@@ -275,7 +371,7 @@ mod tests {
                     .expect("failed to draw triangle");
                 self.num_frames += 1;
             } else {
-                ctx_borrow.quit();
+                context.quit();
             }
         }
     }
