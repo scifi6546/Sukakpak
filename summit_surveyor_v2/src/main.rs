@@ -202,6 +202,7 @@ impl sukakpak::Renderable for Game {
 
         resources.insert(context);
         resources.insert(model_manager);
+        resources.insert(texture_manager);
         Schedule::builder()
             .add_system(lift::insert_lift_system())
             .add_system(hud::build_hud_system())
