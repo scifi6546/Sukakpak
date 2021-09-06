@@ -1,8 +1,8 @@
-use super::prelude::{GuiItem, RenderingCtx, TextLabel, Transform};
+use super::prelude::{GuiItem, TextLabel, Transform};
 use legion::systems::CommandBuffer;
 use legion::*;
 use std::time::Duration;
-use sukakpak::nalgebra::Vector3;
+use sukakpak::{nalgebra::Vector3, Context};
 
 pub struct Hud {
     time: TextLabel,
@@ -16,15 +16,16 @@ impl Hud {
     }
 }
 #[system]
-pub fn build_hud(command_buffer: &mut CommandBuffer, #[resource] graphics: &mut RenderingCtx) {
+pub fn build_hud(command_buffer: &mut CommandBuffer, #[resource] graphics: &mut Context) {
     command_buffer.push((
         Hud {
             time: TextLabel::new(
                 "f".to_string(),
                 Hud::TEXT_SIZE,
                 Hud::get_transform(),
-                graphics.0.clone(),
-            ),
+                graphics,
+            )
+            .expect("failed to build text label"),
         },
         (),
     ));
@@ -32,7 +33,7 @@ pub fn build_hud(command_buffer: &mut CommandBuffer, #[resource] graphics: &mut 
 #[system(for_each)]
 pub fn update_time(
     hud: &mut Hud,
-    #[resource] graphics: &mut RenderingCtx,
+    #[resource] graphics: &mut Context,
     #[resource] duration: &Duration,
 ) {
     *hud = Hud {
@@ -40,12 +41,13 @@ pub fn update_time(
             format!("{} fps", 1.0 / duration.as_secs_f32()),
             Hud::TEXT_SIZE,
             Hud::get_transform(),
-            graphics.0.clone(),
-        ),
+            graphics,
+        )
+        .expect("failed to build time label"),
     };
 }
 
 #[system(for_each)]
-pub fn render_hud(hud: &mut Hud, #[resource] graphics: &mut RenderingCtx) {
+pub fn render_hud(hud: &mut Hud, #[resource] graphics: &mut Context) {
     hud.time.render(Transform::default(), graphics);
 }

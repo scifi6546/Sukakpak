@@ -11,7 +11,7 @@ mod terrain;
 use camera::{Camera, Transform};
 use gui::EventCollector;
 use legion::*;
-use model::{RenderingCtx, ScreenPlane};
+use model::ScreenPlane;
 use std::{cell::RefCell, f32, rc::Rc, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
@@ -28,28 +28,25 @@ pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{GuiComponent, GuiItem, TextLabel};
-    pub use super::model::{Model, RenderingCtx};
+    pub use super::model::Model;
     pub use super::terrain::Terrain;
 }
 
 impl sukakpak::Renderable for Game {
-    fn init(context: Rc<RefCell<Context>>) -> Self {
+    fn init(mut context: Context) -> Self {
         context
-            .borrow_mut()
             .load_shader("./shaders/test", "world")
             .expect("failed to load");
         context
-            .borrow_mut()
             .load_shader("./shaders/gui_shader", "gui_shader")
             .expect("failed to load gui shader");
         let mut resources = Resources::default();
         let mut world = World::default();
         context
-            .borrow_mut()
-            .bind_shader(&sukakpak::BoundFramebuffer::ScreenFramebuffer, "gui_shader")
+            .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
         Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
-            .insert(&mut world, &mut resources, &context)
+            .insert(&mut world, &mut resources, context.clone())
             .expect("failed to build terrain");
         model::insert_cube(
             Transform::default()
@@ -60,7 +57,6 @@ impl sukakpak::Renderable for Game {
         )
         .expect("failed to insert");
         let default_tex = context
-            .borrow_mut()
             .build_texture(&RgbaImage::from_pixel(
                 100,
                 100,
@@ -68,7 +64,6 @@ impl sukakpak::Renderable for Game {
             ))
             .expect("failed to build default texture");
         let hover_tex = context
-            .borrow_mut()
             .build_texture(&RgbaImage::from_pixel(
                 100,
                 100,
@@ -77,7 +72,6 @@ impl sukakpak::Renderable for Game {
             .expect("failed to build default texture");
 
         let click_tex = context
-            .borrow_mut()
             .build_texture(&RgbaImage::from_pixel(
                 100,
                 100,
@@ -95,7 +89,7 @@ impl sukakpak::Renderable for Game {
                                 default_tex,
                                 hover_tex,
                                 click_tex,
-                                context.clone(),
+                                &mut context,
                             )
                             .expect("failed to build square"),
                         ),
@@ -105,7 +99,7 @@ impl sukakpak::Renderable for Game {
                                 default_tex,
                                 hover_tex,
                                 click_tex,
-                                context.clone(),
+                                &mut context,
                             )
                             .expect("failed to build square"),
                         ),
@@ -119,7 +113,7 @@ impl sukakpak::Renderable for Game {
                                             default_tex,
                                             hover_tex,
                                             click_tex,
-                                            context.clone(),
+                                            &mut context,
                                         )
                                         .expect("failed to build square"),
                                     ),
@@ -130,7 +124,7 @@ impl sukakpak::Renderable for Game {
                                             default_tex,
                                             hover_tex,
                                             click_tex,
-                                            context.clone(),
+                                            &mut context,
                                         )
                                         .expect("failed to build square"),
                                     ),
@@ -149,8 +143,8 @@ impl sukakpak::Renderable for Game {
                     .to_string(),
                             0.003,
                             Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
-                            context.clone(),
-                        )),
+                            &mut context,
+                        ).expect("failed to build text label")),
                     ],
                     gui::VerticalContainerStyle {
                         alignment: gui::ContainerAlignment::Center,
@@ -174,13 +168,13 @@ impl sukakpak::Renderable for Game {
                 Transform::default()
                     .set_scale(Vector3::new(2.0, 1.0, 1.0))
                     .translate(Vector3::new(0.0, 0.0, 0.0)),
-                context.clone(),
-            )),
+                &mut context,
+            ).expect("failed to build label")),
             &mut world,
         )
         .expect("failed to insert");
 
-        resources.insert(RenderingCtx::new(&context));
+        resources.insert(context);
         Schedule::builder()
             .add_system(lift::insert_lift_system())
             .add_system(hud::build_hud_system())
@@ -198,27 +192,22 @@ impl sukakpak::Renderable for Game {
                 .set_yaw(f32::consts::PI / 2.0),
         );
         resources.insert(EventCollector::default());
-        let game_render_surface = model::build_screen_plane(context, Vector2::new(1000, 1000), 0.0)
-            .expect("faled to create render surface");
+        let game_render_surface =
+            model::build_screen_plane(&mut context, Vector2::new(1000, 1000), 0.0)
+                .expect("faled to create render surface");
         Self {
             world,
             resources,
             game_render_surface,
         }
     }
-    fn render_frame(
-        &mut self,
-        events: &[Event],
-        context: Rc<RefCell<Context>>,
-        delta_time: Duration,
-    ) {
+    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration) {
         self.resources.insert(delta_time);
         self.process_events(delta_time, events);
 
         context
-            .borrow_mut()
-            .bind_framebuffer(&sukakpak::BoundFramebuffer::UserFramebuffer(
-                self.game_render_surface.framebuffer,
+            .bind_framebuffer(sukakpak::Bindable::UserFramebuffer(
+                &self.game_render_surface.framebuffer,
             ))
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
@@ -232,11 +221,9 @@ impl sukakpak::Renderable for Game {
             .build();
         game_renderng_schedule.execute(&mut self.world, &mut self.resources);
         context
-            .borrow_mut()
-            .bind_framebuffer(&sukakpak::BoundFramebuffer::ScreenFramebuffer)
+            .bind_framebuffer(sukakpak::Bindable::ScreenFramebuffer)
             .expect("failed to bind");
         context
-            .borrow_mut()
             .draw_mesh(
                 Transform::default()
                     .set_translation(Vector3::new(0.0, 0.0, 0.9))

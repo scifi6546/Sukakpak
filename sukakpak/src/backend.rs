@@ -40,6 +40,7 @@ pub enum RenderError {
     #[error("Shader: {shader:} not found")]
     ShaderNotFound { shader: String },
 }
+unsafe impl Send for Backend {}
 pub struct Backend {
     #[allow(dead_code)]
     shaders: HashMap<String, ShaderDescription>,

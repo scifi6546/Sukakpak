@@ -1,12 +1,11 @@
-use super::prelude::{
-    GraphLayer, GraphNode, GraphType, GraphWeight, Model, RenderingCtx, Terrain, Transform,
-};
+use super::prelude::{GraphLayer, GraphNode, GraphType, GraphWeight, Model, Terrain, Transform};
 use legion::systems::CommandBuffer;
 use legion::*;
 use std::sync::Mutex;
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
+    Context, DrawableTexture,
 };
 pub struct Lift {}
 pub struct LiftLayer {
@@ -39,13 +38,11 @@ impl GraphLayer for LiftLayer {
 #[system]
 pub fn insert_lift(
     command_buffer: &mut CommandBuffer,
-    #[resource] graphics: &mut RenderingCtx,
+    #[resource] graphics: &mut Context,
     #[resource] terrain: &Terrain,
     #[resource] layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
 ) {
     let texture = graphics
-        .0
-        .borrow_mut()
         .build_texture(&RgbaImage::from_pixel(
             100,
             100,
@@ -54,14 +51,16 @@ pub fn insert_lift(
         .expect("failed to build lift");
     let model = Model::new(
         graphics
-            .0
-            .borrow_mut()
-            .build_mesh(sukakpak::MeshAsset::new_cube(), texture),
+            .build_mesh(
+                sukakpak::MeshAsset::new_cube(),
+                DrawableTexture::Texture(&texture),
+            )
+            .expect("failed to build lift mesh"),
     );
     let t1 = Transform::default().set_translation(Vector3::new(0.0, terrain.get_height(0, 0), 0.0));
     let t2 =
         Transform::default().set_translation(Vector3::new(10.0, terrain.get_height(10, 10), 10.0));
-    command_buffer.push((model.clone(), t1, Lift {}));
+    command_buffer.push((model, t1, Lift {}));
     command_buffer.push((model, t2, Lift {}));
     layers.push(Mutex::new(Box::new(LiftLayer {
         start: GraphNode(Vector2::new(0, 0)),

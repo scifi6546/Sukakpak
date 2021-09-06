@@ -5,7 +5,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::Vector2,
-    Context,
+    Context, DrawableTexture,
 };
 pub struct Grid<T> {
     data: Vec<T>,
@@ -82,13 +82,13 @@ impl Terrain {
         self,
         world: &mut World,
         resources: &mut Resources,
-        context: &Rc<RefCell<Context>>,
+        context: Context,
     ) -> Result<()> {
         let graph_layer: Box<dyn GraphLayer> = (&self).into();
         {
             let mut layers = resources.get_mut_or_insert::<Vec<Mutex<Box<dyn GraphLayer>>>>(vec![]);
             layers.push(Mutex::new(graph_layer));
-            let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
+            let texture = context.build_texture(&RgbaImage::from_pixel(
                 100,
                 100,
                 Rgba::from([200, 200, 200, 200]),
@@ -176,7 +176,11 @@ impl Terrain {
                 },
             };
 
-            let model = Model::new(context.borrow_mut().build_mesh(mesh, texture));
+            let model = Model::new(
+                context
+                    .build_mesh(mesh, DrawableTexture::Texture(&texture))
+                    .expect("failed to build mesh"),
+            );
             world.push((InsertableTerrain {}, Transform::default(), model, texture));
         }
         resources.insert(self);

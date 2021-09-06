@@ -21,9 +21,15 @@ use std::{
     time::SystemTime,
 };
 use winit::{event::Event as WinitEvent, event_loop::ControlFlow};
+unsafe impl Send for Mesh {}
 pub struct Mesh {
     mesh: MeshID,
     backend: Arc<Mutex<Backend>>,
+}
+impl std::fmt::Debug for Mesh {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mesh").field("mesh", &self.mesh).finish()
+    }
 }
 impl Drop for Mesh {
     fn drop(&mut self) {
@@ -34,10 +40,17 @@ impl Drop for Mesh {
             .expect("failed to free mesh");
     }
 }
-
+unsafe impl Send for Texture {}
 pub struct Texture {
     texture: TextureID,
     backend: Arc<Mutex<Backend>>,
+}
+impl std::fmt::Debug for Texture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Texture")
+            .field("Texture", &self.texture)
+            .finish()
+    }
 }
 impl Drop for Texture {
     fn drop(&mut self) {
@@ -48,6 +61,7 @@ impl Drop for Texture {
             .expect("failed to free texture");
     }
 }
+unsafe impl Send for Framebuffer {}
 pub struct Framebuffer {
     framebuffer: FramebufferID,
     backend: Arc<Mutex<Backend>>,

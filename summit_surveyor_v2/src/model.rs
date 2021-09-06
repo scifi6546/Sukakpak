@@ -5,18 +5,18 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::Vector2,
-    Context,
+    Context, DrawableTexture,
 };
 pub struct ScreenPlane {
     pub framebuffer: sukakpak::Framebuffer,
     pub mesh: sukakpak::Mesh,
 }
 pub fn build_screen_plane(
-    context: Rc<RefCell<Context>>,
+    context: &mut Context,
     screen_resolution: Vector2<u32>,
     z: f32,
 ) -> Result<ScreenPlane> {
-    let framebuffer = context.borrow_mut().build_framebuffer(screen_resolution)?;
+    let framebuffer = context.build_framebuffer(screen_resolution)?;
     let vertices = [
         ((-1.0, -1.0, z), (0.0, 1.0)),
         ((1.0, -1.0, z), (1.0, 1.0)),
@@ -30,7 +30,7 @@ pub fn build_screen_plane(
     .flatten()
     .collect();
     let indices = vec![0, 1, 3, 0, 3, 2];
-    let mesh = context.borrow_mut().build_mesh(
+    let mesh = context.build_mesh(
         sukakpak::MeshAsset {
             indices,
             vertices,
@@ -41,11 +41,10 @@ pub fn build_screen_plane(
                 ],
             },
         },
-        sukakpak::MeshTexture::Framebuffer(framebuffer),
-    );
+        sukakpak::DrawableTexture::Framebuffer(&framebuffer),
+    )?;
     Ok(ScreenPlane { mesh, framebuffer })
 }
-#[derive(Debug, Clone)]
 pub struct Model {
     mesh: sukakpak::Mesh,
 }
@@ -54,42 +53,32 @@ impl Model {
         Self { mesh }
     }
 }
-pub fn insert_cube(
-    transform: Transform,
-    world: &mut World,
-    context: Rc<RefCell<Context>>,
-) -> Result<()> {
-    let texture = context.borrow_mut().build_texture(&RgbaImage::from_pixel(
+pub fn insert_cube(transform: Transform, world: &mut World, context: Context) -> Result<()> {
+    let texture = context.build_texture(&RgbaImage::from_pixel(
         100,
         100,
         Rgba::from([20, 200, 200, 200]),
     ))?;
     let model = Model {
         mesh: context
-            .borrow_mut()
-            .build_mesh(sukakpak::MeshAsset::new_cube(), texture),
+            .build_mesh(
+                sukakpak::MeshAsset::new_cube(),
+                DrawableTexture::Texture(&texture),
+            )
+            .expect("failed to build mesh"),
     };
     world.push((transform, model, texture));
     Ok(())
 }
 
-unsafe impl Send for RenderingCtx {}
-pub struct RenderingCtx(pub Rc<RefCell<Context>>);
-impl RenderingCtx {
-    pub fn new(ctx: &Rc<RefCell<Context>>) -> Self {
-        Self(ctx.clone())
-    }
-}
 #[system(for_each)]
 pub fn render_model(
     model: &Model,
     transform: &Transform,
     #[resource] camera: &Camera,
-    #[resource] graphics: &mut RenderingCtx,
+    #[resource] graphics: &mut Context,
 ) {
     graphics
-        .0
-        .borrow_mut()
         .draw_mesh(camera.to_vec(transform), &model.mesh)
         .expect("failed to draw mesh");
 }
