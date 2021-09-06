@@ -82,7 +82,7 @@ impl Terrain {
         self,
         world: &mut World,
         resources: &mut Resources,
-        context: Context,
+        context: &mut Context,
     ) -> Result<()> {
         let graph_layer: Box<dyn GraphLayer> = (&self).into();
         {

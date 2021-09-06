@@ -1,6 +1,6 @@
 use super::prelude::{Camera, Transform};
+use asset_manager::{AssetHandle, AssetManager};
 use legion::*;
-use std::{cell::RefCell, rc::Rc};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
@@ -45,15 +45,21 @@ pub fn build_screen_plane(
     )?;
     Ok(ScreenPlane { mesh, framebuffer })
 }
+#[derive(Debug)]
 pub struct Model {
-    mesh: sukakpak::Mesh,
+    pub mesh: sukakpak::Mesh,
 }
 impl Model {
     pub fn new(mesh: sukakpak::Mesh) -> Self {
         Self { mesh }
     }
 }
-pub fn insert_cube(transform: Transform, world: &mut World, context: Context) -> Result<()> {
+pub fn insert_cube(
+    transform: Transform,
+    world: &mut World,
+    manager: &mut AssetManager<Model>,
+    context: &mut Context,
+) -> Result<()> {
     let texture = context.build_texture(&RgbaImage::from_pixel(
         100,
         100,
@@ -67,18 +73,23 @@ pub fn insert_cube(transform: Transform, world: &mut World, context: Context) ->
             )
             .expect("failed to build mesh"),
     };
-    world.push((transform, model, texture));
+    let handle = manager.insert(model);
+    world.push((transform, handle, texture));
     Ok(())
 }
 
 #[system(for_each)]
 pub fn render_model(
-    model: &Model,
+    model: &AssetHandle<Model>,
     transform: &Transform,
     #[resource] camera: &Camera,
+    #[resource] manager: &AssetManager<Model>,
     #[resource] graphics: &mut Context,
 ) {
     graphics
-        .draw_mesh(camera.to_vec(transform), &model.mesh)
+        .draw_mesh(
+            camera.to_vec(transform),
+            &manager.get(model).expect("model does not exist").mesh,
+        )
         .expect("failed to draw mesh");
 }

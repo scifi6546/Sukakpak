@@ -1,6 +1,7 @@
 use super::prelude::{
     dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, Path, Terrain, Transform,
 };
+use asset_manager::{AssetHandle, AssetManager};
 mod decision_tree;
 use decision_tree::{DecisionCost, DecisionTree};
 use legion::*;
@@ -9,7 +10,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
-    Context, DrawableTexture,
+    Context, DrawableTexture, Texture,
 };
 pub struct FollowPath {
     start: GraphNode,
@@ -43,6 +44,8 @@ impl Skiier {
     ) -> Result<()> {
         let layers: &Vec<Mutex<Box<dyn GraphLayer>>> = &resources.get().unwrap();
         let terrain: &Terrain = &resources.get().unwrap();
+        let model_manager: &mut AssetManager<Model> = &mut resources.get_mut().unwrap();
+        let texture_manager: &mut AssetManager<Texture> = &mut resources.get_mut().unwrap();
 
         let (decison_tree, cost, path) = DecisionTree::new(GraphNode(start), layers);
         let follow = FollowPath {
@@ -61,20 +64,22 @@ impl Skiier {
             t: 0.0,
         };
         let transform = Transform::default().set_translation(follow.points[0]);
-        let r_ctx: &Context = &resources.get_mut().unwrap();
+        let r_ctx: &mut Context = &mut resources.get_mut().unwrap();
+
         let texture = r_ctx.build_texture(&RgbaImage::from_pixel(
             100,
             100,
             Rgba::from([20, 200, 200, 200]),
         ))?;
-        let model = Model::new(
+        let model = model_manager.insert(Model::new(
             r_ctx
                 .build_mesh(
                     sukakpak::MeshAsset::new_cube(),
                     DrawableTexture::Texture(&texture),
                 )
                 .expect("failed to build mesh"),
-        );
+        ));
+        texture_manager.insert(texture);
         println!("path: {}", path);
         world.push((Skiier {}, follow, transform, model, decison_tree, cost));
         Ok(())

@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 sukakpak = {path = "../sukakpak", features = []}
+asset_manager = {path="../asset_manager"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 legion ={version= "0.3.1",default-features = false, features = ["wasm-bindgen","codegen"] }
@@ -17,3 +18,4 @@ legion ={version= "0.4",default-features = false, features = ["wasm-bindgen","co
 log="^0.4"
 epaint="0.13"
 priority-queue = "1.0.5"
+

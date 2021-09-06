@@ -1,8 +1,9 @@
-use super::prelude::{GuiItem, TextLabel, Transform};
+use super::prelude::{GuiItem, Model, TextLabel, Transform};
+use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
 use std::time::Duration;
-use sukakpak::{nalgebra::Vector3, Context};
+use sukakpak::{nalgebra::Vector3, Context, Texture};
 
 pub struct Hud {
     time: TextLabel,
@@ -16,7 +17,12 @@ impl Hud {
     }
 }
 #[system]
-pub fn build_hud(command_buffer: &mut CommandBuffer, #[resource] graphics: &mut Context) {
+pub fn build_hud(
+    command_buffer: &mut CommandBuffer,
+    #[resource] graphics: &mut Context,
+    #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] texture_manager: &mut AssetManager<Texture>,
+) {
     command_buffer.push((
         Hud {
             time: TextLabel::new(
@@ -24,6 +30,8 @@ pub fn build_hud(command_buffer: &mut CommandBuffer, #[resource] graphics: &mut 
                 Hud::TEXT_SIZE,
                 Hud::get_transform(),
                 graphics,
+                model_manager,
+                texture_manager,
             )
             .expect("failed to build text label"),
         },
@@ -35,6 +43,8 @@ pub fn update_time(
     hud: &mut Hud,
     #[resource] graphics: &mut Context,
     #[resource] duration: &Duration,
+    #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
     *hud = Hud {
         time: TextLabel::new(
@@ -42,12 +52,24 @@ pub fn update_time(
             Hud::TEXT_SIZE,
             Hud::get_transform(),
             graphics,
+            model_manager,
+            texture_manager,
         )
         .expect("failed to build time label"),
     };
 }
 
 #[system(for_each)]
-pub fn render_hud(hud: &mut Hud, #[resource] graphics: &mut Context) {
-    hud.time.render(Transform::default(), graphics);
+pub fn render_hud(
+    hud: &mut Hud,
+    #[resource] graphics: &mut Context,
+    #[resource] model_manager: &AssetManager<Model>,
+    #[resource] texture_manager: &AssetManager<Texture>,
+) {
+    hud.time.render(
+        Transform::default(),
+        graphics,
+        model_manager,
+        texture_manager,
+    );
 }
