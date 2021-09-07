@@ -1,7 +1,7 @@
 use super::prelude::{
     dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, Path, Terrain, Transform,
 };
-use asset_manager::{AssetHandle, AssetManager};
+use asset_manager::AssetManager;
 mod decision_tree;
 use decision_tree::{DecisionCost, DecisionTree};
 use legion::*;

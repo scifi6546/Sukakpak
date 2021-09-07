@@ -1,7 +1,7 @@
 use super::prelude::{Model, Transform};
 use asset_manager::{AssetHandle, AssetManager};
 use legion::*;
-use std::{cell::RefCell, rc::Rc, sync::Mutex};
+use std::sync::Mutex;
 pub mod event;
 mod text;
 pub use event::EventCollector;
@@ -10,7 +10,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3, Vector4},
-    Context, DrawableTexture, Mesh, Texture,
+    Context, DrawableTexture, Texture,
 };
 use text::{TextBuilder, TextInfo};
 pub struct GuiComponent {
@@ -111,7 +111,7 @@ impl GuiItem for GuiSquare {
         transform: Transform,
         graphics: &mut Context,
         model_manager: &AssetManager<Model>,
-        texture_manager: &AssetManager<Texture>,
+        _texture_manager: &AssetManager<Texture>,
     ) {
         let mat = transform.mat() * self.transform.mat();
         graphics
@@ -131,8 +131,8 @@ impl GuiItem for GuiSquare {
         &mut self,
         transform: Transform,
         _graphics: &mut Context,
-        model_manager: &mut AssetManager<Model>,
-        texture_manager: &mut AssetManager<Texture>,
+        _model_manager: &mut AssetManager<Model>,
+        _texture_manager: &mut AssetManager<Texture>,
     ) {
         self.transform = transform
     }
@@ -154,25 +154,29 @@ pub fn react_events(
     #[resource] texture_manager: &AssetManager<Texture>,
 ) {
     if event_listner.left_mouse_down.clicked() {
-        context.bind_texture(
-            &mut model_manager
-                .get_mut(&square.mesh)
-                .expect("failed to get")
-                .mesh,
-            DrawableTexture::Texture(
-                texture_manager
-                    .get(&square.click_texture)
-                    .expect("failed to get texture"),
-            ),
-        );
+        context
+            .bind_texture(
+                &mut model_manager
+                    .get_mut(&square.mesh)
+                    .expect("failed to get")
+                    .mesh,
+                DrawableTexture::Texture(
+                    texture_manager
+                        .get(&square.click_texture)
+                        .expect("failed to get texture"),
+                ),
+            )
+            .expect("failed to bind");
     } else if event_listner.mouse_hovered.clicked() {
-        context.bind_texture(
-            &mut model_manager
-                .get_mut(&square.mesh)
-                .expect("failed to get model")
-                .mesh,
-            DrawableTexture::Texture(texture_manager.get(&square.hover_texture).unwrap()),
-        );
+        context
+            .bind_texture(
+                &mut model_manager
+                    .get_mut(&square.mesh)
+                    .expect("failed to get model")
+                    .mesh,
+                DrawableTexture::Texture(texture_manager.get(&square.hover_texture).unwrap()),
+            )
+            .expect("failed to bind");
     } else {
         context.bind_texture(
             &mut model_manager.get_mut(&square.mesh).unwrap().mesh,
@@ -278,7 +282,7 @@ impl GuiItem for TextLabel {
         transform: Transform,
         graphics: &mut Context,
         model_manager: &AssetManager<Model>,
-        texture_manager: &AssetManager<Texture>,
+        _texture_manager: &AssetManager<Texture>,
     ) {
         let mat = transform.mat() * self.render_transform.mat();
         graphics

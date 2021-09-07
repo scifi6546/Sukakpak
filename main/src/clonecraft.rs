@@ -1,4 +1,5 @@
 use na::Vector2;
+use na::Vector3;
 use std::{
     cell::{RefCell, RefMut},
     rc::Rc,
@@ -59,6 +60,12 @@ impl CloneCraft {
         let mat = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 0.2))
             * na::Matrix4::new_nonuniform_scaling_wrt_point(
                 &na::Vector3::new(0.2, 0.2, 0.5),
+                &na::Point3::new(0.0, 0.0, 0.0),
+            );
+        let mat = na::Matrix4::<f32>::identity()
+            * na::Matrix4::new_translation(&na::Vector3::new(-1.0, -1.0, 0.2))
+            * na::Matrix4::new_nonuniform_scaling_wrt_point(
+                &Vector3::new(1.0, 1.0, 1.0),
                 &na::Point3::new(0.0, 0.0, 0.0),
             );
         context.bind_framebuffer(Bindable::UserFramebuffer(&self.alt_fb))?;
@@ -152,7 +159,9 @@ impl sukakpak::Renderable for CloneCraft {
                 DrawableTexture::Texture(&red_texture),
             )
             .expect("failed to build plane");
-        context.bind_texture(&mut plane, DrawableTexture::Framebuffer(&framebuffer));
+        context
+            .bind_texture(&mut plane, DrawableTexture::Framebuffer(&framebuffer))
+            .expect("failed to draw plane framebuffer");
         let camera_matrix =
             *na::Perspective3::new(1.0, std::f32::consts::PI as f32 / 4.0, 1.0, 1000.0).as_matrix();
         Self {
@@ -252,6 +261,7 @@ impl sukakpak::Renderable for CloneCraft {
                 &na::Point3::new(0.0, 0.0, 0.0),
             )
             * na::Matrix4::new_translation(&na::Vector3::new(0.5, 0.5, 0.0));
+        let plane_mat = na::Matrix4::identity();
         context
             .draw_mesh(to_slice(&plane_mat), &self.plane)
             .expect("failed to draw");

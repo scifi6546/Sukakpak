@@ -58,7 +58,7 @@ impl DecisionTree {
         for decision in get_decisions(layers).drain(..) {
             let (tree, cost, path) = Self::build(start, decision, layers, 2);
             if out.is_some() {
-                let (out_tree, out_cost, out_path) = out.as_ref().unwrap();
+                let (_out_tree, out_cost, out_path) = out.as_ref().unwrap();
                 if out_cost.cost > cost.cost {
                     out = Some((tree, cost, out_path.clone()));
                 }

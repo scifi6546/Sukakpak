@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
-    Context, DrawableTexture, Texture,
+    Context, DrawableTexture,
 };
 pub struct Lift {}
 pub struct LiftLayer {
@@ -42,7 +42,6 @@ pub fn insert_lift(
     #[resource] graphics: &mut Context,
     #[resource] terrain: &Terrain,
     #[resource] model_manager: &mut AssetManager<Model>,
-    #[resource] texture_manager: &mut AssetManager<Texture>,
     #[resource] layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
 ) {
     let texture = graphics

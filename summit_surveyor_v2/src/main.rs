@@ -13,7 +13,7 @@ use camera::{Camera, Transform};
 use gui::EventCollector;
 use legion::*;
 use model::{Model, ScreenPlane};
-use std::{cell::RefCell, f32, rc::Rc, time::Duration};
+use std::{f32, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
@@ -257,7 +257,7 @@ impl sukakpak::Renderable for Game {
         context
             .draw_mesh(
                 Transform::default()
-                    .set_translation(Vector3::new(0.0, 0.0, 0.9))
+                    .set_translation(Vector3::new(0.0, 0.0, -0.5))
                     .to_bytes(),
                 &self.game_render_surface.mesh,
             )
