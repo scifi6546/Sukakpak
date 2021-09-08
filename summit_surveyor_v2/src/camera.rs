@@ -100,7 +100,7 @@ impl Default for Transform {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Camera {
     position: Vector3<f32>,
     pitch: f32,

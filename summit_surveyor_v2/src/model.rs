@@ -86,7 +86,6 @@ pub fn render_model(
     #[resource] manager: &AssetManager<Model>,
     #[resource] graphics: &mut Context,
 ) {
-    println!("drawing mesh");
     graphics
         .draw_mesh(
             camera.to_vec(transform),

@@ -1,4 +1,5 @@
 use super::prelude::{GraphLayer, GraphNode, GraphType, GraphWeight, Model, Transform};
+use asset_manager::AssetManager;
 use legion::*;
 use std::sync::Mutex;
 use sukakpak::{
@@ -82,10 +83,11 @@ impl Terrain {
         self,
         world: &mut World,
         resources: &mut Resources,
+        model_manager: &mut AssetManager<Model>,
         context: &mut Context,
     ) -> Result<()> {
         let graph_layer: Box<dyn GraphLayer> = (&self).into();
-        {
+        let (mesh, texture) = {
             let mut layers = resources.get_mut_or_insert::<Vec<Mutex<Box<dyn GraphLayer>>>>(vec![]);
             layers.push(Mutex::new(graph_layer));
             let texture = context.build_texture(&RgbaImage::from_pixel(
@@ -181,8 +183,12 @@ impl Terrain {
                     .build_mesh(mesh, DrawableTexture::Texture(&texture))
                     .expect("failed to build mesh"),
             );
-            world.push((InsertableTerrain {}, Transform::default(), model, texture));
-        }
+            (model, texture)
+        };
+
+        let model = model_manager.insert(mesh);
+
+        world.push((InsertableTerrain {}, Transform::default(), model, texture));
         resources.insert(self);
         Ok(())
     }

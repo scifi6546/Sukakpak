@@ -19,7 +19,7 @@ pub struct DescriptorDesc {
 
 /// TODO: HANDLE REMAPPING
 pub struct DescriptorPool {
-    descriptor_pool: vk::DescriptorPool,
+    pub descriptor_pool: vk::DescriptorPool,
     pub descriptors: HashMap<String, (vk::DescriptorSetLayout, DescriptorDesc)>,
     num_descriptors_allocated: usize,
 }

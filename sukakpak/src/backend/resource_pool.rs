@@ -511,6 +511,11 @@ impl TextureAllocation {
             core.device.destroy_sampler(self.sampler, None);
             core.device.destroy_image_view(self.image_view, None);
             resource_pool.free_allocation(self.image_allocation)?;
+
+            core.device.free_descriptor_sets(
+                resource_pool.texture_descriptor_pool.descriptor_pool,
+                &[self.descriptor_set],
+            )?;
             core.device.destroy_image(self.image, None);
             resource_pool.free_allocation(self.transfer_allocation)?;
             core.device.destroy_buffer(self.buffer, None);

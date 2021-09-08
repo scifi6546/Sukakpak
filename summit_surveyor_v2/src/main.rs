@@ -49,17 +49,8 @@ impl sukakpak::Renderable for Game {
             .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
         Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
-            .insert(&mut world, &mut resources, &mut context)
+            .insert(&mut world, &mut resources, &mut model_manager, &mut context)
             .expect("failed to build terrain");
-        model::insert_cube(
-            Transform::default()
-                .set_scale(Vector3::new(0.2, 0.2, 0.2))
-                .translate(Vector3::new(0.0, 0.0, 1.0)),
-            &mut world,
-            &mut model_manager,
-            &mut context,
-        )
-        .expect("failed to insert");
         let default_tex = texture_manager.insert(
             context
                 .build_texture(&RgbaImage::from_pixel(
@@ -172,7 +163,7 @@ impl sukakpak::Renderable for Game {
                         alignment: gui::ContainerAlignment::Center,
                         padding: 0.01,
                     },
-                    Vector3::new(0.0, 0.0, 0.5),
+                    Vector3::new(0.0, 0.0, -0.5),
                     &mut context,
                     &mut model_manager,
                     &mut texture_manager,
@@ -223,7 +214,7 @@ impl sukakpak::Renderable for Game {
         let game_render_surface = model::build_screen_plane(
             &mut resources.get_mut().unwrap(),
             Vector2::new(1000, 1000),
-            0.0,
+            0.9,
         )
         .expect("faled to create render surface");
         Self {
@@ -263,8 +254,8 @@ impl sukakpak::Renderable for Game {
             )
             .expect("failed to draw screen surface");
         let mut gui_rendering_schedule = Schedule::builder()
-            .add_system(gui::render_gui_component_system())
-            .add_system(hud::render_hud_system())
+            //.add_system(gui::render_gui_component_system())
+            //.add_system(hud::render_hud_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
         self.resources.get_mut::<EventCollector>().unwrap().clear();
