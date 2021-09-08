@@ -12,9 +12,13 @@ use sukakpak::{
     nalgebra::{Vector2, Vector3, Vector4},
     Context, DrawableTexture, Texture,
 };
-use text::{TextBuilder, TextInfo};
+use text::{FontSize, TextBuilder, TextBuilderContainer, TextInfo};
 pub struct GuiComponent {
     pub item: Mutex<Box<dyn GuiItem>>,
+}
+#[derive(Default)]
+pub struct GuiState {
+    text_builders: TextBuilderContainer,
 }
 impl GuiComponent {
     pub fn insert(item: Box<dyn GuiItem>, world: &mut World) -> Result<()> {
@@ -42,6 +46,7 @@ pub trait GuiItem: Send {
         &mut self,
         transform: Transform,
         graphics: &mut Context,
+        gui_state: &mut GuiState,
         model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     );
@@ -131,6 +136,7 @@ impl GuiItem for GuiSquare {
         &mut self,
         transform: Transform,
         _graphics: &mut Context,
+        _gui_state: &mut GuiState,
         _model_manager: &mut AssetManager<Model>,
         _texture_manager: &mut AssetManager<Texture>,
     ) {
@@ -204,16 +210,16 @@ pub fn render_gui_component(
 }
 /// Describes which way to alighn elements in a container
 pub struct TextLabel {
-    text_mesh: AssetHandle<Model>,
-    text_builder: TextBuilder,
+    text_mesh: Model,
     text_size: f32,
     /// Text that is displayed
     text: String,
-    texture: AssetHandle<Texture>,
     /// Transform used for scaling text
     render_transform: Transform,
     /// Transform used for communicating size of mesh
     display_transform: Transform,
+    /// checks if state is modified
+    changed: bool,
 }
 impl TextLabel {
     pub fn new(
@@ -222,21 +228,19 @@ impl TextLabel {
         // Determines size of box
         transform: Transform,
         context: &mut Context,
+        gui_state: &mut GuiState,
         model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     ) -> Result<Self> {
-        let mut text_builder = TextBuilder::default();
+        let mut text_builder = gui_state.text_builders.get_mut(FontSize(12));
         let size = transform.get_scale().x;
         let max_line_width = (size * 2.0) / text_size;
         let text_info = TextInfo {
             text_size: [1, 1],
             max_line_width,
         };
-        let (rgba_texture, bounding_box, mesh_asset) =
-            text_builder.build_mesh(text_info, text.clone());
-        let texture = context
-            .build_texture(&rgba_texture)
-            .expect("failed to text texture");
+        let (texture_handle, bounding_box, mesh_asset) =
+            text_builder.build_mesh(text_info, context, texture_manager, text.clone());
         let render_transform = {
             let scale_x = transform.get_scale().x;
             let mut scale = transform.get_scale();
@@ -261,18 +265,19 @@ impl TextLabel {
             (bounding_box.max.y - bounding_box.min.y) * render_transform.get_scale().y,
             1.0,
         ));
-        let text_mesh = model_manager.insert(Model {
-            mesh: context.build_mesh(mesh_asset, DrawableTexture::Texture(&texture))?,
-        });
-        let texture = texture_manager.insert(texture);
+        let text_mesh = Model {
+            mesh: context.build_mesh(
+                mesh_asset,
+                DrawableTexture::Texture(texture_manager.get(&texture_handle).unwrap()),
+            )?,
+        };
         Ok(Self {
             text_mesh,
-            texture,
             text,
             text_size,
-            text_builder,
             render_transform,
             display_transform,
+            changed: false,
         })
     }
 }
@@ -288,7 +293,7 @@ impl GuiItem for TextLabel {
         graphics
             .draw_mesh(
                 mat.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
-                &model_manager.get(&self.text_mesh).unwrap().mesh,
+                &self.text_mesh.mesh,
             )
             .expect("failed to render text");
     }
@@ -300,18 +305,23 @@ impl GuiItem for TextLabel {
         &mut self,
         transform: Transform,
         graphics: &mut Context,
+        gui_state: &mut GuiState,
         model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     ) {
-        *self = Self::new(
-            self.text.clone(),
-            self.text_size,
-            transform,
-            graphics,
-            model_manager,
-            texture_manager,
-        )
-        .expect("failed to resize");
+        if self.display_transform != transform {
+            println!("rebuilding");
+            *self = Self::new(
+                self.text.clone(),
+                self.text_size,
+                transform,
+                graphics,
+                gui_state,
+                model_manager,
+                texture_manager,
+            )
+            .expect("failed to resize");
+        }
     }
     ///todo: figure out geometry properly
     fn build_listner(&self) -> EventListner {
@@ -340,6 +350,7 @@ impl VerticalContainer {
         style: VerticalContainerStyle,
         root_position: Vector3<f32>,
         context: &mut Context,
+        gui_state: &mut GuiState,
         model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     ) -> Result<Self> {
@@ -368,7 +379,13 @@ impl VerticalContainer {
                 y + item_height / 2.0,
                 -0.01,
             ));
-            item.set_transform(item_transform, context, model_manager, texture_manager);
+            item.set_transform(
+                item_transform,
+                context,
+                gui_state,
+                model_manager,
+                texture_manager,
+            );
 
             y += item.get_transform().get_scale().y + style.padding;
         }
@@ -454,11 +471,17 @@ impl GuiItem for VerticalContainer {
         &mut self,
         transform: Transform,
         graphics: &mut Context,
+        gui_state: &mut GuiState,
         model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     ) {
-        self.container
-            .set_transform(transform, graphics, model_manager, texture_manager)
+        self.container.set_transform(
+            transform,
+            graphics,
+            gui_state,
+            model_manager,
+            texture_manager,
+        )
     }
     fn build_listner(&self) -> EventListner {
         self.container.build_listner()

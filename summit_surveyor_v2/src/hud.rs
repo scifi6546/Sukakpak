@@ -1,4 +1,4 @@
-use super::prelude::{GuiItem, Model, TextLabel, Transform};
+use super::prelude::{GuiItem, GuiState, Model, TextLabel, Transform};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -21,6 +21,7 @@ pub fn build_hud(
     command_buffer: &mut CommandBuffer,
     #[resource] graphics: &mut Context,
     #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] gui_state: &mut GuiState,
     #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
     command_buffer.push((
@@ -30,6 +31,7 @@ pub fn build_hud(
                 Hud::TEXT_SIZE,
                 Hud::get_transform(),
                 graphics,
+                gui_state,
                 model_manager,
                 texture_manager,
             )
@@ -43,6 +45,7 @@ pub fn update_time(
     hud: &mut Hud,
     #[resource] graphics: &mut Context,
     #[resource] duration: &Duration,
+    #[resource] gui_state: &mut GuiState,
     #[resource] model_manager: &mut AssetManager<Model>,
     #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
@@ -52,6 +55,7 @@ pub fn update_time(
             Hud::TEXT_SIZE,
             Hud::get_transform(),
             graphics,
+            gui_state,
             model_manager,
             texture_manager,
         )

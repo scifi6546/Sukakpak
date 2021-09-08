@@ -10,7 +10,7 @@ mod skiier;
 mod terrain;
 use asset_manager::AssetManager;
 use camera::{Camera, Transform};
-use gui::EventCollector;
+use gui::{EventCollector, GuiState};
 use legion::*;
 use model::{Model, ScreenPlane};
 use std::{f32, time::Duration};
@@ -28,9 +28,10 @@ struct Game {
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
-    pub use super::gui::{GuiComponent, GuiItem, TextLabel};
+    pub use super::gui::{GuiComponent, GuiItem, GuiState, TextLabel};
     pub use super::model::Model;
     pub use super::terrain::Terrain;
+    pub use asset_manager::{AssetHandle, AssetManager};
 }
 
 impl sukakpak::Renderable for Game {
@@ -79,6 +80,8 @@ impl sukakpak::Renderable for Game {
                 ))
                 .expect("failed to build default texture"),
         );
+
+        let mut gui_state = GuiState::default();
 
         gui::GuiComponent::insert(
             Box::new(
@@ -144,6 +147,7 @@ impl sukakpak::Renderable for Game {
                                 },
                                 Vector3::new(0.0, 0.0, -0.6),
                                 &mut context,
+                                &mut gui_state,
                                 &mut model_manager,
                                 &mut texture_manager,
                             )
@@ -155,6 +159,7 @@ impl sukakpak::Renderable for Game {
                             0.003,
                             Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
                             &mut context,
+                            &mut gui_state,
                             &mut model_manager,
                             &mut texture_manager,
                         ).expect("failed to build text label")),
@@ -165,6 +170,7 @@ impl sukakpak::Renderable for Game {
                     },
                     Vector3::new(0.0, 0.0, -0.5),
                     &mut context,
+                    &mut gui_state,
                     &mut model_manager,
                     &mut texture_manager,
                 )
@@ -184,6 +190,7 @@ impl sukakpak::Renderable for Game {
                     .set_scale(Vector3::new(2.0, 1.0, 1.0))
                     .translate(Vector3::new(0.0, 0.0, 0.0)),
                 &mut context,
+                &mut gui_state,
                 &mut model_manager,
                 &mut texture_manager
             ).expect("failed to build label")),
@@ -193,13 +200,14 @@ impl sukakpak::Renderable for Game {
 
         resources.insert(context);
         resources.insert(model_manager);
+        resources.insert(gui_state);
         resources.insert(texture_manager);
         Schedule::builder()
             .add_system(lift::insert_lift_system())
             .add_system(hud::build_hud_system())
             .build()
             .execute(&mut world, &mut resources);
-        for x in 0..10 {
+        for x in 0..1 {
             for y in 0..1 {
                 skiier::Skiier::insert(Vector2::new(x, y), &mut world, &mut resources)
                     .expect("failed to build skiier");
@@ -254,8 +262,8 @@ impl sukakpak::Renderable for Game {
             )
             .expect("failed to draw screen surface");
         let mut gui_rendering_schedule = Schedule::builder()
-            //.add_system(gui::render_gui_component_system())
-            //.add_system(hud::render_hud_system())
+            .add_system(gui::render_gui_component_system())
+            .add_system(hud::render_hud_system())
             .build();
         gui_rendering_schedule.execute(&mut self.world, &mut self.resources);
         self.resources.get_mut::<EventCollector>().unwrap().clear();
