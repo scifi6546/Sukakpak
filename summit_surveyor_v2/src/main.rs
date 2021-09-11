@@ -10,6 +10,7 @@ mod skiier;
 mod terrain;
 use asset_manager::AssetManager;
 use camera::{Camera, Transform};
+use gui::FontSize;
 use gui::{EventCollector, GuiState};
 use legion::*;
 use model::{Model, ScreenPlane};
@@ -28,7 +29,7 @@ struct Game {
 pub mod prelude {
     pub use super::camera::{Camera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
-    pub use super::gui::{GuiComponent, GuiItem, GuiState, TextLabel};
+    pub use super::gui::{FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
     pub use super::model::Model;
     pub use super::terrain::Terrain;
     pub use asset_manager::{AssetHandle, AssetManager};
@@ -156,11 +157,64 @@ impl sukakpak::Renderable for Game {
                         Box::new(gui::TextLabel::new(
                 "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
                     .to_string(),
-                            0.003,
+                            FontSize(1),
                             Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
                             &mut context,
                             &mut gui_state,
-                            &mut model_manager,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(2),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(5),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(10),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(15),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(25),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
+                            &mut texture_manager,
+                        ).expect("failed to build text label")),
+                        Box::new(gui::TextLabel::new(
+                "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
+                    .to_string(),
+                            FontSize(40),
+                            Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
+                            &mut context,
+                            &mut gui_state,
                             &mut texture_manager,
                         ).expect("failed to build text label")),
                     ],
@@ -168,7 +222,7 @@ impl sukakpak::Renderable for Game {
                         alignment: gui::ContainerAlignment::Center,
                         padding: 0.01,
                     },
-                    Vector3::new(0.0, 0.0, -0.5),
+                    Vector3::new(0.0, 0.0, 0.5),
                     &mut context,
                     &mut gui_state,
                     &mut model_manager,
@@ -185,13 +239,12 @@ impl sukakpak::Renderable for Game {
             Box::new(gui::TextLabel::new(
                 "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
                     .to_string(),
-                0.006,
+                FontSize(1),
                 Transform::default()
                     .set_scale(Vector3::new(2.0, 1.0, 1.0))
                     .translate(Vector3::new(0.0, 0.0, 0.0)),
                 &mut context,
                 &mut gui_state,
-                &mut model_manager,
                 &mut texture_manager
             ).expect("failed to build label")),
             &mut world,
@@ -256,7 +309,7 @@ impl sukakpak::Renderable for Game {
         context
             .draw_mesh(
                 Transform::default()
-                    .set_translation(Vector3::new(0.0, 0.0, -0.5))
+                    .set_translation(Vector3::new(0.0, 0.0, 0.0))
                     .to_bytes(),
                 &self.game_render_surface.mesh,
             )
@@ -279,7 +332,7 @@ impl Game {
 }
 fn main() {
     Sukakpak::new::<Game>(sukakpak::CreateInfo {
-        default_size: Vector2::new(1000, 1000),
+        default_size: Vector2::new(1200, 1000),
         name: "Summit Surveyor".to_string(),
     });
 }

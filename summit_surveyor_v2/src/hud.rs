@@ -1,4 +1,4 @@
-use super::prelude::{GuiItem, GuiState, Model, TextLabel, Transform};
+use super::prelude::{FontSize, GuiItem, GuiState, Model, TextLabel, Transform};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -9,7 +9,7 @@ pub struct Hud {
     time: TextLabel,
 }
 impl Hud {
-    const TEXT_SIZE: f32 = 0.006;
+    const TEXT_SIZE: FontSize = FontSize(12);
     fn get_transform() -> Transform {
         Transform::default()
             .set_scale(Vector3::new(0.1, 1.0, 1.0))
@@ -32,7 +32,6 @@ pub fn build_hud(
                 Hud::get_transform(),
                 graphics,
                 gui_state,
-                model_manager,
                 texture_manager,
             )
             .expect("failed to build text label"),
@@ -56,7 +55,6 @@ pub fn update_time(
             Hud::get_transform(),
             graphics,
             gui_state,
-            model_manager,
             texture_manager,
         )
         .expect("failed to build time label"),
@@ -71,7 +69,7 @@ pub fn render_hud(
     #[resource] texture_manager: &AssetManager<Texture>,
 ) {
     hud.time.render(
-        Transform::default(),
+        Transform::default().translate(Vector3::new(0.0, 0.0, 0.2)),
         graphics,
         model_manager,
         texture_manager,

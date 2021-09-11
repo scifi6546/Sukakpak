@@ -12,7 +12,8 @@ use sukakpak::{
     nalgebra::{Vector2, Vector3, Vector4},
     Context, DrawableTexture, Texture,
 };
-use text::{FontSize, TextBuilder, TextBuilderContainer, TextInfo};
+pub use text::FontSize;
+use text::{TextBuilder, TextBuilderContainer, TextInfo};
 pub struct GuiComponent {
     pub item: Mutex<Box<dyn GuiItem>>,
 }
@@ -211,7 +212,7 @@ pub fn render_gui_component(
 /// Describes which way to alighn elements in a container
 pub struct TextLabel {
     text_mesh: Model,
-    text_size: f32,
+    font_size: FontSize,
     /// Text that is displayed
     text: String,
     /// Transform used for scaling text
@@ -222,19 +223,23 @@ pub struct TextLabel {
     changed: bool,
 }
 impl TextLabel {
+    pub fn debug_get_render_transform(&self) -> Transform {
+        self.render_transform.clone()
+    }
     pub fn new(
         text: String,
-        text_size: f32,
+        font_size: FontSize,
         // Determines size of box
         transform: Transform,
         context: &mut Context,
         gui_state: &mut GuiState,
-        model_manager: &mut AssetManager<Model>,
         texture_manager: &mut AssetManager<Texture>,
     ) -> Result<Self> {
-        let mut text_builder = gui_state.text_builders.get_mut(FontSize(12));
+        let text_size_f32 = font_size.0 as f32;
+        let text_builder = gui_state.text_builders.get_mut(font_size);
+
         let size = transform.get_scale().x;
-        let max_line_width = (size * 2.0) / text_size;
+        let max_line_width = size * 0.5 * context.get_screen_size().x as f32;
         let text_info = TextInfo {
             text_size: [1, 1],
             max_line_width,
@@ -244,12 +249,11 @@ impl TextLabel {
         let render_transform = {
             let scale_x = transform.get_scale().x;
             let mut scale = transform.get_scale();
-
-            scale.x = scale_x / max_line_width;
-            scale.y = scale_x / max_line_width;
+            scale.x = 2.0 / context.get_screen_size().x as f32;
+            scale.y = scale.x;
             let middle = (bounding_box.max + bounding_box.min) / 2.0;
             let middle_translation =
-                Vector3::new(-1.0 * middle.x * scale.x, -1.0 * middle.y * scale.x, 0.0);
+                Vector3::new(-1.0 * middle.x * scale.x, -1.0 * middle.y * scale.y, 0.0);
             let translation = transform.get_translation();
             transform
                 .clone()
@@ -274,7 +278,7 @@ impl TextLabel {
         Ok(Self {
             text_mesh,
             text,
-            text_size,
+            font_size,
             render_transform,
             display_transform,
             changed: false,
@@ -313,11 +317,10 @@ impl GuiItem for TextLabel {
             println!("rebuilding");
             *self = Self::new(
                 self.text.clone(),
-                self.text_size,
+                self.font_size,
                 transform,
                 graphics,
                 gui_state,
-                model_manager,
                 texture_manager,
             )
             .expect("failed to resize");

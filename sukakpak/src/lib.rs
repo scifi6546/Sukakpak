@@ -297,6 +297,7 @@ impl Context {
         self.check_state();
         Ok(())
     }
+    /// Gets screen resolution in pixels
     pub fn get_screen_size(&self) -> Vector2<u32> {
         self.backend
             .lock()
