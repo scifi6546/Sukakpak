@@ -100,6 +100,22 @@ impl Default for Transform {
         }
     }
 }
+
+pub trait Camera: Send {
+    /// Gets data for shader with model transform applied
+    fn to_vec(&self, transform: &Transform) -> Vec<u8>;
+    /// moves by amount in x axis, usually triggered by a,d keys on keyboard
+    fn move_x(&mut self, delta: f32);
+    /// moves my amount in y axis. Usually triggered by w,s keys on keyboard
+    fn move_z(&mut self, delta: f32);
+    /// rotates by delta. Usually triggered by mouse x axis
+    fn rotate_x(&mut self, delta: f32);
+    // rotates by delta. Usually triggered by mouse y axis
+    fn rotate_y(&mut self, delta: f32);
+    /// updates scroll. Usually triggered by scroll
+    fn update_zoom(&mut self, delta: f32);
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct FPSCamera {
     position: Vector3<f32>,
@@ -118,7 +134,7 @@ impl Default for FPSCamera {
             pitch: 0.0,
             yaw: 0.0,
             roll: 0.0,
-            fov: f32::consts::PI / 2.0,
+            fov: f32::consts::PI / 4.0,
             aspect_ratio: 1.0,
             near_clip: 0.1,
             far_clip: 100.0,
@@ -183,17 +199,70 @@ impl Camera for FPSCamera {
     fn rotate_y(&mut self, delta: f32) {
         self.pitch += delta;
     }
+    fn update_zoom(&mut self, _delta: f32) {}
 }
+pub struct ThirdPersonCamera {
+    center: Vector3<f32>,
+    radius: f32,
+    theta: f32,
+    phi: f32,
+    fov: f32,
+    aspect_ratio: f32,
+    near_clip: f32,
+    far_clip: f32,
+}
+impl Default for ThirdPersonCamera {
+    fn default() -> Self {
+        Self {
+            center: Vector3::new(0.0, 0.0, 0.0),
+            radius: 10.0,
+            theta: f32::consts::PI / 4.0,
+            phi: 0.0,
+            fov: f32::consts::PI / 4.0,
+            aspect_ratio: 1.0,
+            near_clip: 0.1,
+            far_clip: 100.0,
+        }
+    }
+}
+impl Camera for ThirdPersonCamera {
+    fn to_vec(&self, transform: &Transform) -> Vec<u8> {
+        let perspective_mat =
+            Matrix4::new_perspective(self.fov, self.aspect_ratio, self.near_clip, self.far_clip);
+        let position = Point3::new(
+            self.radius * self.phi.sin(),
+            self.radius * self.theta.cos(),
+            self.radius * self.phi.cos(),
+        );
+        let rotation: Matrix4<f32> = Matrix4::face_towards(
+            &position,
+            &Vector3::new(0.0, 0.0, 0.0).into(),
+            &Vector3::new(0.0, 1.0, 0.0),
+        );
+        let translation = Matrix4::new_translation(&(-1.0 * self.center));
+        (perspective_mat * rotation * translation * transform.mat())
+            .as_slice()
+            .iter()
+            .map(|f| f.to_ne_bytes())
+            .flatten()
+            .collect()
+    }
 
-pub trait Camera: Send {
-    /// Gets data for shader
-    fn to_vec(&self, transform: &Transform) -> Vec<u8>;
-    /// moves by amount in x axis, usually triggered by a,d keys on keyboard
-    fn move_x(&mut self, delta: f32);
-    /// moves my amount in y axis. Usually triggered by w,s keys on keyboard
-    fn move_z(&mut self, delta: f32);
-    /// rotates by delta. Usually triggered by mouse x axis
-    fn rotate_x(&mut self, delta: f32);
-    // rotates by delta. Usually triggered by mouse y axis
-    fn rotate_y(&mut self, delta: f32);
+    fn move_x(&mut self, delta: f32) {
+        self.center.x += delta
+    }
+
+    fn move_z(&mut self, delta: f32) {
+        self.center.z += delta
+    }
+    fn rotate_x(&mut self, delta: f32) {
+        self.phi += delta;
+    }
+
+    fn rotate_y(&mut self, delta: f32) {
+        self.theta += delta;
+    }
+    fn update_zoom(&mut self, delta: f32) {
+        self.radius += delta * self.radius
+    }
 }

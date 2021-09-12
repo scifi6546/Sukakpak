@@ -9,7 +9,7 @@ mod model;
 mod skiier;
 mod terrain;
 use asset_manager::AssetManager;
-use camera::{Camera, FPSCamera, Transform};
+use camera::{Camera, FPSCamera, ThirdPersonCamera, Transform};
 use gui::FontSize;
 use gui::{EventCollector, GuiState};
 use legion::*;
@@ -267,11 +267,7 @@ impl sukakpak::Renderable for Game {
             }
         }
         {
-            let camera: Box<dyn Camera> = Box::new(
-                FPSCamera::default()
-                    .set_translation(Vector3::new(0.0, 2.0, 0.0))
-                    .set_yaw(f32::consts::PI / 2.0),
-            );
+            let camera: Box<dyn Camera> = Box::new(ThirdPersonCamera::default());
             resources.insert(camera);
         }
         resources.insert(EventCollector::default());
@@ -344,6 +340,7 @@ pub fn terrain_camera(
     #[resource] events: &mut EventCollector,
     #[resource] camera: &mut Box<dyn Camera>,
 ) {
+    camera.update_zoom(events.mouse_scroll_delta * events.delta_time.as_secs_f32() * 100.0);
     /// on a key
     if events.keycodes_down.contains(&30) {
         camera.move_x(-0.01);

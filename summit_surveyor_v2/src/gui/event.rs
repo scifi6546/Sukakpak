@@ -8,6 +8,7 @@ pub struct EventCollector {
     pub keycodes_down: HashSet<u32>,
     pub mouse_delta_pos: Vector2<f32>,
     pub delta_time: Duration,
+    pub mouse_scroll_delta: f32,
     pub last_mouse_pos: Vector2<f32>,
     pub right_mouse_down: bool,
     pub middle_mouse_down: bool,
@@ -17,6 +18,7 @@ impl EventCollector {
     pub fn process_events(&mut self, delta_time: Duration, events: &[sukakpak::Event]) {
         self.delta_time = delta_time;
         self.mouse_delta_pos = Vector2::new(0.0, 0.0);
+        self.mouse_scroll_delta = 0.0;
         for event in events {
             match event {
                 sukakpak::Event::MouseMoved { normalized, .. } => {
@@ -43,6 +45,11 @@ impl EventCollector {
                     println!("key up: {}", scan_code);
                     self.keycodes_down.remove(scan_code);
                 }
+                sukakpak::Event::ScrollStart { delta } => self.mouse_scroll_delta += delta.delta.y,
+                sukakpak::Event::ScrollContinue { delta } => {
+                    self.mouse_scroll_delta += delta.delta.y
+                }
+                sukakpak::Event::ScrollEnd { delta } => self.mouse_scroll_delta += delta.delta.y,
                 _ => {}
             }
         }
@@ -52,6 +59,7 @@ impl EventCollector {
 impl Default for EventCollector {
     fn default() -> Self {
         Self {
+            mouse_scroll_delta: 0.0,
             keycodes_down: HashSet::new(),
             delta_time: Default::default(),
             mouse_delta_pos: Vector2::new(0.0, 0.0),
