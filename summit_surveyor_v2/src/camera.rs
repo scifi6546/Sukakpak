@@ -230,9 +230,9 @@ impl Camera for ThirdPersonCamera {
         let perspective_mat =
             Matrix4::new_perspective(self.fov, self.aspect_ratio, self.near_clip, self.far_clip);
         let position = Point3::new(
-            self.radius * self.phi.sin(),
+            self.radius * self.theta.sin() * self.phi.sin(),
             self.radius * self.theta.cos(),
-            self.radius * self.phi.cos(),
+            self.radius * self.theta.sin() * self.phi.cos(),
         );
         let rotation: Matrix4<f32> = Matrix4::face_towards(
             &position,
