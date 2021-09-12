@@ -1,6 +1,7 @@
 use super::prelude::{Camera, Transform};
 use asset_manager::{AssetHandle, AssetManager};
 use legion::*;
+use std::sync::Mutex;
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
@@ -82,13 +83,13 @@ pub fn insert_cube(
 pub fn render_model(
     model: &AssetHandle<Model>,
     transform: &Transform,
-    #[resource] camera: &Camera,
+    #[resource] camera: &Mutex<Box<dyn Camera>>,
     #[resource] manager: &AssetManager<Model>,
     #[resource] graphics: &mut Context,
 ) {
     graphics
         .draw_mesh(
-            camera.to_vec(transform),
+            camera.lock().unwrap().to_vec(transform),
             &manager.get(model).expect("model does not exist").mesh,
         )
         .expect("failed to draw mesh");

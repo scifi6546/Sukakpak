@@ -9,12 +9,12 @@ mod model;
 mod skiier;
 mod terrain;
 use asset_manager::AssetManager;
-use camera::{Camera, Transform};
+use camera::{Camera, FPSCamera, Transform};
 use gui::FontSize;
 use gui::{EventCollector, GuiState};
 use legion::*;
 use model::{Model, ScreenPlane};
-use std::{f32, time::Duration};
+use std::{f32, sync::Mutex, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
@@ -27,7 +27,7 @@ struct Game {
     game_render_surface: ScreenPlane,
 }
 pub mod prelude {
-    pub use super::camera::{Camera, Transform};
+    pub use super::camera::{Camera, FPSCamera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
     pub use super::model::Model;
@@ -211,7 +211,7 @@ impl sukakpak::Renderable for Game {
                         Box::new(gui::TextLabel::new(
                 "hello world, Here is a loooong paragraph, do you like reading really really really long paragraphs? You know the ones that go on an on forever so long you wonder why the person is still writing. I do so here is one of those loooooong ones."
                     .to_string(),
-                            FontSize(40),
+                            FontSize(10),
                             Transform::default().set_scale(Vector3::new(0.5, 1.0, 1.0)),
                             &mut context,
                             &mut gui_state,
@@ -266,11 +266,14 @@ impl sukakpak::Renderable for Game {
                     .expect("failed to build skiier");
             }
         }
-        resources.insert(
-            Camera::default()
-                .set_translation(Vector3::new(0.0, 2.0, 0.0))
-                .set_yaw(f32::consts::PI / 2.0),
-        );
+        {
+            let camera: Mutex<Box<dyn Camera>> = Mutex::new(Box::new(
+                FPSCamera::default()
+                    .set_translation(Vector3::new(0.0, 2.0, 0.0))
+                    .set_yaw(f32::consts::PI / 2.0),
+            ));
+            resources.insert(camera);
+        }
         resources.insert(EventCollector::default());
         let game_render_surface = model::build_screen_plane(
             &mut resources.get_mut().unwrap(),
@@ -337,23 +340,29 @@ fn main() {
     });
 }
 #[system]
-pub fn terrain_camera(#[resource] events: &mut EventCollector, #[resource] camera: &mut Camera) {
+pub fn terrain_camera(
+    #[resource] events: &mut EventCollector,
+    #[resource] camera: &mut Box<dyn Camera>,
+) {
+    /// on a key
     if events.keycodes_down.contains(&30) {
-        *camera = camera.clone().translate(Vector3::new(-0.01, 0.0, 0.0))
+        camera.move_x(-0.01);
     }
-
+    // on d key
     if events.keycodes_down.contains(&32) {
-        *camera = camera.clone().translate(Vector3::new(0.01, 0.0, 0.0))
+        camera.move_x(0.01);
     }
-
+    // on s key
     if events.keycodes_down.contains(&31) {
-        *camera = camera.clone().translate(Vector3::new(0.0, 0.0, -0.01))
+        camera.move_z(-0.01);
     }
+    // on w key
     if events.keycodes_down.contains(&17) {
-        *camera = camera.clone().translate(Vector3::new(0.0, 0.0, 0.01))
+        camera.move_z(0.01);
     }
     if events.left_mouse_down {
-        *camera.yaw() += events.mouse_delta_pos.x * events.delta_time.as_secs_f32() * 1000.0;
-        *camera.pitch() += events.mouse_delta_pos.y * events.delta_time.as_secs_f32() * 1000.0;
+        camera.rotate_x(events.mouse_delta_pos.x * events.delta_time.as_secs_f32() * 1000.0);
+
+        camera.rotate_y(events.mouse_delta_pos.y * events.delta_time.as_secs_f32() * 1000.0)
     }
 }

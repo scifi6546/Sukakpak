@@ -101,7 +101,7 @@ impl Default for Transform {
     }
 }
 #[derive(Clone, Debug, PartialEq)]
-pub struct Camera {
+pub struct FPSCamera {
     position: Vector3<f32>,
     pitch: f32,
     yaw: f32,
@@ -111,7 +111,7 @@ pub struct Camera {
     near_clip: f32,
     far_clip: f32,
 }
-impl Default for Camera {
+impl Default for FPSCamera {
     fn default() -> Self {
         Self {
             position: Vector3::new(0.0, 0.0, 0.0),
@@ -125,7 +125,7 @@ impl Default for Camera {
         }
     }
 }
-impl Camera {
+impl FPSCamera {
     pub fn set_translation(mut self, translation: Vector3<f32>) -> Self {
         self.position = translation;
         self
@@ -152,7 +152,10 @@ impl Camera {
     pub fn pitch(&mut self) -> &mut f32 {
         &mut self.pitch
     }
-    pub fn to_vec(&self, transform: &Transform) -> Vec<u8> {
+}
+
+impl Camera for FPSCamera {
+    fn to_vec(&self, transform: &Transform) -> Vec<u8> {
         let perspective_mat =
             Matrix4::new_perspective(self.fov, self.aspect_ratio, self.near_clip, self.far_clip);
         let rotation = Matrix4::face_towards(
@@ -168,4 +171,29 @@ impl Camera {
             .flatten()
             .collect()
     }
+    fn move_x(&mut self, delta: f32) {
+        self.position.x += delta
+    }
+    fn move_z(&mut self, delta: f32) {
+        self.position.z += delta
+    }
+    fn rotate_x(&mut self, delta: f32) {
+        self.yaw += delta;
+    }
+    fn rotate_y(&mut self, delta: f32) {
+        self.pitch += delta;
+    }
+}
+
+pub trait Camera: Send {
+    /// Gets data for shader
+    fn to_vec(&self, transform: &Transform) -> Vec<u8>;
+    /// moves by amount in x axis, usually triggered by a,d keys on keyboard
+    fn move_x(&mut self, delta: f32);
+    /// moves my amount in y axis. Usually triggered by w,s keys on keyboard
+    fn move_z(&mut self, delta: f32);
+    /// rotates by delta. Usually triggered by mouse x axis
+    fn rotate_x(&mut self, delta: f32);
+    // rotates by delta. Usually triggered by mouse y axis
+    fn rotate_y(&mut self, delta: f32);
 }
