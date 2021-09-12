@@ -267,11 +267,11 @@ impl sukakpak::Renderable for Game {
             }
         }
         {
-            let camera: Mutex<Box<dyn Camera>> = Mutex::new(Box::new(
+            let camera: Box<dyn Camera> = Box::new(
                 FPSCamera::default()
                     .set_translation(Vector3::new(0.0, 2.0, 0.0))
                     .set_yaw(f32::consts::PI / 2.0),
-            ));
+            );
             resources.insert(camera);
         }
         resources.insert(EventCollector::default());
