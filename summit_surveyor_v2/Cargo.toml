@@ -8,6 +8,10 @@ edition = "2018"
 [dependencies]
 sukakpak = {path = "../sukakpak", features = []}
 asset_manager = {path="../asset_manager"}
+log="^0.4"
+epaint="0.13"
+priority-queue = "1.0.5"
+parry3d = "0.7.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 legion ={version= "0.3.1",default-features = false, features = ["wasm-bindgen","codegen"] }
@@ -15,7 +19,4 @@ legion ={version= "0.3.1",default-features = false, features = ["wasm-bindgen","
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 legion ={version= "0.4",default-features = false, features = ["wasm-bindgen","codegen"] }
-log="^0.4"
-epaint="0.13"
-priority-queue = "1.0.5"
 
