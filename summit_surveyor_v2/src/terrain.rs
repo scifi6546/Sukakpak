@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
-    nalgebra::Vector2,
+    nalgebra::{Vector2, Vector3},
     Context, DrawableTexture,
 };
 pub struct Grid<T> {
@@ -95,6 +95,132 @@ impl Terrain {
                 100,
                 Rgba::from([200, 200, 200, 200]),
             ))?;
+
+            let mut vertices = vec![];
+            for x in 0..self.dimensions.x - 1 {
+                for y in 0..self.dimensions.y - 1 {
+                    let x0_y0 = Vector3::new(x as f32, *self.heights.get(x, y), y as f32);
+                    let x0_y1 = Vector3::new(x as f32, *self.heights.get(x, y + 1), y as f32 + 1.0);
+                    let x1_y0 = Vector3::new(x as f32 + 1.0, *self.heights.get(x + 1, y), y as f32);
+                    let x1_y1 = Vector3::new(
+                        x as f32 + 1.0,
+                        *self.heights.get(x + 1, y + 1),
+                        y as f32 + 1.0,
+                    );
+                    let triangle0_normal = (x0_y1 - x0_y0).cross(&(x1_y0 - x0_y0)).normalize();
+                    let triangle1_normal = (x1_y0 - x1_y1).cross(&(x0_y1 - x1_y1)).normalize();
+
+                    //triangle 0
+                    vertices.push([
+                        //position:
+                        x0_y0.x,
+                        x0_y0.y,
+                        x0_y0.z,
+                        //uv
+                        0.0,
+                        0.0,
+                        //normal
+                        triangle0_normal.x,
+                        triangle0_normal.y,
+                        triangle0_normal.z,
+                    ]);
+                    vertices.push([
+                        //position:
+                        x0_y1.x,
+                        x0_y1.y,
+                        x0_y1.z,
+                        //uv
+                        0.0,
+                        1.0,
+                        //normal
+                        triangle0_normal.x,
+                        triangle0_normal.y,
+                        triangle0_normal.z,
+                    ]);
+                    vertices.push([
+                        //position:
+                        x1_y0.x,
+                        x1_y0.y,
+                        x1_y0.z,
+                        //uv
+                        1.0,
+                        0.0,
+                        //normal
+                        triangle0_normal.x,
+                        triangle0_normal.y,
+                        triangle0_normal.z,
+                    ]);
+                    //triangle 1
+                    vertices.push([
+                        //position:
+                        x0_y1.x,
+                        x0_y1.y,
+                        x0_y1.z,
+                        //uv
+                        0.0,
+                        1.0,
+                        //normal
+                        triangle1_normal.x,
+                        triangle1_normal.y,
+                        triangle1_normal.z,
+                    ]);
+                    vertices.push([
+                        //position:
+                        x1_y1.x,
+                        x1_y1.y,
+                        x1_y1.z,
+                        //uv
+                        1.0,
+                        1.0,
+                        //normal
+                        triangle1_normal.x,
+                        triangle1_normal.y,
+                        triangle1_normal.z,
+                    ]);
+                    vertices.push([
+                        //position:
+                        x1_y0.x,
+                        x1_y0.y,
+                        x1_y0.z,
+                        //uv
+                        1.0,
+                        0.0,
+                        //normal
+                        triangle1_normal.x,
+                        triangle1_normal.y,
+                        triangle1_normal.z,
+                    ]);
+                }
+            }
+            let indices = (0..self.dimensions.x * self.dimensions.y * 6)
+                .map(|i| i as u32)
+                .collect();
+
+            let mesh = sukakpak::MeshAsset {
+                indices,
+                vertices: vertices
+                    .iter()
+                    .flatten()
+                    .map(|f| f.to_ne_bytes())
+                    .flatten()
+                    .collect(),
+                vertex_layout: sukakpak::VertexLayout {
+                    components: vec![
+                        sukakpak::VertexComponent::Vec3F32,
+                        sukakpak::VertexComponent::Vec2F32,
+                        sukakpak::VertexComponent::Vec3F32,
+                    ],
+                },
+            };
+
+            let model = Model::new(
+                context
+                    .build_mesh(mesh, DrawableTexture::Texture(&texture))
+                    .expect("failed to build mesh"),
+            );
+            (model, texture)
+
+            /*
             let mut vertices = vec![];
             let mut indices = vec![];
             let mut idx = 0;
@@ -184,6 +310,7 @@ impl Terrain {
                     .expect("failed to build mesh"),
             );
             (model, texture)
+                */
         };
 
         let model = model_manager.insert(mesh);
