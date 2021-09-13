@@ -38,11 +38,12 @@ pub mod prelude {
 impl sukakpak::Renderable for Game {
     fn init(mut context: Context) -> Self {
         context
-            .load_shader("./shaders/test", "world")
-            .expect("failed to load");
-        context
             .load_shader("./shaders/gui_shader", "gui_shader")
             .expect("failed to load gui shader");
+        context
+            .load_shader("./shaders/world", "world")
+            .expect("failed to load");
+
         let mut model_manager: AssetManager<Model> = Default::default();
         let mut texture_manager: AssetManager<Texture> = Default::default();
         let mut resources = Resources::default();
@@ -273,6 +274,7 @@ impl sukakpak::Renderable for Game {
         resources.insert(EventCollector::default());
         let game_render_surface = model::build_screen_plane(
             &mut resources.get_mut().unwrap(),
+            "world",
             Vector2::new(1000, 1000),
             0.9,
         )
