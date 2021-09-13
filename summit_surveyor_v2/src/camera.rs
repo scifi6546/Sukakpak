@@ -174,7 +174,7 @@ impl Camera for FPSCamera {
     fn to_vec(&self, transform: &Transform) -> Vec<u8> {
         let perspective_mat =
             Matrix4::new_perspective(self.fov, self.aspect_ratio, self.near_clip, self.far_clip);
-        let rotation = Matrix4::face_towards(
+        let rotation = Matrix4::look_at_rh(
             &Point3::new(0.0, 0.0, 0.0),
             &Point3::new(self.yaw.sin(), self.pitch.sin(), self.yaw.cos()),
             &Vector3::new(0.0, 1.0, 0.0),
@@ -214,14 +214,14 @@ pub struct ThirdPersonCamera {
 impl Default for ThirdPersonCamera {
     fn default() -> Self {
         Self {
-            center: Vector3::new(0.0, 0.0, 0.0),
-            radius: 10.0,
+            center: Vector3::new(50.0, 55.0, 50.0),
+            radius: 100.0,
             theta: f32::consts::PI / 4.0,
             phi: 0.0,
             fov: f32::consts::PI / 4.0,
             aspect_ratio: 1.0,
             near_clip: 0.1,
-            far_clip: 100.0,
+            far_clip: 500.0,
         }
     }
 }
@@ -234,7 +234,7 @@ impl Camera for ThirdPersonCamera {
             self.radius * self.theta.cos(),
             self.radius * self.theta.sin() * self.phi.cos(),
         );
-        let rotation: Matrix4<f32> = Matrix4::face_towards(
+        let rotation: Matrix4<f32> = Matrix4::look_at_rh(
             &position,
             &Vector3::new(0.0, 0.0, 0.0).into(),
             &Vector3::new(0.0, 1.0, 0.0),

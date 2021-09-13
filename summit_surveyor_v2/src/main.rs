@@ -342,26 +342,27 @@ pub fn terrain_camera(
     #[resource] events: &mut EventCollector,
     #[resource] camera: &mut Box<dyn Camera>,
 ) {
+    let delta_s = events.delta_time.as_secs_f32();
     camera.update_zoom(events.mouse_scroll_delta * events.delta_time.as_secs_f32() * 100.0);
     /// on a key
     if events.keycodes_down.contains(&30) {
-        camera.move_x(-0.01);
+        camera.move_x(-0.01 * delta_s);
     }
     // on d key
     if events.keycodes_down.contains(&32) {
-        camera.move_x(0.01);
+        camera.move_x(0.01 * delta_s);
     }
     // on s key
     if events.keycodes_down.contains(&31) {
-        camera.move_z(-0.01);
+        camera.move_z(-0.01 * delta_s);
     }
     // on w key
     if events.keycodes_down.contains(&17) {
-        camera.move_z(0.01);
+        camera.move_z(0.01 * delta_s);
     }
     if events.left_mouse_down {
-        camera.rotate_x(events.mouse_delta_pos.x * events.delta_time.as_secs_f32() * 1000.0);
+        camera.rotate_x(events.mouse_delta_pos.x * delta_s * 40000.0);
 
-        camera.rotate_y(events.mouse_delta_pos.y * events.delta_time.as_secs_f32() * 1000.0)
+        camera.rotate_y(events.mouse_delta_pos.y * delta_s * 40000.0)
     }
 }
