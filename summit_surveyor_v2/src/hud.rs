@@ -1,4 +1,4 @@
-use super::prelude::{FontSize, GuiItem, GuiState, Model, TextLabel, Transform};
+use super::prelude::{FontSize, GuiItem, GuiState, TextLabel, Transform};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -20,7 +20,7 @@ impl Hud {
 pub fn build_hud(
     command_buffer: &mut CommandBuffer,
     #[resource] graphics: &mut Context,
-    #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
     #[resource] gui_state: &mut GuiState,
     #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
@@ -45,7 +45,7 @@ pub fn update_time(
     #[resource] graphics: &mut Context,
     #[resource] duration: &Duration,
     #[resource] gui_state: &mut GuiState,
-    #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
     #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
     *hud = Hud {
@@ -65,7 +65,7 @@ pub fn update_time(
 pub fn render_hud(
     hud: &mut Hud,
     #[resource] graphics: &mut Context,
-    #[resource] model_manager: &AssetManager<Model>,
+    #[resource] model_manager: &AssetManager<sukakpak::Mesh>,
     #[resource] texture_manager: &AssetManager<Texture>,
 ) {
     hud.time.render(

@@ -49,19 +49,10 @@ pub fn build_screen_plane(
     )?;
     Ok(ScreenPlane { mesh, framebuffer })
 }
-#[derive(Debug)]
-pub struct Model {
-    pub mesh: sukakpak::Mesh,
-}
-impl Model {
-    pub fn new(mesh: sukakpak::Mesh) -> Self {
-        Self { mesh }
-    }
-}
 pub fn insert_cube(
     transform: Transform,
     world: &mut World,
-    manager: &mut AssetManager<Model>,
+    manager: &mut AssetManager<sukakpak::Mesh>,
     context: &mut Context,
 ) -> Result<()> {
     let vertices: Vec<((f32, f32, f32), (f32, f32), (f32, f32, f32))> = vec![
@@ -381,41 +372,55 @@ pub fn insert_cube(
         .map(|f| f.to_ne_bytes())
         .flatten()
         .collect();
-    let model = Model {
-        mesh: context
-            .build_mesh(
-                sukakpak::MeshAsset {
-                    vertices,
-                    indices,
-                    vertex_layout: VertexLayout {
-                        components: vec![
-                            VertexComponent::Vec3F32,
-                            VertexComponent::Vec2F32,
-                            VertexComponent::Vec3F32,
-                        ],
-                    },
+    let mesh = context
+        .build_mesh(
+            sukakpak::MeshAsset {
+                vertices,
+                indices,
+                vertex_layout: VertexLayout {
+                    components: vec![
+                        VertexComponent::Vec3F32,
+                        VertexComponent::Vec2F32,
+                        VertexComponent::Vec3F32,
+                    ],
                 },
-                DrawableTexture::Texture(&texture),
-            )
-            .expect("failed to build mesh"),
-    };
-    let handle = manager.insert(model);
+            },
+            DrawableTexture::Texture(&texture),
+        )
+        .expect("failed to build mesh");
+    let handle = manager.insert(mesh);
     world.push((transform, handle, texture));
     Ok(())
 }
 
 #[system(for_each)]
+pub fn render_model_vec(
+    mesh_vec: &Vec<(AssetHandle<sukakpak::Mesh>, Transform)>,
+    #[resource] camera: &mut Box<dyn Camera>,
+    #[resource] manager: &AssetManager<sukakpak::Mesh>,
+    #[resource] graphics: &mut Context,
+) {
+    for (model, transform) in mesh_vec.iter() {
+        graphics
+            .draw_mesh(
+                camera.to_vec(transform),
+                &manager.get(model).expect("model does not exist"),
+            )
+            .expect("failed to draw mesh");
+    }
+}
+#[system(for_each)]
 pub fn render_model(
-    model: &AssetHandle<Model>,
+    model: &AssetHandle<sukakpak::Mesh>,
     transform: &Transform,
     #[resource] camera: &mut Box<dyn Camera>,
-    #[resource] manager: &AssetManager<Model>,
+    #[resource] manager: &AssetManager<sukakpak::Mesh>,
     #[resource] graphics: &mut Context,
 ) {
     graphics
         .draw_mesh(
             camera.to_vec(transform),
-            &manager.get(model).expect("model does not exist").mesh,
+            &manager.get(model).expect("model does not exist"),
         )
         .expect("failed to draw mesh");
 }

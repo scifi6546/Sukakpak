@@ -1,4 +1,4 @@
-use super::prelude::{Model, Transform};
+use super::prelude::Transform;
 use asset_manager::{AssetHandle, AssetManager};
 use legion::*;
 use std::sync::Mutex;
@@ -39,7 +39,7 @@ pub trait GuiItem: Send {
         &self,
         transform: Transform,
         graphics: &mut Context,
-        model_manager: &AssetManager<Model>,
+        model_manager: &AssetManager<sukakpak::Mesh>,
         texture_manager: &AssetManager<Texture>,
     );
     fn get_transform(&self) -> &Transform;
@@ -48,7 +48,7 @@ pub trait GuiItem: Send {
         transform: Transform,
         graphics: &mut Context,
         gui_state: &mut GuiState,
-        model_manager: &mut AssetManager<Model>,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &mut AssetManager<Texture>,
     );
     fn build_listner(&self) -> EventListner;
@@ -56,7 +56,7 @@ pub trait GuiItem: Send {
 
 #[derive(Debug)]
 pub struct GuiSquare {
-    mesh: AssetHandle<Model>,
+    mesh: AssetHandle<sukakpak::Mesh>,
     transform: Transform,
     default_texture: AssetHandle<Texture>,
     hover_texture: AssetHandle<Texture>,
@@ -68,7 +68,7 @@ impl GuiSquare {
         default_texture: AssetHandle<Texture>,
         hover_texture: AssetHandle<Texture>,
         click_texture: AssetHandle<Texture>,
-        asset_manager: &mut AssetManager<Model>,
+        asset_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &AssetManager<Texture>,
         context: &mut Context,
     ) -> Result<Self> {
@@ -101,7 +101,7 @@ impl GuiSquare {
                     .expect("failed to get default texture"),
             ),
         )?;
-        let mesh = asset_manager.insert(Model { mesh: raw_mesh });
+        let mesh = asset_manager.insert(raw_mesh);
         Ok(GuiSquare {
             mesh,
             default_texture,
@@ -116,17 +116,14 @@ impl GuiItem for GuiSquare {
         &self,
         transform: Transform,
         graphics: &mut Context,
-        model_manager: &AssetManager<Model>,
+        model_manager: &AssetManager<sukakpak::Mesh>,
         _texture_manager: &AssetManager<Texture>,
     ) {
         let mat = transform.mat() * self.transform.mat();
         graphics
             .draw_mesh(
                 mat.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
-                &model_manager
-                    .get(&self.mesh)
-                    .expect("failed to get mesh")
-                    .mesh,
+                &model_manager.get(&self.mesh).expect("failed to get mesh"),
             )
             .expect("failed to draw mesh");
     }
@@ -138,7 +135,7 @@ impl GuiItem for GuiSquare {
         transform: Transform,
         _graphics: &mut Context,
         _gui_state: &mut GuiState,
-        _model_manager: &mut AssetManager<Model>,
+        _model_manager: &mut AssetManager<sukakpak::Mesh>,
         _texture_manager: &mut AssetManager<Texture>,
     ) {
         self.transform = transform
@@ -157,16 +154,13 @@ pub fn react_events(
     square: &mut GuiSquare,
     event_listner: &EventListner,
     #[resource] context: &mut Context,
-    #[resource] model_manager: &mut AssetManager<Model>,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
     #[resource] texture_manager: &AssetManager<Texture>,
 ) {
     if event_listner.left_mouse_down.clicked() {
         context
             .bind_texture(
-                &mut model_manager
-                    .get_mut(&square.mesh)
-                    .expect("failed to get")
-                    .mesh,
+                &mut model_manager.get_mut(&square.mesh).expect("failed to get"),
                 DrawableTexture::Texture(
                     texture_manager
                         .get(&square.click_texture)
@@ -179,14 +173,13 @@ pub fn react_events(
             .bind_texture(
                 &mut model_manager
                     .get_mut(&square.mesh)
-                    .expect("failed to get model")
-                    .mesh,
+                    .expect("failed to get model"),
                 DrawableTexture::Texture(texture_manager.get(&square.hover_texture).unwrap()),
             )
             .expect("failed to bind");
     } else {
         context.bind_texture(
-            &mut model_manager.get_mut(&square.mesh).unwrap().mesh,
+            &mut model_manager.get_mut(&square.mesh).unwrap(),
             DrawableTexture::Texture(texture_manager.get(&square.default_texture).unwrap()),
         );
     }
@@ -195,7 +188,7 @@ pub fn react_events(
 pub fn render_gui_component(
     component: &GuiComponent,
     #[resource] graphics: &mut Context,
-    #[resource] model_manager: &AssetManager<Model>,
+    #[resource] model_manager: &AssetManager<sukakpak::Mesh>,
     #[resource] texture_manager: &AssetManager<Texture>,
 ) {
     component
@@ -211,7 +204,7 @@ pub fn render_gui_component(
 }
 /// Describes which way to alighn elements in a container
 pub struct TextLabel {
-    text_mesh: Model,
+    text_mesh: sukakpak::Mesh,
     font_size: FontSize,
     /// Text that is displayed
     text: String,
@@ -269,12 +262,10 @@ impl TextLabel {
             (bounding_box.max.y - bounding_box.min.y) * render_transform.get_scale().y,
             1.0,
         ));
-        let text_mesh = Model {
-            mesh: context.build_mesh(
-                mesh_asset,
-                DrawableTexture::Texture(texture_manager.get(&texture_handle).unwrap()),
-            )?,
-        };
+        let text_mesh = context.build_mesh(
+            mesh_asset,
+            DrawableTexture::Texture(texture_manager.get(&texture_handle).unwrap()),
+        )?;
         Ok(Self {
             text_mesh,
             text,
@@ -290,14 +281,14 @@ impl GuiItem for TextLabel {
         &self,
         transform: Transform,
         graphics: &mut Context,
-        model_manager: &AssetManager<Model>,
+        model_manager: &AssetManager<sukakpak::Mesh>,
         _texture_manager: &AssetManager<Texture>,
     ) {
         let mat = transform.mat() * self.render_transform.mat();
         graphics
             .draw_mesh(
                 mat.iter().map(|f| f.to_ne_bytes()).flatten().collect(),
-                &self.text_mesh.mesh,
+                &self.text_mesh,
             )
             .expect("failed to render text");
     }
@@ -310,7 +301,7 @@ impl GuiItem for TextLabel {
         transform: Transform,
         graphics: &mut Context,
         gui_state: &mut GuiState,
-        model_manager: &mut AssetManager<Model>,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &mut AssetManager<Texture>,
     ) {
         if self.display_transform != transform {
@@ -354,7 +345,7 @@ impl VerticalContainer {
         root_position: Vector3<f32>,
         context: &mut Context,
         gui_state: &mut GuiState,
-        model_manager: &mut AssetManager<Model>,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &mut AssetManager<Texture>,
     ) -> Result<Self> {
         let height: f32 = items
@@ -447,7 +438,7 @@ impl GuiItem for VerticalContainer {
         &self,
         transform: Transform,
         graphics: &mut Context,
-        model_manager: &AssetManager<Model>,
+        model_manager: &AssetManager<sukakpak::Mesh>,
         texture_manager: &AssetManager<Texture>,
     ) {
         for (c, _event_collector) in self.items.iter() {
@@ -463,7 +454,7 @@ impl GuiItem for VerticalContainer {
         graphics
             .draw_mesh(
                 self.container.transform.to_bytes(),
-                &model_manager.get(&self.container.mesh).unwrap().mesh,
+                &model_manager.get(&self.container.mesh).unwrap(),
             )
             .expect("failed to draw mesh");
     }
@@ -475,7 +466,7 @@ impl GuiItem for VerticalContainer {
         transform: Transform,
         graphics: &mut Context,
         gui_state: &mut GuiState,
-        model_manager: &mut AssetManager<Model>,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &mut AssetManager<Texture>,
     ) {
         self.container.set_transform(

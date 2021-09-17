@@ -1,5 +1,12 @@
+use asset_manager::{AssetHandle, AssetManager};
+use legion::systems::CommandBuffer;
+use legion::*;
 use std::f32;
-use sukakpak::nalgebra::{Matrix4, Point3, Vector3};
+use sukakpak::{
+    image::{Rgba, RgbaImage},
+    nalgebra::{Matrix4, Point3, Vector3, Vector4},
+    Context, DrawableTexture,
+};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
     position: Vector3<f32>,
@@ -100,6 +107,21 @@ impl Default for Transform {
         }
     }
 }
+/// Ray Used for raycasting
+pub struct Ray {
+    /// must be a unit vector
+    pub direction: Vector3<f32>,
+    pub origin: Point3<f32>,
+}
+impl std::fmt::Display for Ray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{\n\tdirection: {},\n\t origin: {}\n}}",
+            self.direction, self.origin
+        )
+    }
+}
 
 pub trait Camera: Send {
     /// Gets data for shader with model transform applied
@@ -114,6 +136,8 @@ pub trait Camera: Send {
     fn rotate_y(&mut self, delta: f32);
     /// updates scroll. Usually triggered by scroll
     fn update_zoom(&mut self, delta: f32);
+    /// casts ray from Camera
+    fn cast_ray(&self) -> Ray;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -200,9 +224,20 @@ impl Camera for FPSCamera {
         self.pitch += delta;
     }
     fn update_zoom(&mut self, _delta: f32) {}
+    fn cast_ray(&self) -> Ray {
+        let rotation = Matrix4::look_at_rh(
+            &Point3::new(0.0, 0.0, 0.0),
+            &Point3::new(self.yaw.sin(), self.pitch.sin(), self.yaw.cos()),
+            &Vector3::new(0.0, 1.0, 0.0),
+        );
+        let vec_out = rotation * Vector4::new(0.0, 0.0, -1.0, 0.0);
+        let direction = Vector3::new(vec_out.x, vec_out.y, vec_out.z).normalize();
+        let origin = self.position.into();
+        Ray { direction, origin }
+    }
 }
 pub struct ThirdPersonCamera {
-    center: Vector3<f32>,
+    center: Point3<f32>,
     radius: f32,
     theta: f32,
     phi: f32,
@@ -214,7 +249,7 @@ pub struct ThirdPersonCamera {
 impl Default for ThirdPersonCamera {
     fn default() -> Self {
         Self {
-            center: Vector3::new(50.0, 55.0, 50.0),
+            center: Point3::new(50.0, 0.0, 50.0),
             radius: 100.0,
             theta: f32::consts::PI / 4.0,
             phi: 0.0,
@@ -239,7 +274,9 @@ impl Camera for ThirdPersonCamera {
             &Vector3::new(0.0, 0.0, 0.0).into(),
             &Vector3::new(0.0, 1.0, 0.0),
         );
-        let translation = Matrix4::new_translation(&(-1.0 * self.center));
+        let translation = Matrix4::new_translation(
+            &(-1.0 * Vector3::new(self.center.x, self.center.y, self.center.z)),
+        );
         (perspective_mat * rotation * translation * transform.mat())
             .as_slice()
             .iter()
@@ -265,4 +302,75 @@ impl Camera for ThirdPersonCamera {
     fn update_zoom(&mut self, delta: f32) {
         self.radius += delta * self.radius
     }
+    fn cast_ray(&self) -> Ray {
+        let camera_position = self.radius
+            * Vector3::new(
+                self.theta.sin() * self.phi.sin(),
+                self.theta.cos(),
+                self.theta.sin() * self.phi.cos(),
+            );
+        println!(
+            "radius: {}, camera_position: {}",
+            self.radius, camera_position
+        );
+        let origin = self.center + camera_position;
+        let origin_v = Vector3::new(origin.x, origin.y, origin.z);
+        let direction = (-1.0 * camera_position).normalize();
+        Ray { direction, origin }
+    }
+}
+#[system]
+pub fn insert_debug_ray(
+    command_buffer: &mut CommandBuffer,
+    #[resource] graphics: &mut Context,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
+) {
+    let texture = graphics
+        .build_texture(&RgbaImage::from_pixel(
+            100,
+            100,
+            Rgba::from([20, 200, 200, 200]),
+        ))
+        .expect("failed to build texture");
+    let model = model_manager.insert(
+        graphics
+            .build_mesh(
+                sukakpak::MeshAsset::new_cube(),
+                DrawableTexture::Texture(&texture),
+            )
+            .expect("failed to build mesh"),
+    );
+
+    command_buffer.push((RayDebug {}, vec![(model, Transform::default())]));
+}
+pub struct RayDebug {}
+
+#[system(for_each)]
+pub fn debug_ray(
+    ray_debug: &RayDebug,
+    data: &mut Vec<(AssetHandle<sukakpak::Mesh>, Transform)>,
+    #[resource] camera: &mut Box<dyn Camera>,
+) {
+    let ray = camera.cast_ray();
+    let mesh = data[0].0.clone();
+    data.clear();
+    println!("ray: {}", ray);
+
+    let ray = parry3d::query::Ray {
+        dir: ray.direction,
+        origin: ray.origin,
+    };
+    *data = (0..50)
+        .map(|i| {
+            let pos = ray.point_at(i as f32 * 1.0);
+            let pos_v = Vector3::new(pos.x, pos.y, pos.z);
+            let scale = i as f32 * 0.1;
+            (
+                mesh.clone(),
+                Transform::default()
+                    .translate(pos_v)
+                    .set_scale(scale * Vector3::new(1.0, 1.0, 1.0)),
+            )
+        })
+        .collect();
 }

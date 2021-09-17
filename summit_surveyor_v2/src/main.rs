@@ -13,14 +13,14 @@ use camera::{Camera, FPSCamera, ThirdPersonCamera, Transform};
 use gui::FontSize;
 use gui::{EventCollector, GuiState};
 use legion::*;
-use model::{Model, ScreenPlane};
+use model::ScreenPlane;
 use std::{f32, sync::Mutex, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
     Context, Event, Sukakpak, Texture,
 };
-use terrain::Terrain;
+use terrain::{ray_cast_system, Terrain};
 struct Game {
     world: World,
     resources: Resources,
@@ -30,7 +30,6 @@ pub mod prelude {
     pub use super::camera::{Camera, FPSCamera, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
-    pub use super::model::Model;
     pub use super::terrain::Terrain;
     pub use asset_manager::{AssetHandle, AssetManager};
 }
@@ -44,14 +43,14 @@ impl sukakpak::Renderable for Game {
             .load_shader("./shaders/world", "world")
             .expect("failed to load");
 
-        let mut model_manager: AssetManager<Model> = Default::default();
+        let mut model_manager: AssetManager<sukakpak::Mesh> = Default::default();
         let mut texture_manager: AssetManager<Texture> = Default::default();
         let mut resources = Resources::default();
         let mut world = World::default();
         context
             .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
-        Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
+        Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -0.1, 10.0)
             .insert(&mut world, &mut resources, &mut model_manager, &mut context)
             .expect("failed to build terrain");
         let default_tex = texture_manager.insert(
@@ -84,6 +83,7 @@ impl sukakpak::Renderable for Game {
         );
 
         let mut gui_state = GuiState::default();
+        /*
 
         gui::GuiComponent::insert(
             Box::new(
@@ -234,6 +234,7 @@ impl sukakpak::Renderable for Game {
             &mut world,
         )
         .expect("failed to insert?");
+                    */
 
         println!("*******************\nBuilding Raw Text\n***************");
         gui::GuiComponent::insert(
@@ -259,6 +260,8 @@ impl sukakpak::Renderable for Game {
         Schedule::builder()
             .add_system(lift::insert_lift_system())
             .add_system(hud::build_hud_system())
+            .add_system(camera::insert_debug_ray_system())
+            .add_system(terrain::insert_highlited_system())
             .build()
             .execute(&mut world, &mut resources);
         for x in 0..1 {
@@ -298,9 +301,12 @@ impl sukakpak::Renderable for Game {
             .add_system(skiier::skiier_system())
             .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())
+            .add_system(camera::debug_ray_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
+            .add_system(ray_cast_system())
             .add_system(model::render_model_system())
+            .add_system(model::render_model_vec_system())
             .add_system(terrain_camera_system())
             .build();
         game_renderng_schedule.execute(&mut self.world, &mut self.resources);

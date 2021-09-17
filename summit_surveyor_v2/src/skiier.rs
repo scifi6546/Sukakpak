@@ -1,5 +1,5 @@
 use super::prelude::{
-    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Model, Path, Terrain, Transform,
+    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path, Terrain, Transform,
 };
 use asset_manager::AssetManager;
 mod decision_tree;
@@ -44,7 +44,7 @@ impl Skiier {
     ) -> Result<()> {
         let layers: &Vec<Mutex<Box<dyn GraphLayer>>> = &resources.get().unwrap();
         let terrain: &Terrain = &resources.get().unwrap();
-        let model_manager: &mut AssetManager<Model> = &mut resources.get_mut().unwrap();
+        let model_manager: &mut AssetManager<sukakpak::Mesh> = &mut resources.get_mut().unwrap();
         let texture_manager: &mut AssetManager<Texture> = &mut resources.get_mut().unwrap();
 
         let (decison_tree, cost, path) = DecisionTree::new(GraphNode(start), layers);
@@ -71,14 +71,14 @@ impl Skiier {
             100,
             Rgba::from([20, 200, 200, 200]),
         ))?;
-        let model = model_manager.insert(Model::new(
+        let model = model_manager.insert(
             r_ctx
                 .build_mesh(
                     sukakpak::MeshAsset::new_cube(),
                     DrawableTexture::Texture(&texture),
                 )
                 .expect("failed to build mesh"),
-        ));
+        );
         texture_manager.insert(texture);
         println!("path: {}", path);
         world.push((Skiier {}, follow, transform, model, decison_tree, cost));
