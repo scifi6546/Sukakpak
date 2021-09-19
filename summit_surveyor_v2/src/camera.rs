@@ -4,7 +4,7 @@ use legion::*;
 use std::f32;
 use sukakpak::{
     image::{Rgba, RgbaImage},
-    nalgebra::{Matrix4, Point3, Vector3, Vector4},
+    nalgebra::{Matrix4, Point3, Vector2, Vector3, Vector4},
     Context, DrawableTexture,
 };
 #[derive(Debug, Clone, PartialEq)]
@@ -122,8 +122,14 @@ impl std::fmt::Display for Ray {
         )
     }
 }
-
+#[derive(Debug, Clone, Copy)]
+pub struct CameraInfo {
+    pub fov: f32,
+    pub aspect_ratio: f32,
+}
 pub trait Camera: Send {
+    fn get_camera_info(&self) -> CameraInfo;
+    fn get_view_matrix(&self) -> Matrix4<f32>;
     /// Gets data for shader with model transform applied
     fn to_vec(&self, transform: &Transform) -> Vec<u8>;
     /// moves by amount in x axis, usually triggered by a,d keys on keyboard
@@ -132,12 +138,14 @@ pub trait Camera: Send {
     fn move_z(&mut self, delta: f32);
     /// rotates by delta. Usually triggered by mouse x axis
     fn rotate_x(&mut self, delta: f32);
-    // rotates by delta. Usually triggered by mouse y axis
+    /// rotates by delta. Usually triggered by mouse y axis
     fn rotate_y(&mut self, delta: f32);
+
     /// updates scroll. Usually triggered by scroll
     fn update_zoom(&mut self, delta: f32);
-    /// casts ray from Camera
-    fn cast_ray(&self) -> Ray;
+    /// casts ray from Camera, mouse coordinates are normalized (-1,1) is the bottom left, (1,1) is
+    /// the top right
+    fn cast_ray(&self, mouse_pos: Vector2<f32>) -> Ray;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,7 +257,7 @@ pub struct ThirdPersonCamera {
 impl Default for ThirdPersonCamera {
     fn default() -> Self {
         Self {
-            center: Point3::new(50.0, 0.0, 50.0),
+            center: Point3::new(50.0, 0.0, 20.0),
             radius: 100.0,
             theta: f32::consts::PI / 4.0,
             phi: 0.0,
@@ -302,17 +310,13 @@ impl Camera for ThirdPersonCamera {
     fn update_zoom(&mut self, delta: f32) {
         self.radius += delta * self.radius
     }
-    fn cast_ray(&self) -> Ray {
+    fn cast_ray(&self, mouse_pos: Vector2<f32>) -> Ray {
         let camera_position = self.radius
             * Vector3::new(
                 self.theta.sin() * self.phi.sin(),
                 self.theta.cos(),
                 self.theta.sin() * self.phi.cos(),
             );
-        println!(
-            "radius: {}, camera_position: {}",
-            self.radius, camera_position
-        );
         let origin = self.center + camera_position;
         let origin_v = Vector3::new(origin.x, origin.y, origin.z);
         let direction = (-1.0 * camera_position).normalize();

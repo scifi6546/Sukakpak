@@ -27,7 +27,7 @@ struct Game {
     game_render_surface: ScreenPlane,
 }
 pub mod prelude {
-    pub use super::camera::{Camera, FPSCamera, Transform};
+    pub use super::camera::{Camera, FPSCamera, Ray, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
     pub use super::terrain::Terrain;
@@ -50,7 +50,7 @@ impl sukakpak::Renderable for Game {
         context
             .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
-        Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -0.1, 10.0)
+        Terrain::new_cone(Vector2::new(100, 30), Vector2::new(0.0, 0.0), 0.0, 0.0)
             .insert(&mut world, &mut resources, &mut model_manager, &mut context)
             .expect("failed to build terrain");
         let default_tex = texture_manager.insert(
@@ -301,7 +301,7 @@ impl sukakpak::Renderable for Game {
             .add_system(skiier::skiier_system())
             .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())
-            .add_system(camera::debug_ray_system())
+            //.add_system(camera::debug_ray_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
             .add_system(ray_cast_system())
@@ -350,21 +350,22 @@ pub fn terrain_camera(
 ) {
     let delta_s = events.delta_time.as_secs_f32();
     camera.update_zoom(events.mouse_scroll_delta * events.delta_time.as_secs_f32() * 100.0);
-    /// on a key
+    let move_speed = 100.0;
+    // on a key
     if events.keycodes_down.contains(&30) {
-        camera.move_x(-0.01 * delta_s);
+        camera.move_x(-1.0 * move_speed * delta_s);
     }
     // on d key
     if events.keycodes_down.contains(&32) {
-        camera.move_x(0.01 * delta_s);
+        camera.move_x(move_speed * delta_s);
     }
     // on s key
     if events.keycodes_down.contains(&31) {
-        camera.move_z(-0.01 * delta_s);
+        camera.move_z(-1.0 * move_speed * delta_s);
     }
     // on w key
     if events.keycodes_down.contains(&17) {
-        camera.move_z(0.01 * delta_s);
+        camera.move_z(move_speed * delta_s);
     }
     if events.left_mouse_down {
         camera.rotate_x(events.mouse_delta_pos.x * delta_s * 40000.0);

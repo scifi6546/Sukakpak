@@ -1,4 +1,4 @@
-use super::prelude::{Camera, GraphLayer, GraphNode, GraphType, GraphWeight, Transform};
+use super::prelude::{Camera, GraphLayer, GraphNode, GraphType, GraphWeight, Ray, Transform};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -92,6 +92,10 @@ impl Terrain {
             center_height + radius * slope
         });
         let collider = PHeightField::new(heights.clone(), Vector3::new(1.0, 1.0, 1.0));
+        let isometry = Isometry3::translation(0.5, 0.0, 0.5);
+        let aabb = collider.aabb(&isometry);
+        println!("aabb{{\nmin:\n{}\nmax:\n{}\n}}", aabb.mins, aabb.maxs);
+        println!("dimensions: {}", dimensions);
         Self {
             heights,
             dimensions,
@@ -242,7 +246,35 @@ impl Terrain {
         Ok(())
     }
     pub fn get_height(&self, x: usize, y: usize) -> f32 {
-        self.heights[(x, y)]
+        self.heights[(y + 1, x + 1)]
+    }
+
+    /// Casts ray and returns (if it exists) point of intersection
+    pub fn cast_ray(&self, ray: &Ray) -> Option<Point3<f32>> {
+        let isometry = Isometry3::translation(0.5, 0.0, 0.5);
+        let cast_ray = PRay {
+            dir: Vector3::new(
+                ray.direction.x / self.dimensions().x as f32,
+                ray.direction.y,
+                ray.direction.z / self.dimensions().y as f32,
+            ),
+            origin: Point3::new(
+                ray.origin.x / self.dimensions().x as f32,
+                ray.origin.y,
+                ray.origin.z / self.dimensions().y as f32,
+            ),
+        };
+
+        if let Some(dist) = self.collider.cast_ray(&isometry, &cast_ray, 10000.0, true) {
+            let loc = cast_ray.point_at(dist);
+            Some(Point3::new(
+                loc.x * self.dimensions().x as f32,
+                loc.y,
+                loc.z * self.dimensions().y as f32,
+            ))
+        } else {
+            None
+        }
     }
 }
 struct TerrainWeight(f32);
@@ -287,61 +319,13 @@ pub fn ray_cast(
     #[resource] camera: &mut Box<dyn Camera>,
 ) {
     let ray = camera.cast_ray();
-    let isometry = Isometry3::translation(0.5, 0.0, 0.5);
-    let aabb = terrain.collider.aabb(&isometry);
-    let cast_ray = PRay {
-        dir: Vector3::new(
-            ray.direction.x / terrain.dimensions().x as f32,
-            ray.direction.y,
-            ray.direction.z / terrain.dimensions().y as f32,
-        ),
-        origin: Point3::new(
-            ray.origin.x / terrain.dimensions().x as f32,
-            ray.direction.y,
-            ray.origin.z / terrain.dimensions().y as f32,
-        ),
-    };
-    /*
-    println!(
-        "casting ray:\n{{\n\tdirection: {},\n\torigin: {}\n}}",
-        cast_ray.dir, cast_ray.origin
-    );
-    */
-    println!(
-        "terrain aabb:\n{{\n\tmins: {},\n\tmax: {}\n}}",
-        aabb.mins, aabb.maxs
-    );
-    if let Some(dist) = aabb.cast_ray(&isometry, &cast_ray, 10000.0, false) {
-        println!("aabb hit: {}", dist);
-        println!(
-            "terrain aabb:\n{{\n\tmins: {},\n\tmax: {}\n}}",
-            aabb.mins, aabb.maxs
-        );
-        let loc = cast_ray.point_at(dist);
-        let loc = Point3::new(
-            loc.x * terrain.dimensions().x as f32,
-            loc.z,
-            loc.y * terrain.dimensions().y as f32,
-        );
-        println!("loc: {}", loc);
-    }
-    let dist = terrain
-        .collider
-        .cast_ray(&isometry, &cast_ray, 10000.0, false);
-    if let Some(dist) = dist {
-        println!("heights hit: {}", dist);
-        let loc = cast_ray.point_at(dist);
-        let loc = Point3::new(
-            loc.x * terrain.dimensions().x as f32,
-            loc.y,
-            loc.z * terrain.dimensions().y as f32,
-        );
+    if let Some(loc) = terrain.cast_ray(&ray) {
+        println!("heights hit: {}", loc);
         *transform = transform
             .clone()
             .set_translation(Vector3::new(loc.x, loc.y, loc.z));
         println!("loc: {}", loc);
-    } else {
-    }
+    };
 }
 impl From<&Terrain> for TerrainGraphLayer {
     fn from(t: &Terrain) -> Self {
@@ -349,7 +333,7 @@ impl From<&Terrain> for TerrainGraphLayer {
         data.reserve(t.heights.ncols() * t.heights.nrows());
         for x in 0..t.heights.ncols() {
             for y in 0..t.heights.nrows() {
-                data.push(TerrainWeight(t.heights[(x, y)]));
+                data.push(TerrainWeight(t.heights[(y, x)]));
             }
         }
         let dimensions = Vector2::new(t.heights.ncols(), t.heights.nrows());
