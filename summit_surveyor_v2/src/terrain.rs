@@ -1,4 +1,6 @@
-use super::prelude::{Camera, GraphLayer, GraphNode, GraphType, GraphWeight, Ray, Transform};
+use super::prelude::{
+    Camera, EventCollector, GraphLayer, GraphNode, GraphType, GraphWeight, Ray, Transform,
+};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -316,15 +318,14 @@ pub fn ray_cast(
     _highlighted: &Highlighted,
     transform: &mut Transform,
     #[resource] terrain: &Terrain,
+    #[resource] events: &EventCollector,
     #[resource] camera: &mut Box<dyn Camera>,
 ) {
-    let ray = camera.cast_ray();
+    let ray = camera.cast_mouse_ray(events.last_mouse_pos);
     if let Some(loc) = terrain.cast_ray(&ray) {
-        println!("heights hit: {}", loc);
         *transform = transform
             .clone()
             .set_translation(Vector3::new(loc.x, loc.y, loc.z));
-        println!("loc: {}", loc);
     };
 }
 impl From<&Terrain> for TerrainGraphLayer {

@@ -29,7 +29,7 @@ struct Game {
 pub mod prelude {
     pub use super::camera::{Camera, FPSCamera, Ray, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
-    pub use super::gui::{FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
+    pub use super::gui::{EventCollector, FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
     pub use super::terrain::Terrain;
     pub use asset_manager::{AssetHandle, AssetManager};
 }
