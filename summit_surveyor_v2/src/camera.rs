@@ -124,7 +124,9 @@ impl std::fmt::Display for Ray {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct CameraInfo {
-    pub fov: f32,
+    pub fovy: f32,
+    pub near_clip: f32,
+    pub far_clip: f32,
     pub aspect_ratio: f32,
 }
 pub trait Camera: Send {
@@ -154,17 +156,25 @@ pub trait Camera: Send {
 
     /// updates scroll. Usually triggered by scroll
     fn update_zoom(&mut self, delta: f32);
-    /// casts ray from Camera, mouse coordinates are normalized (-1,1) is the bottom left, (1,1) is
-    /// the top right
-    fn cast_ray(&self) -> Ray;
     fn get_origin(&self) -> Vector3<f32>;
     /// Casts ray through mouse axis
     fn cast_mouse_ray(&self, mouse_pos: Vector2<f32>) -> Ray {
-        let mat = self.get_view_mat().try_inverse().unwrap();
-        let origin = self.get_origin();
-        let direction = mat * Vector4::new(mouse_pos.x, mouse_pos.y, 1.0, 1.0);
-        let direction = (Vector3::new(direction.x, direction.y, direction.z) - origin).normalize();
+        let info = self.get_camera_info();
+        let view_mat = self.get_view_mat();
+        let view_mat_inv = view_mat.try_inverse().unwrap();
+
+        let y_box = (info.fovy / 2.0).tan() * info.near_clip;
+        let near = view_mat_inv
+            * Vector4::new(
+                y_box * info.aspect_ratio * mouse_pos.x,
+                y_box * mouse_pos.y,
+                -1.0 * info.near_clip,
+                1.0,
+            );
+        let origin = view_mat_inv * Vector4::new(0.0, 0.0, 0.0, 1.0);
+        let direction = (near - origin).xyz().normalize();
         let origin = Point3::new(origin.x, origin.y, origin.z);
+
         Ray { origin, direction }
     }
 }
@@ -226,7 +236,9 @@ impl FPSCamera {
 impl Camera for FPSCamera {
     fn get_camera_info(&self) -> CameraInfo {
         CameraInfo {
-            fov: self.fov,
+            fovy: self.fov,
+            near_clip: self.near_clip,
+            far_clip: self.far_clip,
             aspect_ratio: self.aspect_ratio,
         }
     }
@@ -269,17 +281,6 @@ impl Camera for FPSCamera {
         self.pitch += delta;
     }
     fn update_zoom(&mut self, _delta: f32) {}
-    fn cast_ray(&self) -> Ray {
-        let rotation = Matrix4::look_at_rh(
-            &Point3::new(0.0, 0.0, 0.0),
-            &Point3::new(self.yaw.sin(), self.pitch.sin(), self.yaw.cos()),
-            &Vector3::new(0.0, 1.0, 0.0),
-        );
-        let vec_out = rotation * Vector4::new(0.0, 0.0, -1.0, 0.0);
-        let direction = Vector3::new(vec_out.x, vec_out.y, vec_out.z).normalize();
-        let origin = self.position.into();
-        Ray { direction, origin }
-    }
 }
 pub struct ThirdPersonCamera {
     center: Point3<f32>,
@@ -308,8 +309,10 @@ impl Default for ThirdPersonCamera {
 impl Camera for ThirdPersonCamera {
     fn get_camera_info(&self) -> CameraInfo {
         CameraInfo {
-            fov: self.fov,
+            fovy: self.fov,
             aspect_ratio: self.aspect_ratio,
+            near_clip: self.near_clip,
+            far_clip: self.far_clip,
         }
     }
     fn get_origin(&self) -> Vector3<f32> {
@@ -356,70 +359,4 @@ impl Camera for ThirdPersonCamera {
     fn update_zoom(&mut self, delta: f32) {
         self.radius += delta * self.radius
     }
-    fn cast_ray(&self) -> Ray {
-        let camera_position = self.radius
-            * Vector3::new(
-                self.theta.sin() * self.phi.sin(),
-                self.theta.cos(),
-                self.theta.sin() * self.phi.cos(),
-            );
-        let origin = self.center + camera_position;
-        let direction = (-1.0 * camera_position).normalize();
-        Ray { direction, origin }
-    }
-}
-#[system]
-pub fn insert_debug_ray(
-    command_buffer: &mut CommandBuffer,
-    #[resource] graphics: &mut Context,
-    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
-) {
-    let texture = graphics
-        .build_texture(&RgbaImage::from_pixel(
-            100,
-            100,
-            Rgba::from([20, 200, 200, 200]),
-        ))
-        .expect("failed to build texture");
-    let model = model_manager.insert(
-        graphics
-            .build_mesh(
-                sukakpak::MeshAsset::new_cube(),
-                DrawableTexture::Texture(&texture),
-            )
-            .expect("failed to build mesh"),
-    );
-
-    command_buffer.push((RayDebug {}, vec![(model, Transform::default())]));
-}
-pub struct RayDebug {}
-
-#[system(for_each)]
-pub fn debug_ray(
-    ray_debug: &RayDebug,
-    data: &mut Vec<(AssetHandle<sukakpak::Mesh>, Transform)>,
-    #[resource] camera: &mut Box<dyn Camera>,
-) {
-    let ray = camera.cast_ray();
-    let mesh = data[0].0.clone();
-    data.clear();
-    println!("ray: {}", ray);
-
-    let ray = parry3d::query::Ray {
-        dir: ray.direction,
-        origin: ray.origin,
-    };
-    *data = (0..50)
-        .map(|i| {
-            let pos = ray.point_at(i as f32 * 1.0);
-            let pos_v = Vector3::new(pos.x, pos.y, pos.z);
-            let scale = i as f32 * 0.1;
-            (
-                mesh.clone(),
-                Transform::default()
-                    .translate(pos_v)
-                    .set_scale(scale * Vector3::new(1.0, 1.0, 1.0)),
-            )
-        })
-        .collect();
 }

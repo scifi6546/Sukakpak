@@ -50,7 +50,7 @@ impl sukakpak::Renderable for Game {
         context
             .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
             .expect("failed to bind");
-        Terrain::new_cone(Vector2::new(100, 30), Vector2::new(0.0, 0.0), 0.0, 0.0)
+        Terrain::new_cone(Vector2::new(100, 100), Vector2::new(50.0, 50.0), -1.0, 50.0)
             .insert(&mut world, &mut resources, &mut model_manager, &mut context)
             .expect("failed to build terrain");
         let default_tex = texture_manager.insert(
@@ -260,7 +260,6 @@ impl sukakpak::Renderable for Game {
         Schedule::builder()
             .add_system(lift::insert_lift_system())
             .add_system(hud::build_hud_system())
-            .add_system(camera::insert_debug_ray_system())
             .add_system(terrain::insert_highlited_system())
             .build()
             .execute(&mut world, &mut resources);
@@ -339,7 +338,7 @@ impl Game {
 }
 fn main() {
     Sukakpak::new::<Game>(sukakpak::CreateInfo {
-        default_size: Vector2::new(1200, 1000),
+        default_size: Vector2::new(1000, 1000),
         name: "Summit Surveyor".to_string(),
     });
 }
