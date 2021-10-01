@@ -72,30 +72,10 @@ impl Default for EventCollector {
 }
 
 #[system(for_each)]
-pub fn send_events(listner: &mut EventListner, #[resource] collector: &EventCollector) {
-    listner.reset();
-    if listner.contains_point(collector.last_mouse_pos) {
-        if collector.right_mouse_down {
-            listner.right_mouse_down = MouseButtonEvent::Clicked {
-                position: collector.last_mouse_pos,
-            };
-        }
-        if collector.middle_mouse_down {
-            listner.middle_mouse_down = MouseButtonEvent::Clicked {
-                position: collector.last_mouse_pos,
-            };
-        }
-        if collector.left_mouse_down {
-            listner.left_mouse_down = MouseButtonEvent::Clicked {
-                position: collector.last_mouse_pos,
-            };
-        }
-        listner.mouse_hovered = MouseButtonEvent::Clicked {
-            position: collector.last_mouse_pos,
-        };
-    }
+pub fn send_events(listner: &mut EventListener, #[resource] collector: &EventCollector) {
+    listner.receive_events(collector);
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MouseButtonEvent {
     None,
     /// If clicked shows the position of the click relative to the center of the box
@@ -114,17 +94,53 @@ impl MouseButtonEvent {
 }
 /// Listner for mouse events. Coordinates are in regular cartesian with the upper right corner
 /// being (1,1) and the lower left being (-1,-1)
-pub struct EventListner {
+#[derive(Clone, Debug)]
+pub struct EventListener {
+    /// If mouse hovered over collider
     pub mouse_hovered: MouseButtonEvent,
     #[allow(dead_code)]
+    /// If right mouse down over collider
     pub right_mouse_down: MouseButtonEvent,
     #[allow(dead_code)]
+    /// If middle mouse down over collider
     pub middle_mouse_down: MouseButtonEvent,
+    /// If left mouse down over collider
     pub left_mouse_down: MouseButtonEvent,
-    upper_right_corner: Vector2<f32>,
-    lower_left_corner: Vector2<f32>,
+    pub upper_right_corner: Vector2<f32>,
+    pub lower_left_corner: Vector2<f32>,
+    pub sublistners: Vec<EventListener>,
 }
-impl EventListner {
+impl EventListener {
+    /// Receives events and sends them down to sublistners
+    fn receive_events(&mut self, collector: &EventCollector) {
+        self.reset();
+        if self.contains_point(collector.last_mouse_pos) {
+            if collector.right_mouse_down {
+                self.right_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            if collector.middle_mouse_down {
+                self.middle_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            if collector.left_mouse_down {
+                self.left_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            self.mouse_hovered = MouseButtonEvent::Clicked {
+                position: collector.last_mouse_pos,
+            };
+        }
+        for listner in self.sublistners.iter_mut() {
+            listner.receive_events(collector);
+        }
+    }
+    pub fn add_sublistners(&mut self, mut sublistners: Vec<EventListener>) {
+        self.sublistners.append(&mut sublistners);
+    }
     /// resets events
     fn reset(&mut self) {
         self.mouse_hovered = MouseButtonEvent::None;
@@ -144,7 +160,11 @@ impl EventListner {
             || self.right_mouse_down != MouseButtonEvent::None
     }
     #[allow(dead_code)]
-    pub fn new(upper_right_corner: Vector2<f32>, lower_left_corner: Vector2<f32>) -> Self {
+    pub fn new(
+        upper_right_corner: Vector2<f32>,
+        lower_left_corner: Vector2<f32>,
+        sublistners: Vec<EventListener>,
+    ) -> Self {
         Self {
             mouse_hovered: MouseButtonEvent::None,
             upper_right_corner,
@@ -152,6 +172,7 @@ impl EventListner {
             right_mouse_down: MouseButtonEvent::None,
             middle_mouse_down: MouseButtonEvent::None,
             left_mouse_down: MouseButtonEvent::None,
+            sublistners,
         }
     }
     /// If any mouse is down gets cursor position

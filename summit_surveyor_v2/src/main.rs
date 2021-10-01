@@ -29,7 +29,11 @@ struct Game {
 pub mod prelude {
     pub use super::camera::{Camera, FPSCamera, Ray, Transform};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
-    pub use super::gui::{EventCollector, FontSize, GuiComponent, GuiItem, GuiState, TextLabel};
+    pub use super::gui::{
+        ContainerAlignment, EventCollector, EventListener, FontSize, GuiComponent, GuiItem,
+        GuiSquare, GuiState, MouseButtonEvent, TextLabel, VerticalContainer,
+        VerticalContainerStyle,
+    };
     pub use super::terrain::Terrain;
     pub use asset_manager::{AssetHandle, AssetManager};
 }
@@ -46,6 +50,7 @@ impl sukakpak::Renderable for Game {
         let mut model_manager: AssetManager<sukakpak::Mesh> = Default::default();
         let mut texture_manager: AssetManager<Texture> = Default::default();
         let mut resources = Resources::default();
+        resources.insert(lift::LiftBuilderState::default());
         let mut world = World::default();
         context
             .bind_shader(sukakpak::Bindable::ScreenFramebuffer, "gui_shader")
@@ -259,6 +264,7 @@ impl sukakpak::Renderable for Game {
         resources.insert(texture_manager);
         Schedule::builder()
             .add_system(lift::insert_lift_system())
+            .add_system(lift::lift_builder_gui_system())
             .add_system(hud::build_hud_system())
             .add_system(terrain::insert_highlited_system())
             .build()
@@ -297,10 +303,10 @@ impl sukakpak::Renderable for Game {
             ))
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
+            .add_system(lift::run_lift_builder_gui_system())
             .add_system(skiier::skiier_system())
             .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())
-            //.add_system(camera::debug_ray_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
             .add_system(ray_cast_system())

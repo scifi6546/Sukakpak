@@ -4,8 +4,7 @@ use legion::*;
 use std::sync::Mutex;
 pub mod event;
 mod text;
-pub use event::EventCollector;
-use event::EventListner;
+pub use event::{EventCollector, EventListener, MouseButtonEvent};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
@@ -22,16 +21,21 @@ pub struct GuiState {
     text_builders: TextBuilderContainer,
 }
 impl GuiComponent {
-    pub fn insert(item: Box<dyn GuiItem>, world: &mut World) -> Result<()> {
-        world.push((
+    pub fn make_tupal(item: Box<dyn GuiItem>) -> (GuiComponent, EventListener) {
+        let listen = item.build_listner();
+        (
             Self {
                 item: Mutex::new(item),
             },
-            0u8,
-        ));
+            listen,
+        )
+    }
+    pub fn insert(item: Box<dyn GuiItem>, world: &mut World) -> Result<()> {
+        world.push(Self::make_tupal(item));
         Ok(())
     }
 }
+const EMPTY_CHILDREN: [Box<dyn GuiItem>; 0] = [];
 pub trait GuiItem: Send {
     /// Renders the gui the transformation is applied to the box in the order of
     /// `transform.mat()*self.transform.mat()`
@@ -51,13 +55,28 @@ pub trait GuiItem: Send {
         model_manager: &mut AssetManager<sukakpak::Mesh>,
         texture_manager: &mut AssetManager<Texture>,
     );
-    fn build_listner(&self) -> EventListner;
+    fn build_listner(&self) -> EventListener;
+    fn react_events(
+        &mut self,
+        listener: &EventListener,
+        graphics: &mut Context,
+        asset_manager: &mut AssetManager<sukakpak::Mesh>,
+        texture_manager: &mut AssetManager<Texture>,
+    );
+    fn get_children(&self) -> &[Box<dyn GuiItem>];
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum GuiItemClickState {
+    Default,
+    Hover,
+    Click,
 }
 
 #[derive(Debug)]
 pub struct GuiSquare {
     mesh: AssetHandle<sukakpak::Mesh>,
     transform: Transform,
+    click_state: GuiItemClickState,
     default_texture: AssetHandle<Texture>,
     hover_texture: AssetHandle<Texture>,
     click_texture: AssetHandle<Texture>,
@@ -103,6 +122,7 @@ impl GuiSquare {
         )?;
         let mesh = asset_manager.insert(raw_mesh);
         Ok(GuiSquare {
+            click_state: GuiItemClickState::Default,
             mesh,
             default_texture,
             hover_texture,
@@ -140,49 +160,79 @@ impl GuiItem for GuiSquare {
     ) {
         self.transform = transform
     }
-    fn build_listner(&self) -> EventListner {
+    fn build_listner(&self) -> EventListener {
         let upper_right = self.transform.mat() * Vector4::new(0.5, 0.5, 0.0, 1.0);
         let lower_left = self.transform.mat() * Vector4::new(-0.5, -0.5, 0.0, 1.0);
-        EventListner::new(
+        EventListener::new(
             Vector2::new(upper_right.x, upper_right.y),
             Vector2::new(lower_left.x, lower_left.y),
+            vec![],
         )
+    }
+    fn react_events(
+        &mut self,
+        listener: &EventListener,
+        context: &mut Context,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
+        texture_manager: &mut AssetManager<Texture>,
+    ) {
+        let mut new_state = self.click_state.clone();
+        let mut no_event = true;
+
+        match listener.mouse_hovered {
+            MouseButtonEvent::Clicked { .. } => {
+                no_event = false;
+                new_state = GuiItemClickState::Hover;
+            }
+            _ => {}
+        };
+        match listener.left_mouse_down {
+            MouseButtonEvent::Clicked { .. } => {
+                no_event = false;
+                new_state = GuiItemClickState::Click;
+            }
+            _ => {}
+        };
+        if no_event {
+            new_state = GuiItemClickState::Default;
+        }
+        if new_state != self.click_state {
+            let tex_handle = match new_state {
+                GuiItemClickState::Default => &self.default_texture,
+                GuiItemClickState::Hover => &self.hover_texture,
+                GuiItemClickState::Click => &self.click_texture,
+            };
+            context
+                .bind_texture(
+                    model_manager
+                        .get_mut(&self.mesh)
+                        .expect("failed to get mesh"),
+                    DrawableTexture::Texture(
+                        texture_manager
+                            .get(tex_handle)
+                            .expect("failed to get texture"),
+                    ),
+                )
+                .expect("failed to bind texture");
+        }
+        self.click_state = new_state;
+    }
+    fn get_children(&self) -> &[Box<dyn GuiItem>] {
+        &EMPTY_CHILDREN
     }
 }
 #[system(for_each)]
 pub fn react_events(
-    square: &mut GuiSquare,
-    event_listner: &EventListner,
+    item: &mut GuiComponent,
+    event_listner: &EventListener,
     #[resource] context: &mut Context,
     #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
-    #[resource] texture_manager: &AssetManager<Texture>,
+    #[resource] texture_manager: &mut AssetManager<Texture>,
 ) {
-    if event_listner.left_mouse_down.clicked() {
-        context
-            .bind_texture(
-                &mut model_manager.get_mut(&square.mesh).expect("failed to get"),
-                DrawableTexture::Texture(
-                    texture_manager
-                        .get(&square.click_texture)
-                        .expect("failed to get texture"),
-                ),
-            )
-            .expect("failed to bind");
-    } else if event_listner.mouse_hovered.clicked() {
-        context
-            .bind_texture(
-                &mut model_manager
-                    .get_mut(&square.mesh)
-                    .expect("failed to get model"),
-                DrawableTexture::Texture(texture_manager.get(&square.hover_texture).unwrap()),
-            )
-            .expect("failed to bind");
-    } else {
-        context.bind_texture(
-            &mut model_manager.get_mut(&square.mesh).unwrap(),
-            DrawableTexture::Texture(texture_manager.get(&square.default_texture).unwrap()),
-        );
-    }
+    item.item
+        .lock()
+        .unwrap()
+        .react_events(event_listner, context, model_manager, texture_manager)
 }
 #[system(for_each)]
 pub fn render_gui_component(
@@ -318,8 +368,19 @@ impl GuiItem for TextLabel {
         }
     }
     ///todo: figure out geometry properly
-    fn build_listner(&self) -> EventListner {
-        EventListner::new(Vector2::new(0.0, 0.0), Vector2::new(0.0, 0.0))
+    fn build_listner(&self) -> EventListener {
+        EventListener::new(Vector2::new(0.0, 0.0), Vector2::new(0.0, 0.0), vec![])
+    }
+    fn get_children(&self) -> &[Box<dyn GuiItem>] {
+        &EMPTY_CHILDREN
+    }
+    fn react_events(
+        &mut self,
+        listener: &EventListener,
+        context: &mut Context,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
+        texture_manager: &mut AssetManager<Texture>,
+    ) {
     }
 }
 
@@ -335,7 +396,7 @@ pub struct VerticalContainerStyle {
 }
 /// Contains Vertical components of components
 pub struct VerticalContainer {
-    items: Vec<(Box<dyn GuiItem>, EventListner)>,
+    items: Vec<Box<dyn GuiItem>>,
     container: GuiSquare,
 }
 impl VerticalContainer {
@@ -421,16 +482,7 @@ impl VerticalContainer {
             texture_manager,
             context,
         )?;
-        Ok(Self {
-            container,
-            items: items
-                .drain(..)
-                .map(|square| {
-                    let listner = square.build_listner();
-                    (square, listner)
-                })
-                .collect(),
-        })
+        Ok(Self { container, items })
     }
 }
 impl GuiItem for VerticalContainer {
@@ -441,7 +493,7 @@ impl GuiItem for VerticalContainer {
         model_manager: &AssetManager<sukakpak::Mesh>,
         texture_manager: &AssetManager<Texture>,
     ) {
-        for (c, _event_collector) in self.items.iter() {
+        for c in self.items.iter() {
             c.render(
                 Transform::default().set_translation(
                     transform.get_translation() + self.get_transform().get_translation(),
@@ -477,7 +529,36 @@ impl GuiItem for VerticalContainer {
             texture_manager,
         )
     }
-    fn build_listner(&self) -> EventListner {
-        self.container.build_listner()
+    fn build_listner(&self) -> EventListener {
+        let mut listner = self.container.build_listner();
+
+        let listeners = self
+            .items
+            .iter()
+            .map(|square| {
+                let mut listener = square.build_listner();
+                listener.upper_right_corner -= self.get_transform().get_translation().xy();
+                listener.lower_left_corner -= self.get_transform().get_translation().xy();
+
+                listener
+            })
+            .collect();
+
+        listner.add_sublistners(listeners);
+        listner
+    }
+    fn get_children(&self) -> &[Box<dyn GuiItem>] {
+        &self.items
+    }
+    fn react_events(
+        &mut self,
+        listener: &EventListener,
+        context: &mut Context,
+        model_manager: &mut AssetManager<sukakpak::Mesh>,
+        texture_manager: &mut AssetManager<Texture>,
+    ) {
+        for (listen, item) in listener.sublistners.iter().zip(self.items.iter_mut()) {
+            item.react_events(listen, context, model_manager, texture_manager);
+        }
     }
 }

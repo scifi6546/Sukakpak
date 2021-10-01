@@ -1,4 +1,8 @@
-use super::prelude::{GraphLayer, GraphNode, GraphType, GraphWeight, Terrain, Transform};
+use super::prelude::{
+    Camera, ContainerAlignment, EventCollector, EventListener, GraphLayer, GraphNode, GraphType,
+    GraphWeight, GuiComponent, GuiSquare, GuiState, MouseButtonEvent, Terrain, Transform,
+    VerticalContainer, VerticalContainerStyle,
+};
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
 use legion::*;
@@ -68,4 +72,107 @@ pub fn insert_lift(
         start: GraphNode(Vector2::new(0, 0)),
         end: GraphNode(Vector2::new(10, 10)),
     })))
+}
+pub struct LiftBuilder {}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum LiftBuild {
+    None,
+    First,
+    Second,
+}
+pub struct LiftBuilderState {
+    lift: LiftBuild,
+}
+impl Default for LiftBuilderState {
+    fn default() -> Self {
+        LiftBuilderState {
+            lift: LiftBuild::None,
+        }
+    }
+}
+#[system]
+pub fn lift_builder_gui(
+    command_buffer: &mut CommandBuffer,
+    #[resource] context: &mut Context,
+    #[resource] gui_state: &mut GuiState,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
+    #[resource] texture_manager: &mut AssetManager<sukakpak::Texture>,
+) {
+    let default_tex = texture_manager.insert(
+        context
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([100, 100, 100, 255]),
+            ))
+            .expect("failed to build default texture"),
+    );
+    let hover_tex = texture_manager.insert(
+        context
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 80, 80, 255]),
+            ))
+            .expect("failed to build default texture"),
+    );
+
+    let click_tex = texture_manager.insert(
+        context
+            .build_texture(&RgbaImage::from_pixel(
+                100,
+                100,
+                Rgba::from([0, 100, 80, 255]),
+            ))
+            .expect("failed to build default texture"),
+    );
+    let (g1, g2) = GuiComponent::make_tupal(Box::new(
+        VerticalContainer::new(
+            vec![Box::new(
+                GuiSquare::new(
+                    Transform::default().set_scale(Vector3::new(0.1, 0.1, 1.0)),
+                    default_tex.clone(),
+                    hover_tex.clone(),
+                    click_tex.clone(),
+                    model_manager,
+                    texture_manager,
+                    context,
+                )
+                .expect("failed to build square"),
+            )],
+            VerticalContainerStyle {
+                alignment: ContainerAlignment::Center,
+                padding: 0.01,
+            },
+            Vector3::new(0.0, 0.8, 0.5),
+            context,
+            gui_state,
+            model_manager,
+            texture_manager,
+        )
+        .expect("failed to make vert container"),
+    ));
+    command_buffer.push((g1, g2, LiftBuilder {}));
+}
+#[system(for_each)]
+pub fn run_lift_builder_gui(
+    listener: &EventListener,
+    lift_builder: &LiftBuilder,
+    #[resource] builder_state: &mut LiftBuilderState,
+    #[resource] terrain: &Terrain,
+    #[resource] events: &EventCollector,
+    #[resource] camera: &mut Box<dyn Camera>,
+) {
+    let clicked = match listener.sublistners[0].left_mouse_down {
+        MouseButtonEvent::Clicked { .. } => true,
+        _ => false,
+    };
+    if clicked {
+        let new_state = match builder_state.lift {
+            LiftBuild::None => LiftBuild::First,
+            LiftBuild::First => LiftBuild::Second,
+            LiftBuild::Second => LiftBuild::None,
+        };
+        builder_state.lift = new_state;
+    }
 }
