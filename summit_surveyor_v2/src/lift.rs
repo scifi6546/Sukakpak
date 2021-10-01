@@ -1,7 +1,7 @@
 use super::prelude::{
     Camera, ContainerAlignment, EventCollector, EventListener, GraphLayer, GraphNode, GraphType,
-    GraphWeight, GuiComponent, GuiSquare, GuiState, MouseButtonEvent, Terrain, Transform,
-    VerticalContainer, VerticalContainerStyle,
+    GraphWeight, GuiComponent, GuiSquare, GuiState, ModelRenderData, MouseButtonEvent, RenderLayer,
+    Terrain, Transform, VerticalContainer, VerticalContainerStyle,
 };
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
@@ -66,8 +66,8 @@ pub fn insert_lift(
     let t1 = Transform::default().set_translation(Vector3::new(0.0, terrain.get_height(0, 0), 0.0));
     let t2 =
         Transform::default().set_translation(Vector3::new(10.0, terrain.get_height(10, 10), 10.0));
-    command_buffer.push((model.clone(), t1, Lift {}));
-    command_buffer.push((model, t2, Lift {}));
+    command_buffer.push((ModelRenderData::default(), model.clone(), t1, Lift {}));
+    command_buffer.push((ModelRenderData::default(), model, t2, Lift {}));
     layers.push(Mutex::new(Box::new(LiftLayer {
         start: GraphNode(Vector2::new(0, 0)),
         end: GraphNode(Vector2::new(10, 10)),
@@ -90,6 +90,10 @@ impl Default for LiftBuilderState {
         }
     }
 }
+/// Denotes bottom lift station
+pub struct LiftBottom {}
+/// Denotes top lift station
+pub struct LiftTop {}
 #[system]
 pub fn lift_builder_gui(
     command_buffer: &mut CommandBuffer,
@@ -153,6 +157,46 @@ pub fn lift_builder_gui(
         .expect("failed to make vert container"),
     ));
     command_buffer.push((g1, g2, LiftBuilder {}));
+    let texture = context
+        .build_texture(&RgbaImage::from_pixel(
+            100,
+            100,
+            Rgba::from([20, 0, 200, 200]),
+        ))
+        .expect("failed to build texture");
+    let lift_model = model_manager.insert(
+        context
+            .build_mesh(
+                sukakpak::MeshAsset::new_cube(),
+                DrawableTexture::Texture(&texture),
+            )
+            .expect("failed to build mesh"),
+    );
+    command_buffer.push((
+        lift_model.clone(),
+        Transform::default().set_scale(Vector3::new(10.0, 10.0, 10.0)),
+        LiftBottom {},
+        ModelRenderData::default().with_new_layer(RenderLayer::DoNotRender),
+    ));
+    command_buffer.push((
+        lift_model.clone(),
+        Transform::default(),
+        LiftTop {},
+        ModelRenderData::default().with_new_layer(RenderLayer::DoNotRender),
+    ));
+}
+#[system(for_each)]
+pub fn bottom_lift(
+    lift_bottom: &LiftBottom,
+    model_render_data: &mut ModelRenderData,
+    #[resource] builder_state: &LiftBuilderState,
+) {
+    if builder_state.lift == LiftBuild::First {
+        model_render_data.set_render_layer(RenderLayer::Main);
+        println!("setting render layer to main");
+    } else {
+        model_render_data.set_render_layer(RenderLayer::DoNotRender);
+    }
 }
 #[system(for_each)]
 pub fn run_lift_builder_gui(

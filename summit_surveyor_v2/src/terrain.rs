@@ -1,5 +1,6 @@
 use super::prelude::{
-    Camera, EventCollector, GraphLayer, GraphNode, GraphType, GraphWeight, Ray, Transform,
+    Camera, EventCollector, GraphLayer, GraphNode, GraphType, GraphWeight, ModelRenderData, Ray,
+    RenderLayer, Transform,
 };
 use asset_manager::AssetManager;
 use legion::systems::CommandBuffer;
@@ -243,7 +244,13 @@ impl Terrain {
 
         let model = model_manager.insert(mesh);
 
-        world.push((InsertableTerrain {}, Transform::default(), model, texture));
+        world.push((
+            InsertableTerrain {},
+            Transform::default(),
+            ModelRenderData::default(),
+            model,
+            texture,
+        ));
         resources.insert(self);
         Ok(())
     }
@@ -307,6 +314,7 @@ pub fn insert_highlited(
             .expect("failed to build lift mesh"),
     );
     command_buffer.push((
+        ModelRenderData::default(),
         Highlighted {},
         texture,
         model,

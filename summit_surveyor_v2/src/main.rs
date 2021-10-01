@@ -8,8 +8,9 @@ mod lift;
 mod model;
 mod skiier;
 mod terrain;
+mod transform;
 use asset_manager::AssetManager;
-use camera::{Camera, FPSCamera, ThirdPersonCamera, Transform};
+use camera::{Camera, FPSCamera, ThirdPersonCamera};
 use gui::FontSize;
 use gui::{EventCollector, GuiState};
 use legion::*;
@@ -21,20 +22,23 @@ use sukakpak::{
     Context, Event, Sukakpak, Texture,
 };
 use terrain::{ray_cast_system, Terrain};
+use transform::Transform;
 struct Game {
     world: World,
     resources: Resources,
     game_render_surface: ScreenPlane,
 }
 pub mod prelude {
-    pub use super::camera::{Camera, FPSCamera, Ray, Transform};
+    pub use super::camera::{Camera, FPSCamera, Ray};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{
         ContainerAlignment, EventCollector, EventListener, FontSize, GuiComponent, GuiItem,
         GuiSquare, GuiState, MouseButtonEvent, TextLabel, VerticalContainer,
         VerticalContainerStyle,
     };
+    pub use super::model::{ModelRenderData, RenderLayer};
     pub use super::terrain::Terrain;
+    pub use super::transform::Transform;
     pub use asset_manager::{AssetHandle, AssetManager};
 }
 
@@ -304,6 +308,7 @@ impl sukakpak::Renderable for Game {
             .expect("failed to bind");
         let mut game_renderng_schedule = Schedule::builder()
             .add_system(lift::run_lift_builder_gui_system())
+            .add_system(lift::bottom_lift_system())
             .add_system(skiier::skiier_system())
             .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())

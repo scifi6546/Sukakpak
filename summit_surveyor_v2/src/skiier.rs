@@ -1,5 +1,6 @@
 use super::prelude::{
-    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path, Terrain, Transform,
+    dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, ModelRenderData, Path, Terrain,
+    Transform,
 };
 use asset_manager::AssetManager;
 mod decision_tree;
@@ -81,7 +82,15 @@ impl Skiier {
         );
         texture_manager.insert(texture);
         println!("path: {}", path);
-        world.push((Skiier {}, follow, transform, model, decison_tree, cost));
+        world.push((
+            ModelRenderData::default(),
+            Skiier {},
+            follow,
+            transform,
+            model,
+            decison_tree,
+            cost,
+        ));
         Ok(())
     }
 }
