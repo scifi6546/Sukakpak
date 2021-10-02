@@ -4,7 +4,7 @@ use legion::*;
 use std::sync::Mutex;
 pub mod event;
 mod text;
-pub use event::{EventCollector, EventListener, MouseButtonEvent};
+pub use event::{ButtonEvent, EventCollector, EventListener, MouseButtonEvent};
 use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},

@@ -3,7 +3,7 @@ use super::prelude::{
     GraphWeight, GuiComponent, GuiSquare, GuiState, ModelRenderData, MouseButtonEvent, RenderLayer,
     Terrain, Transform, VerticalContainer, VerticalContainerStyle,
 };
-use asset_manager::AssetManager;
+use asset_manager::{AssetHandle, AssetManager};
 use legion::systems::CommandBuffer;
 use legion::*;
 use std::sync::Mutex;
@@ -40,14 +40,19 @@ impl GraphLayer for LiftLayer {
         }
     }
 }
-#[system]
-pub fn insert_lift(
-    command_buffer: &mut CommandBuffer,
-    #[resource] graphics: &mut Context,
-    #[resource] terrain: &Terrain,
-    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
-    #[resource] layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
-) {
+fn lift_tuple(
+    bottom_positon: Vector2<usize>,
+    top_position: Vector2<usize>,
+    graphics: &mut Context,
+    terrain: &Terrain,
+    model_manager: &mut AssetManager<sukakpak::Mesh>,
+    layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
+) -> [(
+    ModelRenderData,
+    AssetHandle<sukakpak::Mesh>,
+    Transform,
+    Lift,
+); 2] {
     let texture = graphics
         .build_texture(&RgbaImage::from_pixel(
             100,
@@ -63,15 +68,43 @@ pub fn insert_lift(
             )
             .expect("failed to build lift mesh"),
     );
-    let t1 = Transform::default().set_translation(Vector3::new(0.0, terrain.get_height(0, 0), 0.0));
-    let t2 =
-        Transform::default().set_translation(Vector3::new(10.0, terrain.get_height(10, 10), 10.0));
-    command_buffer.push((ModelRenderData::default(), model.clone(), t1, Lift {}));
-    command_buffer.push((ModelRenderData::default(), model, t2, Lift {}));
+
+    let t1 = Transform::default().set_translation(Vector3::new(
+        bottom_positon.x as f32,
+        terrain.get_height(bottom_positon.x, bottom_positon.y),
+        bottom_positon.y as f32,
+    ));
+    let t2 = Transform::default().set_translation(Vector3::new(
+        top_position.x as f32,
+        terrain.get_height(top_position.x, top_position.y),
+        top_position.y as f32,
+    ));
+
     layers.push(Mutex::new(Box::new(LiftLayer {
-        start: GraphNode(Vector2::new(0, 0)),
-        end: GraphNode(Vector2::new(10, 10)),
-    })))
+        start: GraphNode(bottom_positon),
+        end: GraphNode(top_position),
+    })));
+    [
+        (ModelRenderData::default(), model.clone(), t1, Lift {}),
+        (ModelRenderData::default(), model, t2, Lift {}),
+    ]
+}
+#[system]
+pub fn insert_lift(
+    command_buffer: &mut CommandBuffer,
+    #[resource] graphics: &mut Context,
+    #[resource] terrain: &Terrain,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
+    #[resource] layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
+) {
+    let [t1, t2] = lift_tuple(
+        Vector2::new(0, 0),
+        Vector2::new(70, 70),
+        graphics,
+        terrain,
+        model_manager,
+        layers,
+    );
 }
 pub struct LiftBuilder {}
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,18 +115,30 @@ enum LiftBuild {
 }
 pub struct LiftBuilderState {
     lift: LiftBuild,
+    bottom_position: Option<Vector2<usize>>,
+    top_position: Option<Vector2<usize>>,
 }
 impl Default for LiftBuilderState {
     fn default() -> Self {
         LiftBuilderState {
             lift: LiftBuild::None,
+            bottom_position: None,
+            top_position: None,
         }
     }
 }
 /// Denotes bottom lift station
 pub struct LiftBottom {}
 /// Denotes top lift station
-pub struct LiftTop {}
+pub struct LiftTop {
+    /// true if is first frame, workaround preventing clicks from immediatly switching lift mode
+    first_frame: bool,
+}
+impl Default for LiftTop {
+    fn default() -> Self {
+        Self { first_frame: true }
+    }
+}
 #[system]
 pub fn lift_builder_gui(
     command_buffer: &mut CommandBuffer,
@@ -164,6 +209,7 @@ pub fn lift_builder_gui(
             Rgba::from([20, 0, 200, 200]),
         ))
         .expect("failed to build texture");
+
     let lift_model = model_manager.insert(
         context
             .build_mesh(
@@ -178,10 +224,27 @@ pub fn lift_builder_gui(
         LiftBottom {},
         ModelRenderData::default().with_new_layer(RenderLayer::DoNotRender),
     ));
+    let texture = context
+        .build_texture(&RgbaImage::from_pixel(
+            100,
+            100,
+            Rgba::from([20, 0, 200, 200]),
+        ))
+        .expect("failed to build texture");
+
+    let top_lift_model = model_manager.insert(
+        context
+            .build_mesh(
+                sukakpak::MeshAsset::new_cube(),
+                DrawableTexture::Texture(&texture),
+            )
+            .expect("failed to build mesh"),
+    );
+
     command_buffer.push((
-        lift_model.clone(),
+        top_lift_model,
         Transform::default(),
-        LiftTop {},
+        LiftTop::default(),
         ModelRenderData::default().with_new_layer(RenderLayer::DoNotRender),
     ));
 }
@@ -189,11 +252,72 @@ pub fn lift_builder_gui(
 pub fn bottom_lift(
     lift_bottom: &LiftBottom,
     model_render_data: &mut ModelRenderData,
-    #[resource] builder_state: &LiftBuilderState,
+    transform: &mut Transform,
+    #[resource] terrain: &Terrain,
+    #[resource] events: &EventCollector,
+    #[resource] camera: &mut Box<dyn Camera>,
+    #[resource] builder_state: &mut LiftBuilderState,
 ) {
     if builder_state.lift == LiftBuild::First {
         model_render_data.set_render_layer(RenderLayer::Main);
-        println!("setting render layer to main");
+        let ray = camera.cast_mouse_ray(events.last_mouse_pos);
+        if let Some(loc) = terrain.cast_ray(&ray) {
+            *transform = transform
+                .clone()
+                .set_translation(Vector3::new(loc.x, loc.y, loc.z));
+            let pos = Vector2::new(loc.x as usize, loc.y as usize);
+            builder_state.bottom_position = Some(pos);
+        };
+        if events.left_mouse_down.first_down {
+            builder_state.lift = LiftBuild::Second;
+        }
+    } else {
+        model_render_data.set_render_layer(RenderLayer::DoNotRender);
+    }
+}
+#[system(for_each)]
+pub fn top_lift(
+    command_buffer: &mut CommandBuffer,
+    lift_top: &mut LiftTop,
+    model_render_data: &mut ModelRenderData,
+    transform: &mut Transform,
+    #[resource] graphics: &mut Context,
+    #[resource] terrain: &Terrain,
+    #[resource] events: &EventCollector,
+    #[resource] camera: &mut Box<dyn Camera>,
+    #[resource] model_manager: &mut AssetManager<sukakpak::Mesh>,
+    #[resource] layers: &mut Vec<Mutex<Box<dyn GraphLayer>>>,
+    #[resource] builder_state: &mut LiftBuilderState,
+) {
+    if builder_state.lift == LiftBuild::Second {
+        println!("lift state second");
+        model_render_data.set_render_layer(RenderLayer::Main);
+        let ray = camera.cast_mouse_ray(events.last_mouse_pos);
+        if let Some(loc) = terrain.cast_ray(&ray) {
+            *transform = transform
+                .clone()
+                .set_translation(Vector3::new(loc.x, loc.y, loc.z));
+            let pos = Vector2::new(loc.x as usize, loc.y as usize);
+            builder_state.top_position = Some(pos);
+        };
+
+        if events.left_mouse_down.first_down && !lift_top.first_frame {
+            println!("updating state");
+            builder_state.lift = LiftBuild::None;
+            if builder_state.bottom_position.is_some() && builder_state.top_position.is_some() {
+                let [t1, t2] = lift_tuple(
+                    builder_state.bottom_position.unwrap(),
+                    builder_state.top_position.unwrap(),
+                    graphics,
+                    terrain,
+                    model_manager,
+                    layers,
+                );
+                command_buffer.push(t1);
+                command_buffer.push(t2);
+            }
+        }
+        lift_top.first_frame = false;
     } else {
         model_render_data.set_render_layer(RenderLayer::DoNotRender);
     }
@@ -207,10 +331,13 @@ pub fn run_lift_builder_gui(
     #[resource] events: &EventCollector,
     #[resource] camera: &mut Box<dyn Camera>,
 ) {
-    let clicked = match listener.sublistners[0].left_mouse_down {
+    let clicked = match listener.sublistners[0].first_left_mouse_down {
         MouseButtonEvent::Clicked { .. } => true,
         _ => false,
     };
+    if clicked {
+        println!("clicked")
+    }
     if clicked {
         let new_state = match builder_state.lift {
             LiftBuild::None => LiftBuild::First,

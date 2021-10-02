@@ -321,21 +321,6 @@ pub fn insert_highlited(
         Transform::default().set_scale(Vector3::new(10.0, 10.0, 10.0)),
     ));
 }
-#[system(for_each)]
-pub fn ray_cast(
-    _highlighted: &Highlighted,
-    transform: &mut Transform,
-    #[resource] terrain: &Terrain,
-    #[resource] events: &EventCollector,
-    #[resource] camera: &mut Box<dyn Camera>,
-) {
-    let ray = camera.cast_mouse_ray(events.last_mouse_pos);
-    if let Some(loc) = terrain.cast_ray(&ray) {
-        *transform = transform
-            .clone()
-            .set_translation(Vector3::new(loc.x, loc.y, loc.z));
-    };
-}
 impl From<&Terrain> for TerrainGraphLayer {
     fn from(t: &Terrain) -> Self {
         let mut data = vec![];

@@ -3,6 +3,20 @@ use std::collections::HashSet;
 use std::time::Duration;
 use sukakpak::nalgebra::Vector2;
 
+pub struct ButtonEvent {
+    /// true when button is down at first
+    pub first_down: bool,
+    /// down whenever buton is down
+    pub down: bool,
+}
+impl Default for ButtonEvent {
+    fn default() -> Self {
+        Self {
+            first_down: false,
+            down: false,
+        }
+    }
+}
 /// Collects information for Gui events
 pub struct EventCollector {
     pub keycodes_down: HashSet<u32>,
@@ -10,15 +24,18 @@ pub struct EventCollector {
     pub delta_time: Duration,
     pub mouse_scroll_delta: f32,
     pub last_mouse_pos: Vector2<f32>,
-    pub right_mouse_down: bool,
-    pub middle_mouse_down: bool,
-    pub left_mouse_down: bool,
+    pub right_mouse_down: ButtonEvent,
+    pub middle_mouse_down: ButtonEvent,
+    pub left_mouse_down: ButtonEvent,
 }
 impl EventCollector {
     pub fn process_events(&mut self, delta_time: Duration, events: &[sukakpak::Event]) {
         self.delta_time = delta_time;
         self.mouse_delta_pos = Vector2::new(0.0, 0.0);
         self.mouse_scroll_delta = 0.0;
+        self.left_mouse_down.first_down = false;
+        self.middle_mouse_down.first_down = false;
+        self.right_mouse_down.first_down = false;
         for event in events {
             match event {
                 sukakpak::Event::MouseMoved { normalized, .. } => {
@@ -26,23 +43,30 @@ impl EventCollector {
                     self.last_mouse_pos = *normalized;
                 }
                 sukakpak::Event::MouseDown { button } => match button {
-                    sukakpak::MouseButton::Left => self.left_mouse_down = true,
-                    sukakpak::MouseButton::Middle => self.middle_mouse_down = true,
-                    sukakpak::MouseButton::Right => self.right_mouse_down = true,
+                    sukakpak::MouseButton::Left => {
+                        self.left_mouse_down.down = true;
+                        self.left_mouse_down.first_down = true;
+                    }
+                    sukakpak::MouseButton::Middle => {
+                        self.middle_mouse_down.down = true;
+                        self.middle_mouse_down.first_down = true
+                    }
+                    sukakpak::MouseButton::Right => {
+                        self.right_mouse_down.down = true;
+                        self.right_mouse_down.first_down = true;
+                    }
                     sukakpak::MouseButton::Other(_) => {}
                 },
                 sukakpak::Event::MouseUp { button } => match button {
-                    sukakpak::MouseButton::Left => self.left_mouse_down = false,
-                    sukakpak::MouseButton::Middle => self.middle_mouse_down = false,
-                    sukakpak::MouseButton::Right => self.right_mouse_down = false,
+                    sukakpak::MouseButton::Left => self.left_mouse_down.down = false,
+                    sukakpak::MouseButton::Middle => self.middle_mouse_down.down = false,
+                    sukakpak::MouseButton::Right => self.right_mouse_down.down = false,
                     sukakpak::MouseButton::Other(_) => {}
                 },
                 sukakpak::Event::KeyDown { scan_code, .. } => {
-                    println!("keydown scancode: {}", scan_code);
                     self.keycodes_down.insert(*scan_code);
                 }
                 sukakpak::Event::KeyUp { scan_code, .. } => {
-                    println!("key up: {}", scan_code);
                     self.keycodes_down.remove(scan_code);
                 }
                 sukakpak::Event::ScrollStart { delta } => self.mouse_scroll_delta += delta.delta.y,
@@ -64,9 +88,9 @@ impl Default for EventCollector {
             delta_time: Default::default(),
             mouse_delta_pos: Vector2::new(0.0, 0.0),
             last_mouse_pos: Vector2::new(0.0, 0.0),
-            right_mouse_down: false,
-            middle_mouse_down: false,
-            left_mouse_down: false,
+            right_mouse_down: ButtonEvent::default(),
+            middle_mouse_down: ButtonEvent::default(),
+            left_mouse_down: ButtonEvent::default(),
         }
     }
 }
@@ -98,12 +122,18 @@ impl MouseButtonEvent {
 pub struct EventListener {
     /// If mouse hovered over collider
     pub mouse_hovered: MouseButtonEvent,
+    /// If right mouse down over collider, triggered only once
+    pub first_right_mouse_down: MouseButtonEvent,
     #[allow(dead_code)]
     /// If right mouse down over collider
     pub right_mouse_down: MouseButtonEvent,
+    /// If middle mouse down over collider, triggered only once
+    pub first_middle_mouse_down: MouseButtonEvent,
     #[allow(dead_code)]
     /// If middle mouse down over collider
     pub middle_mouse_down: MouseButtonEvent,
+    /// If left mouse down over collider, triggered only once
+    pub first_left_mouse_down: MouseButtonEvent,
     /// If left mouse down over collider
     pub left_mouse_down: MouseButtonEvent,
     pub upper_right_corner: Vector2<f32>,
@@ -115,17 +145,33 @@ impl EventListener {
     fn receive_events(&mut self, collector: &EventCollector) {
         self.reset();
         if self.contains_point(collector.last_mouse_pos) {
-            if collector.right_mouse_down {
+            if collector.right_mouse_down.first_down {
+                self.first_right_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            if collector.right_mouse_down.down {
                 self.right_mouse_down = MouseButtonEvent::Clicked {
                     position: collector.last_mouse_pos,
                 };
             }
-            if collector.middle_mouse_down {
+            if collector.middle_mouse_down.first_down {
+                self.first_middle_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            if collector.middle_mouse_down.down {
                 self.middle_mouse_down = MouseButtonEvent::Clicked {
                     position: collector.last_mouse_pos,
                 };
             }
-            if collector.left_mouse_down {
+            if collector.left_mouse_down.first_down {
+                println!("left down");
+                self.first_left_mouse_down = MouseButtonEvent::Clicked {
+                    position: collector.last_mouse_pos,
+                };
+            }
+            if collector.left_mouse_down.down {
                 self.left_mouse_down = MouseButtonEvent::Clicked {
                     position: collector.last_mouse_pos,
                 };
@@ -145,8 +191,11 @@ impl EventListener {
     fn reset(&mut self) {
         self.mouse_hovered = MouseButtonEvent::None;
         self.right_mouse_down = MouseButtonEvent::None;
+        self.first_right_mouse_down = MouseButtonEvent::None;
         self.middle_mouse_down = MouseButtonEvent::None;
+        self.first_middle_mouse_down = MouseButtonEvent::None;
         self.left_mouse_down = MouseButtonEvent::None;
+        self.first_left_mouse_down = MouseButtonEvent::None;
     }
     /// checks if contains point in box
     pub fn contains_point(&self, point: Vector2<f32>) -> bool {
@@ -170,8 +219,11 @@ impl EventListener {
             upper_right_corner,
             lower_left_corner,
             right_mouse_down: MouseButtonEvent::None,
+            first_right_mouse_down: MouseButtonEvent::None,
             middle_mouse_down: MouseButtonEvent::None,
+            first_middle_mouse_down: MouseButtonEvent::None,
             left_mouse_down: MouseButtonEvent::None,
+            first_left_mouse_down: MouseButtonEvent::None,
             sublistners,
         }
     }

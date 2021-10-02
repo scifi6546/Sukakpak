@@ -21,7 +21,7 @@ use sukakpak::{
     nalgebra::{Vector2, Vector3},
     Context, Event, Sukakpak, Texture,
 };
-use terrain::{ray_cast_system, Terrain};
+use terrain::Terrain;
 use transform::Transform;
 struct Game {
     world: World,
@@ -32,8 +32,8 @@ pub mod prelude {
     pub use super::camera::{Camera, FPSCamera, Ray};
     pub use super::graph::{dijkstra, GraphLayer, GraphNode, GraphType, GraphWeight, Path};
     pub use super::gui::{
-        ContainerAlignment, EventCollector, EventListener, FontSize, GuiComponent, GuiItem,
-        GuiSquare, GuiState, MouseButtonEvent, TextLabel, VerticalContainer,
+        ButtonEvent, ContainerAlignment, EventCollector, EventListener, FontSize, GuiComponent,
+        GuiItem, GuiSquare, GuiState, MouseButtonEvent, TextLabel, VerticalContainer,
         VerticalContainerStyle,
     };
     pub use super::model::{ModelRenderData, RenderLayer};
@@ -309,12 +309,12 @@ impl sukakpak::Renderable for Game {
         let mut game_renderng_schedule = Schedule::builder()
             .add_system(lift::run_lift_builder_gui_system())
             .add_system(lift::bottom_lift_system())
+            .add_system(lift::top_lift_system())
             .add_system(skiier::skiier_system())
             .add_system(hud::update_time_system())
             .add_system(skiier::skiier_path_system())
             .add_system(gui::event::send_events_system())
             .add_system(gui::react_events_system())
-            .add_system(ray_cast_system())
             .add_system(model::render_model_system())
             .add_system(model::render_model_vec_system())
             .add_system(terrain_camera_system())
@@ -377,7 +377,7 @@ pub fn terrain_camera(
     if events.keycodes_down.contains(&17) {
         camera.move_z(move_speed * delta_s);
     }
-    if events.left_mouse_down {
+    if events.left_mouse_down.down {
         camera.rotate_x(events.mouse_delta_pos.x * delta_s * 40000.0);
 
         camera.rotate_y(events.mouse_delta_pos.y * delta_s * 40000.0)
