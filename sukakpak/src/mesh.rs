@@ -1,4 +1,4 @@
-use super::{VertexComponent, VertexLayout};
+use super::vulkan::{VertexComponent, VertexLayout};
 use anyhow::Result;
 use nalgebra::{Vector2, Vector3};
 use std::{

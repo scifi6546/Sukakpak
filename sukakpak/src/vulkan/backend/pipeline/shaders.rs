@@ -175,11 +175,11 @@ pub fn push_shader() -> ShaderDescription {
                 },
             ],
         },
-        fragment_shader_data: include_bytes!("../../../shaders/push.frag.spv")
+        fragment_shader_data: include_bytes!("../../../../shaders/push.frag.spv")
             .iter()
             .copied()
             .collect(),
-        vertex_shader_data: include_bytes!("../../../shaders/push.vert.spv")
+        vertex_shader_data: include_bytes!("../../../../shaders/push.vert.spv")
             .iter()
             .copied()
             .collect(),
@@ -235,11 +235,11 @@ pub fn alt_shader() -> ShaderDescription {
                 },
             ],
         },
-        fragment_shader_data: include_bytes!("../../../shaders/alt.frag.spv")
+        fragment_shader_data: include_bytes!("../../../../shaders/alt.frag.spv")
             .iter()
             .copied()
             .collect(),
-        vertex_shader_data: include_bytes!("../../../shaders/alt.vert.spv")
+        vertex_shader_data: include_bytes!("../../../../shaders/alt.vert.spv")
             .iter()
             .copied()
             .collect(),
