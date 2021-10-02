@@ -133,5 +133,5 @@ pub fn skiier(
 ) {
     *transform = transform
         .clone()
-        .set_translation(path.incr(100.0 * duration.as_secs_f32()));
+        .set_translation(path.incr(1000.0 * duration.as_secs_f32()));
 }
