@@ -8,11 +8,11 @@ mod mesh;
 pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 use std::path::Path;
 mod vulkan;
+
 use std::time::{Duration, SystemTime};
 pub use vulkan::{
     events::{Event, MouseButton},
-    Bindable as TBindable, CreateInfo, DrawableTexture as TDrawableTexture, Framebuffer,
-    MeshTexture, Texture, VertexComponent, VertexLayout,
+    Context, CreateInfo, Framebuffer, MeshTexture, Texture, VertexComponent, VertexLayout,
 };
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
@@ -130,6 +130,8 @@ pub trait ContextTrait: Send {
     fn build_texture(&mut self, image: &RgbaImage) -> Result<Self::Texture>;
     fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Self::Mesh) -> Result<()>;
     fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<Framebuffer>;
+    /// Shader being stringly typed is not ideal but better shader system is waiting
+    /// on a naga translation layer for shaders
     fn bind_shader(&mut self, framebuffer: Bindable<Self::Framebuffer>, shader: &str)
         -> Result<()>;
     fn bind_framebuffer(&mut self, framebuffer: Bindable<Self::Framebuffer>) -> Result<()>;

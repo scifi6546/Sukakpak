@@ -469,6 +469,25 @@ impl From<event::MouseScrollDelta> for ScrollDelta {
         }
     }
 }
+pub struct WinitEventLoopAdaptor {
+    event_loop: winit::event_loop::EventLoop<()>,
+}
+impl super::super::EventLoopTrait for WinitEventLoopAdaptor {
+    fn new() -> Self {
+        todo!("winit")
+    }
+    fn run<F: 'static + FnMut(super::super::WindowEvent, &mut super::super::ControlFlow)>(
+        self,
+        event: F,
+    ) -> ! {
+        todo!()
+    }
+}
+impl WinitEventLoopAdaptor {
+    pub fn event_loop(&self) -> &winit::event_loop::EventLoop<()> {
+        &self.event_loop
+    }
+}
 pub struct EventCollector {
     events: Vec<Event>,
     quit: bool,
