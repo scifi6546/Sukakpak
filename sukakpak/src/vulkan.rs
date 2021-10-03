@@ -97,7 +97,7 @@ impl From<DrawableTexture<'_>> for MeshTexture {
         }
     }
 }
-
+/*
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
 unsafe impl Send for Context {}
@@ -323,8 +323,4 @@ impl Context {
             .check_state();
     }
 }
-/// User Provided code that provides draw calls
-pub trait Renderable {
-    fn init(context: Context) -> Self;
-    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration);
-}
+*/
