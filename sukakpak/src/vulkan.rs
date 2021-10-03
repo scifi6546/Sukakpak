@@ -68,11 +68,11 @@ pub enum Bindable<'a> {
     UserFramebuffer(&'a Framebuffer),
     ScreenFramebuffer,
 }
-impl From<super::Bindable<'_, Framebuffer>> for BoundFramebuffer {
-    fn from(bind: super::Bindable<'_, Framebuffer>) -> Self {
+impl From<super::GenericBindable<'_, Framebuffer>> for BoundFramebuffer {
+    fn from(bind: super::GenericBindable<'_, Framebuffer>) -> Self {
         match bind {
-            super::Bindable::UserFramebuffer(fb) => Self::UserFramebuffer(fb.framebuffer),
-            super::Bindable::ScreenFramebuffer => Self::ScreenFramebuffer,
+            super::GenericBindable::UserFramebuffer(fb) => Self::UserFramebuffer(fb.framebuffer),
+            super::GenericBindable::ScreenFramebuffer => Self::ScreenFramebuffer,
         }
     }
 }
@@ -89,11 +89,11 @@ pub enum DrawableTexture<'a> {
     Texture(&'a Texture),
     Framebuffer(&'a Framebuffer),
 }
-impl From<super::DrawableTexture<'_, Texture, Framebuffer>> for MeshTexture {
-    fn from(tex: super::DrawableTexture<'_, Texture, Framebuffer>) -> Self {
+impl From<super::GenericDrawableTexture<'_, Texture, Framebuffer>> for MeshTexture {
+    fn from(tex: super::GenericDrawableTexture<'_, Texture, Framebuffer>) -> Self {
         match tex {
-            super::DrawableTexture::Texture(tex) => Self::RegularTexture(tex.texture),
-            super::DrawableTexture::Framebuffer(fb) => Self::Framebuffer(fb.framebuffer),
+            super::GenericDrawableTexture::Texture(tex) => Self::RegularTexture(tex.texture),
+            super::GenericDrawableTexture::Framebuffer(fb) => Self::Framebuffer(fb.framebuffer),
         }
     }
 }
@@ -171,7 +171,6 @@ fn run_frame<R: Renderable>(
 }
 */
 pub struct BackendArc(Arc<Mutex<Backend>>);
-#[derive(Clone)]
 pub struct Context {
     backend: Arc<Mutex<Backend>>,
     /// true if quit is signaled
@@ -216,7 +215,7 @@ impl super::ContextTrait for Context {
     fn build_mesh(
         &mut self,
         mesh: MeshAsset,
-        texture: super::DrawableTexture<Self::Texture, Self::Framebuffer>,
+        texture: super::GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<Self::Mesh> {
         self.check_state();
         let mesh = self
@@ -242,7 +241,7 @@ impl super::ContextTrait for Context {
     fn bind_texture(
         &mut self,
         mesh: &mut Self::Mesh,
-        texture: super::DrawableTexture<Self::Texture, Self::Framebuffer>,
+        texture: super::GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<()> {
         self.check_state();
         self.backend
@@ -290,7 +289,7 @@ impl super::ContextTrait for Context {
     }
     fn bind_shader(
         &mut self,
-        framebuffer: super::Bindable<Self::Framebuffer>,
+        framebuffer: super::GenericBindable<Self::Framebuffer>,
         shader: &str,
     ) -> Result<()> {
         self.check_state();
@@ -302,7 +301,10 @@ impl super::ContextTrait for Context {
         self.check_state();
         Ok(())
     }
-    fn bind_framebuffer(&mut self, framebuffer: super::Bindable<Self::Framebuffer>) -> Result<()> {
+    fn bind_framebuffer(
+        &mut self,
+        framebuffer: super::GenericBindable<Self::Framebuffer>,
+    ) -> Result<()> {
         self.backend
             .lock()
             .unwrap()

@@ -6,9 +6,10 @@ use std::{
     time::Duration,
 };
 use sukakpak::{
-    anyhow::Result, image, nalgebra as na, Bindable, Context, DrawableTexture, Event, Framebuffer,
-    Mesh, MeshAsset, MouseButton, Texture,
+    anyhow::Result, image, nalgebra as na, Bindable, Context, ContextTrait, DrawableTexture, Event,
+    Framebuffer, Mesh, MeshAsset, MouseButton, Texture,
 };
+
 pub struct CloneCraft {
     camera_matrix: na::Matrix4<f32>,
     triangle: Mesh,

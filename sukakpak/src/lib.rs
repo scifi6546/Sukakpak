@@ -12,8 +12,14 @@ mod vulkan;
 use std::time::{Duration, SystemTime};
 pub use vulkan::{
     events::{Event, MouseButton},
-    Context, CreateInfo, Framebuffer, MeshTexture, Texture, VertexComponent, VertexLayout,
+    Context, CreateInfo, MeshTexture, VertexComponent, VertexLayout,
 };
+pub type Backend = <Context as ContextTrait>::Backend;
+pub type Mesh = <Context as ContextTrait>::Mesh;
+pub type Framebuffer = <Context as ContextTrait>::Framebuffer;
+pub type Texture = <Context as ContextTrait>::Texture;
+pub type DrawableTexture<'a> = GenericDrawableTexture<'a, Texture, Framebuffer>;
+pub type Bindable<'a> = GenericBindable<'a, Framebuffer>;
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
 pub struct EventCollector {}
@@ -33,16 +39,29 @@ impl EventCollector {
         todo!()
     }
 }
+pub trait Renderable: Sized {
+    fn init(context: Context) -> Self;
+    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration);
+}
+impl<R: Renderable> GenericRenderable<Context> for R {
+    fn init(context: Context) -> Self {
+        Self::init(context)
+    }
+    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration) {
+        self.render_frame(events, context, delta_time)
+    }
+}
 /// User Provided code that provides draw calls
-pub trait Renderable<Ctx: ContextTrait> {
+pub trait GenericRenderable<Ctx: ContextTrait> {
     fn init(context: Ctx) -> Self;
     fn render_frame(&mut self, events: &[Event], context: Ctx, delta_time: Duration);
 }
-pub enum Bindable<'a, Framebuffer> {
+
+pub enum GenericBindable<'a, Framebuffer> {
     UserFramebuffer(&'a Framebuffer),
     ScreenFramebuffer,
 }
-pub enum DrawableTexture<'a, Texture, Framebuffer> {
+pub enum GenericDrawableTexture<'a, Texture, Framebuffer> {
     Texture(&'a Texture),
     Framebuffer(&'a Framebuffer),
 }
@@ -59,39 +78,37 @@ pub trait EventLoopTrait {
     fn new() -> Self;
     fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, event: F) -> !;
 }
-impl Sukakpak {
-    pub fn new<CTX, R>(create_info: CreateInfo) -> !
-    where
-        CTX: 'static + ContextTrait,
-        R: 'static + Renderable<CTX>,
-    {
-        let event_loop = <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new();
-        let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
-        let mut renderer = R::init(context.clone());
-        let system_time = SystemTime::now();
-        let mut event_collector = EventCollector::default();
-        event_loop.run(move |event, control_flow| {
-            match event {
-                WindowEvent::Event(event) => event_collector.push(event, context.clone()),
-                WindowEvent::RunGameLogic => {
-                    let delta_time = system_time.elapsed().expect("failed to get time");
-                    context.begin_render().expect("failed  begin to render");
-                    renderer.render_frame(
-                        event_collector.pull_events(),
-                        context.clone(),
-                        delta_time,
-                    );
-                    if context.did_quit() {
-                        *control_flow = ControlFlow::Quit;
-                    }
+fn generic_run<CTX, R>(create_info: CreateInfo) -> !
+where
+    CTX: 'static + ContextTrait,
+    R: 'static + GenericRenderable<CTX>,
+{
+    let event_loop = <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new();
+    let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
+    let mut renderer = R::init(context.clone());
+    let system_time = SystemTime::now();
+    let mut event_collector = EventCollector::default();
+    event_loop.run(move |event, control_flow| {
+        match event {
+            WindowEvent::Event(event) => event_collector.push(event, context.clone()),
+            WindowEvent::RunGameLogic => {
+                let delta_time = system_time.elapsed().expect("failed to get time");
+                context.begin_render().expect("failed  begin to render");
+                renderer.render_frame(event_collector.pull_events(), context.clone(), delta_time);
+                if context.did_quit() {
+                    *control_flow = ControlFlow::Quit;
                 }
-            };
-            if event_collector.quit_requested() {
-                *control_flow = ControlFlow::Quit;
             }
-        });
-    }
+        };
+        if event_collector.quit_requested() {
+            *control_flow = ControlFlow::Quit;
+        }
+    });
 }
+pub fn run<R: 'static + GenericRenderable<Context>>(create_info: CreateInfo) -> ! {
+    generic_run::<Context, R>(create_info)
+}
+
 pub trait BackendTrait {
     type EventLoop: EventLoopTrait;
     fn new(create_info: CreateInfo, event_loop: &Self::EventLoop) -> Self;
@@ -117,7 +134,7 @@ pub trait ContextTrait: Send {
     fn build_mesh(
         &mut self,
         mesh: MeshAsset,
-        texture: DrawableTexture<Self::Texture, Self::Framebuffer>,
+        texture: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<Self::Mesh>;
     /// Binds a texture.
     /// Preconditions
@@ -125,16 +142,19 @@ pub trait ContextTrait: Send {
     fn bind_texture(
         &mut self,
         mesh: &mut Self::Mesh,
-        texture: DrawableTexture<Self::Texture, Self::Framebuffer>,
+        texture: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<()>;
     fn build_texture(&mut self, image: &RgbaImage) -> Result<Self::Texture>;
     fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Self::Mesh) -> Result<()>;
     fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<Framebuffer>;
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
-    fn bind_shader(&mut self, framebuffer: Bindable<Self::Framebuffer>, shader: &str)
-        -> Result<()>;
-    fn bind_framebuffer(&mut self, framebuffer: Bindable<Self::Framebuffer>) -> Result<()>;
+    fn bind_shader(
+        &mut self,
+        framebuffer: GenericBindable<Self::Framebuffer>,
+        shader: &str,
+    ) -> Result<()>;
+    fn bind_framebuffer(&mut self, framebuffer: GenericBindable<Self::Framebuffer>) -> Result<()>;
     /// Gets screen resolution in pixels
     fn get_screen_size(&self) -> Vector2<u32>;
 
