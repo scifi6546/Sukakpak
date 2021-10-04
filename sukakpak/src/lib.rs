@@ -12,7 +12,12 @@ use std::path::Path;
 
 pub use events::{Event, MouseButton, ScrollDelta, SemanticKeyCode};
 use std::time::{Duration, SystemTime};
-pub use vulkan::{Context, VertexComponent, VertexLayout};
+cfg_if::cfg_if! {
+    if #[cfg(feature="backend_vulkan")]{
+        pub use vulkan::{Context, VertexComponent, VertexLayout};
+    }
+}
+
 pub type Backend = <Context as ContextTrait>::Backend;
 pub type Mesh = <Context as ContextTrait>::Mesh;
 pub type Framebuffer = <Context as ContextTrait>::Framebuffer;

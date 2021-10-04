@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 generational-arena = "0.2.8"
-ash = "0.32.1"
+
 backtrace = "0.3"
 winit = "0.25.0"
 tobj = "3.0.1"
@@ -21,8 +21,16 @@ thiserror = "1.0.25"
 cfg-if="1.0"
 ass_lib = {path = "../ass_lib"}
 free_list = {path = "../free_list"}
+
+
+[dependencies.ash]
+version="0.32.1"
+optional=true
+
+
 [features]
-default = ["full_debug"]
+backend_vulkan = ["ash"]
+default = ["full_debug","backend_vulkan"]
 full_debug = ["state_validation"]
 no_validation=[]
 state_validation = []
