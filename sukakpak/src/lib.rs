@@ -22,21 +22,32 @@ pub type DrawableTexture<'a> = GenericDrawableTexture<'a, Texture, Framebuffer>;
 pub type Bindable<'a> = GenericBindable<'a, Framebuffer>;
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
-pub struct EventCollector {}
+pub struct EventCollector {
+    events: Vec<Event>,
+    quit_requested: bool,
+}
 impl Default for EventCollector {
     fn default() -> Self {
-        todo!()
+        Self {
+            events: vec![],
+            quit_requested: false,
+        }
     }
 }
 impl EventCollector {
     pub fn push<CTX: ContextTrait>(&mut self, event: Event, ctx: CTX) {
-        todo!()
+        self.events.push(event)
     }
-    pub fn pull_events(&self) -> &[Event] {
-        todo!()
+    pub fn pull_events(&mut self) -> Vec<Event> {
+        if self.quit_requested {
+            self.events.push(Event::ProgramTermination);
+        }
+        let r = self.events.clone();
+        self.events.clear();
+        return r;
     }
     pub fn quit_requested(&self) -> bool {
-        todo!()
+        self.quit_requested()
     }
 }
 pub trait Renderable: Sized {
@@ -75,7 +86,7 @@ pub enum WindowEvent {
     RunGameLogic,
 }
 pub trait EventLoopTrait {
-    fn new() -> Self;
+    fn new(screen_size: Vector2<u32>) -> Self;
     fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, event: F) -> !;
 }
 fn generic_run<CTX, R>(create_info: CreateInfo) -> !
@@ -83,7 +94,8 @@ where
     CTX: 'static + ContextTrait,
     R: 'static + GenericRenderable<CTX>,
 {
-    let event_loop = <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new();
+    let event_loop =
+        <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new(create_info.default_size);
     let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
     let mut renderer = R::init(context.clone());
     let system_time = SystemTime::now();
@@ -94,7 +106,7 @@ where
             WindowEvent::RunGameLogic => {
                 let delta_time = system_time.elapsed().expect("failed to get time");
                 context.begin_render().expect("failed  begin to render");
-                renderer.render_frame(event_collector.pull_events(), context.clone(), delta_time);
+                renderer.render_frame(&event_collector.pull_events(), context.clone(), delta_time);
                 if context.did_quit() {
                     *control_flow = ControlFlow::Quit;
                 }

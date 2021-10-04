@@ -1,10 +1,12 @@
+use super::super::{ControlFlow, WindowEvent};
 use super::Backend;
 use nalgebra::Vector2;
 use winit::event;
 use winit::event::{
-    ElementState as WState, MouseButton as WMouseButton, TouchPhase as WTouchPhase,
-    WindowEvent as WinitEvent,
+    ElementState as WState, Event as WinitEvent, MouseButton as WMouseButton,
+    TouchPhase as WTouchPhase, WindowEvent as WinitWindowEvent,
 };
+use winit::event_loop::ControlFlow as WControllFlow;
 
 #[derive(Clone, Debug)]
 pub enum Event {
@@ -469,29 +471,159 @@ impl From<event::MouseScrollDelta> for ScrollDelta {
         }
     }
 }
+struct WinitEventLoopAdaptorState {
+    quit: bool,
+    screen_size: Vector2<u32>,
+}
+impl WinitEventLoopAdaptorState {
+    pub fn new(screen_size: Vector2<u32>) -> Self {
+        Self {
+            quit: false,
+            screen_size,
+        }
+    }
+}
+
 pub struct WinitEventLoopAdaptor {
     event_loop: winit::event_loop::EventLoop<()>,
+    quit: bool,
+    screen_size: Vector2<u32>,
 }
 impl super::super::EventLoopTrait for WinitEventLoopAdaptor {
-    fn new() -> Self {
-        todo!("winit")
+    fn new(screen_size: Vector2<u32>) -> Self {
+        let event_loop = winit::event_loop::EventLoop::new();
+        Self {
+            event_loop,
+            quit: false,
+            screen_size,
+        }
     }
-    fn run<F: 'static + FnMut(super::super::WindowEvent, &mut super::super::ControlFlow)>(
-        self,
-        event: F,
-    ) -> ! {
-        todo!()
+    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(mut self, mut run_fn: F) -> ! {
+        let mut state = WinitEventLoopAdaptorState::new(self.screen_size);
+        self.event_loop.run(move |event, _, control_flow| {
+            let flow: ControlFlow = match event {
+                WinitEvent::WindowEvent { event, .. } => {
+                    if let Some(e) = Self::to_event(&mut state, event) {
+                        let mut control_flow = ControlFlow::Continue;
+                        run_fn(WindowEvent::Event(e), &mut control_flow);
+                        control_flow
+                    } else {
+                        ControlFlow::Continue
+                    }
+                }
+                WinitEvent::MainEventsCleared => {
+                    let mut control_flow = ControlFlow::Continue;
+                    run_fn(WindowEvent::RunGameLogic, &mut control_flow);
+                    control_flow
+                }
+                _ => ControlFlow::Continue,
+            };
+            if flow == ControlFlow::Quit {
+                *control_flow = WControllFlow::Exit
+            }
+        })
     }
 }
 impl WinitEventLoopAdaptor {
     pub fn event_loop(&self) -> &winit::event_loop::EventLoop<()> {
         &self.event_loop
     }
+    fn to_event(state: &mut WinitEventLoopAdaptorState, event: WinitWindowEvent) -> Option<Event> {
+        match event {
+            WinitWindowEvent::Resized(size) => Some(Event::WindowResized {
+                new_size: Vector2::new(size.width, size.height),
+            }),
+            WinitWindowEvent::Moved(pos) => Some(Event::WindowMoved {
+                new_position: Vector2::new(pos.x, pos.y),
+            }),
+
+            WinitWindowEvent::CloseRequested => {
+                state.quit = true;
+                None
+            }
+            WinitWindowEvent::Destroyed => {
+                state.quit = true;
+                None
+            }
+            WinitWindowEvent::DroppedFile(_) => todo!("dropped file"),
+            WinitWindowEvent::HoveredFile(_) => todo!("hover file"),
+            WinitWindowEvent::HoveredFileCancelled => todo!("hovered file canceled"),
+            WinitWindowEvent::ReceivedCharacter(c) => Some(Event::ReceivedCharacter(c)),
+            WinitWindowEvent::Focused(focused) => match focused {
+                true => Some(Event::WindowGainedFocus),
+                false => Some(Event::WindowLostFocus),
+            },
+            WinitWindowEvent::KeyboardInput { input, .. } => {
+                let scan_code: u32 = input.scancode;
+                let semantic_code = if let Some(code) = input.virtual_keycode {
+                    Some(code.into())
+                } else {
+                    None
+                };
+                match input.state {
+                    winit::event::ElementState::Pressed => Some(Event::KeyDown {
+                        scan_code,
+                        semantic_code,
+                    }),
+
+                    winit::event::ElementState::Released => Some(Event::KeyUp {
+                        scan_code,
+                        semantic_code,
+                    }),
+                }
+            }
+            WinitWindowEvent::ModifiersChanged(_) => None,
+            WinitWindowEvent::CursorMoved { position, .. } => Some(Event::MouseMoved {
+                position: Vector2::new(
+                    position.x as f32,
+                    state.screen_size.y as f32 - position.y as f32,
+                ),
+                normalized: Vector2::new(
+                    2.0 * (position.x as f32 / state.screen_size.x as f32 - 0.5),
+                    2.0 * ((state.screen_size.y as f32 - position.y as f32)
+                        / state.screen_size.y as f32
+                        - 0.5),
+                ),
+            }),
+            WinitWindowEvent::CursorEntered { .. } => Some(Event::CursorEnteredWindow),
+            WinitWindowEvent::CursorLeft { .. } => Some(Event::CursorLeftWindow),
+            WinitWindowEvent::MouseWheel { delta, phase, .. } => match phase {
+                WTouchPhase::Started => Some(Event::ScrollStart {
+                    delta: delta.into(),
+                }),
+                WTouchPhase::Moved => Some(Event::ScrollContinue {
+                    delta: delta.into(),
+                }),
+                WTouchPhase::Ended => Some(Event::ScrollEnd {
+                    delta: delta.into(),
+                }),
+                WTouchPhase::Cancelled => None,
+            },
+            WinitWindowEvent::MouseInput { state, button, .. } => Some(match state {
+                WState::Pressed => Event::MouseDown {
+                    button: button.into(),
+                },
+                WState::Released => Event::MouseUp {
+                    button: button.into(),
+                },
+            }),
+            WinitWindowEvent::TouchpadPressure { .. } => todo!("touchpad pressure"),
+            WinitWindowEvent::AxisMotion { axis, value, .. } => Some(Event::ControllerAxis {
+                axis_id: axis,
+                value: value as f32,
+            }),
+            WinitWindowEvent::Touch(_) => todo!("touch"),
+            WinitWindowEvent::ScaleFactorChanged { .. } => todo!("scale factor changed"),
+            WinitWindowEvent::ThemeChanged(_) => todo!("theme changed"),
+        }
+    }
 }
+/*
 pub struct EventCollector {
     events: Vec<Event>,
     quit: bool,
 }
+
 impl EventCollector {
     pub fn new() -> Self {
         Self {
@@ -604,3 +736,4 @@ impl EventCollector {
         self.quit
     }
 }
+*/

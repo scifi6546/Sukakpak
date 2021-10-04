@@ -5,7 +5,7 @@ use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, TextureID};
 
 pub use super::mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 pub use backend::{BackendCreateInfo as CreateInfo, MeshTexture, VertexComponent, VertexLayout};
-use events::{Event, EventCollector};
+use events::Event;
 use image;
 use image::RgbaImage;
 use nalgebra;
