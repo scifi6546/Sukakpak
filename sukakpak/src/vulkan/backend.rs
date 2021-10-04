@@ -12,6 +12,7 @@ mod renderpass;
 mod resource_pool;
 mod vertex_layout;
 use super::CreateInfo;
+use super::{VertexComponent, VertexLayout};
 use command_pool::CommandPool;
 use framebuffer::{
     AttachableFramebuffer, AttachmentType, DepthBuffer, FrameBufferTarget, Framebuffer,
@@ -21,7 +22,6 @@ use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use ref_counter::RefCounter;
 use render_core::Core;
-pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass, ResourceId};
 use resource_pool::{

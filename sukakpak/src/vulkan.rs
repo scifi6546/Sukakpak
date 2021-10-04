@@ -6,7 +6,8 @@ use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, TextureID};
 use super::{
     mesh::Mesh as MeshAsset, CreateInfo, Event, MouseButton, ScrollDelta, SemanticKeyCode,
 };
-pub use backend::{MeshTexture, VertexComponent, VertexLayout};
+use super::{VertexComponent, VertexLayout};
+pub use backend::MeshTexture;
 use image;
 use image::RgbaImage;
 use nalgebra;

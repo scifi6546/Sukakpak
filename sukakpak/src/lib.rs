@@ -6,15 +6,20 @@ pub use nalgebra;
 use nalgebra::Vector2;
 mod events;
 mod mesh;
-mod vulkan;
+mod vertex;
 pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 use std::path::Path;
+pub use vertex::{VertexComponent, VertexLayout};
 
 pub use events::{Event, MouseButton, ScrollDelta, SemanticKeyCode};
 use std::time::{Duration, SystemTime};
 cfg_if::cfg_if! {
     if #[cfg(feature="backend_vulkan")]{
-        pub use vulkan::{Context, VertexComponent, VertexLayout};
+        mod vulkan;
+        pub use vulkan::Context;
+    }else{
+        mod stub_backend;
+        pub use stub_backend::{Context, VertexComponent, VertexLayout};
     }
 }
 
