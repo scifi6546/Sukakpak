@@ -3,8 +3,10 @@ pub mod events;
 use anyhow::Result;
 use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, TextureID};
 
-pub use super::mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
-pub use backend::{BackendCreateInfo as CreateInfo, MeshTexture, VertexComponent, VertexLayout};
+use super::{
+    mesh::Mesh as MeshAsset, CreateInfo, Event, MouseButton, ScrollDelta, SemanticKeyCode,
+};
+pub use backend::{MeshTexture, VertexComponent, VertexLayout};
 use image;
 use image::RgbaImage;
 use nalgebra;

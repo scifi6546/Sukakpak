@@ -4,16 +4,15 @@ pub use image;
 use image::RgbaImage;
 pub use nalgebra;
 use nalgebra::Vector2;
+mod events;
 mod mesh;
+mod vulkan;
 pub use mesh::{EasyMesh, Mesh as MeshAsset, Vertex as EasyMeshVertex};
 use std::path::Path;
-mod vulkan;
 
+pub use events::{Event, MouseButton, ScrollDelta, SemanticKeyCode};
 use std::time::{Duration, SystemTime};
-pub use vulkan::{
-    events::{Event, MouseButton},
-    Context, CreateInfo, MeshTexture, VertexComponent, VertexLayout,
-};
+pub use vulkan::{Context, VertexComponent, VertexLayout};
 pub type Backend = <Context as ContextTrait>::Backend;
 pub type Mesh = <Context as ContextTrait>::Mesh;
 pub type Framebuffer = <Context as ContextTrait>::Framebuffer;
@@ -21,6 +20,10 @@ pub type Texture = <Context as ContextTrait>::Texture;
 pub type DrawableTexture<'a> = GenericDrawableTexture<'a, Texture, Framebuffer>;
 /// Represents framebuffers that can be drawn to
 pub type Bindable<'a> = GenericBindable<'a, Framebuffer>;
+pub struct CreateInfo {
+    pub default_size: Vector2<u32>,
+    pub name: String,
+}
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
 pub struct EventCollector {
@@ -120,6 +123,7 @@ where
         }
     });
 }
+/// Entry point to run game. Use this to start rendering.
 pub fn run<R: 'static + GenericRenderable<Context>>(create_info: CreateInfo) -> ! {
     generic_run::<Context, R>(create_info)
 }
@@ -128,6 +132,7 @@ pub trait BackendTrait {
     type EventLoop: EventLoopTrait;
     fn new(create_info: CreateInfo, event_loop: &Self::EventLoop) -> Self;
 }
+/// Generic Graphics context. All backends implement this.
 pub trait ContextTrait: Send {
     /// backend data storing startup state
     type Backend: BackendTrait;
