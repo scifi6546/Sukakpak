@@ -98,7 +98,7 @@ where
         <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new(create_info.default_size);
     let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
     let mut renderer = R::init(context.clone());
-    let system_time = SystemTime::now();
+    let mut system_time = SystemTime::now();
     let mut event_collector = EventCollector::default();
     event_loop.run(move |event, control_flow| {
         match event {
@@ -110,6 +110,8 @@ where
                 if context.did_quit() {
                     *control_flow = ControlFlow::Quit;
                 }
+                context.finish_render().expect("failed to finish");
+                system_time = SystemTime::now();
             }
         };
         if event_collector.quit_requested() {

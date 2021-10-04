@@ -518,7 +518,7 @@ impl super::super::EventLoopTrait for WinitEventLoopAdaptor {
                 }
                 _ => ControlFlow::Continue,
             };
-            if flow == ControlFlow::Quit {
+            if flow == ControlFlow::Quit || state.quit {
                 *control_flow = WControllFlow::Exit
             }
         })
