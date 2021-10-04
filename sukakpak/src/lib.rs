@@ -19,6 +19,7 @@ pub type Mesh = <Context as ContextTrait>::Mesh;
 pub type Framebuffer = <Context as ContextTrait>::Framebuffer;
 pub type Texture = <Context as ContextTrait>::Texture;
 pub type DrawableTexture<'a> = GenericDrawableTexture<'a, Texture, Framebuffer>;
+/// Represents framebuffers that can be drawn to
 pub type Bindable<'a> = GenericBindable<'a, Framebuffer>;
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}
@@ -35,7 +36,7 @@ impl Default for EventCollector {
     }
 }
 impl EventCollector {
-    pub fn push<CTX: ContextTrait>(&mut self, event: Event, ctx: CTX) {
+    pub fn push(&mut self, event: Event) {
         self.events.push(event)
     }
     pub fn pull_events(&mut self) -> Vec<Event> {
@@ -67,7 +68,7 @@ pub trait GenericRenderable<Ctx: ContextTrait> {
     fn init(context: Ctx) -> Self;
     fn render_frame(&mut self, events: &[Event], context: Ctx, delta_time: Duration);
 }
-
+/// Represents framebuffers that can be drawn to
 pub enum GenericBindable<'a, Framebuffer> {
     UserFramebuffer(&'a Framebuffer),
     ScreenFramebuffer,
@@ -102,7 +103,7 @@ where
     let mut event_collector = EventCollector::default();
     event_loop.run(move |event, control_flow| {
         match event {
-            WindowEvent::Event(event) => event_collector.push(event, context.clone()),
+            WindowEvent::Event(event) => event_collector.push(event),
             WindowEvent::RunGameLogic => {
                 let delta_time = system_time.elapsed().expect("failed to get time");
                 context.begin_render().expect("failed  begin to render");
