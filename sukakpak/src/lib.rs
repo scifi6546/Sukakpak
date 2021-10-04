@@ -47,7 +47,7 @@ impl EventCollector {
         return r;
     }
     pub fn quit_requested(&self) -> bool {
-        self.quit_requested()
+        self.quit_requested
     }
 }
 pub trait Renderable: Sized {
