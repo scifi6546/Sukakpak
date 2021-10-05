@@ -30,7 +30,7 @@ optional=true
 
 [features]
 backend_vulkan = ["ash"]
-default = ["full_debug","backend_vulkan"]
+default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]
 state_validation = []

@@ -19,7 +19,7 @@ cfg_if::cfg_if! {
         pub use vulkan::Context;
     }else{
         mod stub_backend;
-        pub use stub_backend::{Context, VertexComponent, VertexLayout};
+        pub use stub_backend::Context;
     }
 }
 
@@ -176,7 +176,7 @@ pub trait ContextTrait: Send {
     ) -> Result<()>;
     fn build_texture(&mut self, image: &RgbaImage) -> Result<Self::Texture>;
     fn draw_mesh(&mut self, push: Vec<u8>, mesh: &Self::Mesh) -> Result<()>;
-    fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<Framebuffer>;
+    fn build_framebuffer(&mut self, resolution: Vector2<u32>) -> Result<Self::Framebuffer>;
     /// Shader being stringly typed is not ideal but better shader system is waiting
     /// on a naga translation layer for shaders
     fn bind_shader(
@@ -191,7 +191,7 @@ pub trait ContextTrait: Send {
     fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()>;
     /// quits the program once `render_frame` finishes
     fn quit(&mut self);
-    //checks if quit was called
+    ///checks if quit was called
     fn did_quit(&self) -> bool;
     /// Checks state. If state validation feature is enabled
     fn check_state(&mut self);

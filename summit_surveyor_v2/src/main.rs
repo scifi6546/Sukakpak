@@ -19,7 +19,7 @@ use std::{f32, sync::Mutex, time::Duration};
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
-    Context, Event, Sukakpak, Texture,
+    Context, ContextTrait, Event, Sukakpak, Texture,
 };
 use terrain::Terrain;
 use transform::Transform;
@@ -348,7 +348,7 @@ impl Game {
     }
 }
 fn main() {
-    Sukakpak::new::<Game>(sukakpak::CreateInfo {
+    sukakpak::run::<Game>(sukakpak::CreateInfo {
         default_size: Vector2::new(1000, 1000),
         name: "Summit Surveyor".to_string(),
     });

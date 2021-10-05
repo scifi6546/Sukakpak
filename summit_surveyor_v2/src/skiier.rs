@@ -11,7 +11,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
-    Context, DrawableTexture, Texture,
+    Context, ContextTrait, DrawableTexture, Texture,
 };
 pub struct FollowPath {
     start: GraphNode,
