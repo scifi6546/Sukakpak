@@ -143,19 +143,19 @@ pub trait BackendTrait {
     fn new(create_info: CreateInfo, event_loop: &Self::EventLoop) -> Self;
 }
 /// Generic Graphics context. All backends implement this.
-pub trait ContextTrait: Send {
+pub trait ContextTrait: Send + Sync {
     /// backend data storing startup state
     type Backend: BackendTrait;
     /// Stores runtime mesh data. Bound texture is saved along side
     /// mesh so that texture data can only be freed once .drop is called
     /// on *both* bound texture and all meshes that bind the texture
-    type Mesh;
+    type Mesh: std::fmt::Debug;
     /// Stores runtime  framebuffer data. calling .drop on framebuffer will
     /// free the data
-    type Framebuffer;
+    type Framebuffer: std::fmt::Debug;
     /// Stores runtime texture data. Texture data will only be freed once  
     /// .drop is called on *both* texture and all meshes that bind the texture
-    type Texture;
+    type Texture: std::fmt::Debug;
     fn new(backend: Self::Backend) -> Self;
     /// does steps for starting rendering
     fn begin_render(&mut self) -> Result<()>;

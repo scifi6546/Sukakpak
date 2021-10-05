@@ -6,6 +6,7 @@ use anyhow::Result;
 use image::RgbaImage;
 use nalgebra::Vector2;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 pub struct EventLoop {}
 impl EventLoopTrait for EventLoop {
     fn new(_: Vector2<u32>) -> Self {
@@ -29,15 +30,23 @@ impl BackendTrait for Backend {
     }
 }
 pub struct Context {
-    quit: bool,
+    quit: Arc<Mutex<bool>>,
 }
+#[derive(Debug)]
+pub struct Mesh {}
+#[derive(Debug)]
+pub struct Framebuffer {}
+#[derive(Debug)]
+pub struct Texture {}
 impl ContextTrait for Context {
     type Backend = Backend;
-    type Mesh = ();
-    type Framebuffer = ();
-    type Texture = ();
+    type Mesh = Mesh;
+    type Framebuffer = Framebuffer;
+    type Texture = Texture;
     fn new(_: Self::Backend) -> Self {
-        Self { quit: false }
+        Self {
+            quit: Arc::new(Mutex::new(false)),
+        }
     }
     fn begin_render(&mut self) -> Result<()> {
         Ok(())
@@ -50,7 +59,7 @@ impl ContextTrait for Context {
         _: MeshAsset,
         _: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<Self::Mesh> {
-        Ok(())
+        Ok(Mesh {})
     }
     fn bind_texture(
         &mut self,
@@ -60,14 +69,14 @@ impl ContextTrait for Context {
         Ok(())
     }
     fn build_texture(&mut self, _: &RgbaImage) -> Result<Self::Texture> {
-        Ok(())
+        Ok(Texture {})
     }
     fn draw_mesh(&mut self, _: Vec<u8>, _: &Self::Mesh) -> Result<()> {
         Ok(())
     }
 
     fn build_framebuffer(&mut self, _: Vector2<u32>) -> Result<Self::Framebuffer> {
-        Ok(())
+        Ok(Framebuffer {})
     }
     fn bind_shader(&mut self, _: GenericBindable<Self::Framebuffer>, _: &str) -> Result<()> {
         Ok(())
@@ -82,13 +91,14 @@ impl ContextTrait for Context {
         Ok(())
     }
     fn quit(&mut self) {
-        self.quit = true
+        *self.quit.lock().expect("failed to get lock") = true
     }
     fn did_quit(&self) -> bool {
-        self.quit
+        *self.quit.lock().expect("failed to get lock")
     }
     fn check_state(&mut self) {}
     fn clone(&self) -> Self {
-        Self { quit: self.quit }
+        let quit = self.quit.clone();
+        Self { quit }
     }
 }
