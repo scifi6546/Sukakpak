@@ -116,7 +116,7 @@ where
         <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new(create_info.default_size);
     let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
     let mut renderer = R::init(context.clone());
-    let mut system_time = Instant::now();
+    let mut system_time = CTX::Timer::now();
     let mut event_collector = EventCollector::default();
     event_loop.run(move |event, control_flow| {
         match event {
@@ -129,7 +129,7 @@ where
                     *control_flow = ControlFlow::Quit;
                 }
                 context.finish_render().expect("failed to finish");
-                system_time = Instant::now();
+                system_time = CTX::Timer::now();
             }
         };
         if event_collector.quit_requested() {
@@ -146,6 +146,13 @@ pub trait BackendTrait {
     type EventLoop: EventLoopTrait;
     fn new(create_info: CreateInfo, event_loop: &Self::EventLoop) -> Self;
 }
+/// Sub millisecond accuracy timer used for calculating deltatimes between frames
+pub trait Timer {
+    /// Starts timer
+    fn now() -> Self;
+    /// Gets time elapsed
+    fn elapsed(&self) -> Duration;
+}
 /// Generic Graphics context. All backends implement this.
 pub trait ContextTrait: Send + Sync {
     /// backend data storing startup state
@@ -160,6 +167,7 @@ pub trait ContextTrait: Send + Sync {
     /// Stores runtime texture data. Texture data will only be freed once  
     /// .drop is called on *both* texture and all meshes that bind the texture
     type Texture: std::fmt::Debug;
+    type Timer: Timer;
     fn new(backend: Self::Backend) -> Self;
     /// does steps for starting rendering
     fn begin_render(&mut self) -> Result<()>;

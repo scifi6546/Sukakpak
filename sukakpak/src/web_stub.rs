@@ -1,12 +1,16 @@
 use super::{
     BackendTrait, ContextTrait, ControlFlow, CreateInfo, EventLoopTrait, GenericBindable,
-    GenericDrawableTexture, MeshAsset, WindowEvent,
+    GenericDrawableTexture, MeshAsset, Timer, WindowEvent,
 };
 use anyhow::Result;
 use image::RgbaImage;
 use nalgebra::Vector2;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use web_sys::DateTimeValue;
 pub struct EventLoop {}
 impl EventLoopTrait for EventLoop {
     fn new(_: Vector2<u32>) -> Self {
@@ -32,6 +36,20 @@ impl BackendTrait for Backend {
 pub struct Context {
     quit: Arc<Mutex<bool>>,
 }
+pub struct TimerContainer {
+    time: DateTimeValue,
+}
+impl Timer for TimerContainer {
+    fn now() -> Self {
+        Self {
+            time: DateTimeValue::new(),
+        }
+    }
+    fn elapsed(&self) -> Duration {
+        let new_time = DateTimeValue::new();
+        todo!()
+    }
+}
 #[derive(Debug)]
 pub struct Mesh {}
 #[derive(Debug)]
@@ -43,6 +61,7 @@ impl ContextTrait for Context {
     type Mesh = Mesh;
     type Framebuffer = Framebuffer;
     type Texture = Texture;
+    type Timer = TimerContainer;
     fn new(_: Self::Backend) -> Self {
         Self {
             quit: Arc::new(Mutex::new(false)),

@@ -4,7 +4,7 @@ use anyhow::Result;
 use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, TextureID};
 
 use super::{
-    mesh::Mesh as MeshAsset, CreateInfo, Event, MouseButton, ScrollDelta, SemanticKeyCode,
+    mesh::Mesh as MeshAsset, CreateInfo, Event, MouseButton, ScrollDelta, SemanticKeyCode, Timer,
 };
 use super::{VertexComponent, VertexLayout};
 pub use backend::MeshTexture;
@@ -16,8 +16,22 @@ use nalgebra::Vector2;
 use std::{
     path::Path,
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
+pub struct TimerContainer {
+    instant: Instant,
+}
+impl Timer for TimerContainer {
+    fn now() -> Self {
+        Self {
+            instant: Instant::now(),
+        }
+    }
+    fn elapsed(&self) -> Duration {
+        self.instant.elapsed()
+    }
+}
 unsafe impl Send for Mesh {}
 pub struct Mesh {
     mesh: MeshID,
@@ -108,6 +122,7 @@ impl super::ContextTrait for Context {
     type Mesh = Mesh;
     type Framebuffer = Framebuffer;
     type Texture = Texture;
+    type Timer = TimerContainer;
     fn new(backend: BackendArc) -> Self {
         Self {
             backend: backend.0,

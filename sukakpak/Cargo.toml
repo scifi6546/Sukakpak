@@ -35,10 +35,15 @@ optional=true
 version="0.32.1"
 optional=true
 
+# For Webgl
+[dependencies.web-sys]
+version="0.3.55"
+features = ["Window"]
+optional=true
 
 [features]
 backend_vulkan = ["ash","ash-window","gpu-allocator","winit"]
-backend_web_stub = []
+backend_web_stub = ["web-sys"]
 default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]
