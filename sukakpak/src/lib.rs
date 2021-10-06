@@ -12,11 +12,15 @@ use std::path::Path;
 pub use vertex::{VertexComponent, VertexLayout};
 
 pub use events::{Event, MouseButton, ScrollDelta, SemanticKeyCode};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 cfg_if::cfg_if! {
     if #[cfg(feature="backend_vulkan")]{
         mod vulkan;
         pub use vulkan::Context;
+    }else if #[cfg(feature="backend_web_stub")]{
+        mod web_stub;
+        pub use web_stub::Context;
+
     }else{
         mod stub_backend;
         pub use stub_backend::Context;
@@ -112,20 +116,20 @@ where
         <<CTX as ContextTrait>::Backend as BackendTrait>::EventLoop::new(create_info.default_size);
     let mut context = CTX::new(CTX::Backend::new(create_info, &event_loop));
     let mut renderer = R::init(context.clone());
-    let mut system_time = SystemTime::now();
+    let mut system_time = Instant::now();
     let mut event_collector = EventCollector::default();
     event_loop.run(move |event, control_flow| {
         match event {
             WindowEvent::Event(event) => event_collector.push(event),
             WindowEvent::RunGameLogic => {
-                let delta_time = system_time.elapsed().expect("failed to get time");
+                let delta_time = system_time.elapsed();
                 context.begin_render().expect("failed  begin to render");
                 renderer.render_frame(&event_collector.pull_events(), context.clone(), delta_time);
                 if context.did_quit() {
                     *control_flow = ControlFlow::Quit;
                 }
                 context.finish_render().expect("failed to finish");
-                system_time = SystemTime::now();
+                system_time = Instant::now();
             }
         };
         if event_collector.quit_requested() {
@@ -149,10 +153,10 @@ pub trait ContextTrait: Send + Sync {
     /// Stores runtime mesh data. Bound texture is saved along side
     /// mesh so that texture data can only be freed once .drop is called
     /// on *both* bound texture and all meshes that bind the texture
-    type Mesh: std::fmt::Debug;
+    type Mesh;
     /// Stores runtime  framebuffer data. calling .drop on framebuffer will
     /// free the data
-    type Framebuffer: std::fmt::Debug;
+    type Framebuffer;
     /// Stores runtime texture data. Texture data will only be freed once  
     /// .drop is called on *both* texture and all meshes that bind the texture
     type Texture: std::fmt::Debug;
