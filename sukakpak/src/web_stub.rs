@@ -10,7 +10,6 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use web_sys::DateTimeValue;
 pub struct EventLoop {}
 impl EventLoopTrait for EventLoop {
     fn new(_: Vector2<u32>) -> Self {
@@ -37,17 +36,26 @@ pub struct Context {
     quit: Arc<Mutex<bool>>,
 }
 pub struct TimerContainer {
-    time: DateTimeValue,
+    /// time in ms
+    time: f64,
 }
 impl Timer for TimerContainer {
     fn now() -> Self {
-        Self {
-            time: DateTimeValue::new(),
-        }
+        let time = web_sys::window()
+            .expect("failed to get window")
+            .performance()
+            .expect("failed to get performance")
+            .now();
+        Self { time }
     }
     fn elapsed(&self) -> Duration {
-        let new_time = DateTimeValue::new();
-        todo!()
+        let time = web_sys::window()
+            .expect("failed to get window")
+            .performance()
+            .expect("failed to get performance")
+            .now();
+        let ms = time - self.time;
+        Duration::from_micros((ms * 1000.0) as u64)
     }
 }
 #[derive(Debug)]

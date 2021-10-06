@@ -35,10 +35,10 @@ optional=true
 version="0.32.1"
 optional=true
 
-# For Webgl
+# For Webgl and general web utilities
 [dependencies.web-sys]
 version="0.3.55"
-features = ["Window"]
+features = ["Window","Performance"]
 optional=true
 
 [features]
