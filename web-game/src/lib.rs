@@ -1,11 +1,33 @@
 use std::time::Duration;
-use sukakpak::{nalgebra::Vector2, Context, CreateInfo, Event, Renderable};
-pub struct TestGame {}
+use sukakpak::{
+    image,
+    nalgebra::{Matrix4, Vector2},
+    Context, ContextTrait, CreateInfo, DrawableTexture, Event, Mesh, MeshAsset, Renderable,
+};
+pub struct TestGame {
+    cube: Mesh,
+}
 impl Renderable for TestGame {
-    fn init(context: Context) -> Self {
-        Self {}
+    fn init(mut context: Context) -> Self {
+        let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 20, 0, 0]));
+        let texture = context
+            .build_texture(&image)
+            .expect("failed to build texture");
+        let cube = context
+            .build_mesh(MeshAsset::new_cube(), DrawableTexture::Texture(&texture))
+            .expect("failed to build mesh");
+        // todo: figure out shaders
+        Self { cube }
     }
-    fn render_frame(&mut self, events: &[Event], context: Context, delta_time: Duration) {
+    fn render_frame(&mut self, events: &[Event], mut context: Context, delta_time: Duration) {
+        let mat: Matrix4<f32> = Matrix4::identity();
+        let slice: Vec<u8> = mat
+            .as_slice()
+            .iter()
+            .map(|f| f.to_ne_bytes())
+            .flatten()
+            .collect();
+        context.draw_mesh(slice, &self.cube);
         alert("rendering frame!");
     }
 }
