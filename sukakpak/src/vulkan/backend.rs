@@ -11,6 +11,8 @@ mod render_core;
 mod renderpass;
 mod resource_pool;
 mod vertex_layout;
+use super::CreateInfo;
+use super::{VertexComponent, VertexLayout};
 use command_pool::CommandPool;
 use framebuffer::{
     AttachableFramebuffer, AttachmentType, DepthBuffer, FrameBufferTarget, Framebuffer,
@@ -20,7 +22,6 @@ use generational_arena::{Arena, Index as ArenaIndex};
 use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use ref_counter::RefCounter;
 use render_core::Core;
-pub use vertex_layout::{VertexComponent, VertexLayout};
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass, ResourceId};
 use resource_pool::{
@@ -29,10 +30,6 @@ use resource_pool::{
 use std::collections::HashSet;
 use std::{collections::HashMap, path::Path};
 
-pub struct BackendCreateInfo {
-    pub default_size: Vector2<u32>,
-    pub name: String,
-}
 #[derive(Error, Debug)]
 pub enum RenderError {
     #[error("Rendering to framebuffer {fb:?}")]
@@ -102,7 +99,7 @@ impl From<&FramebufferID> for BoundFramebuffer {
 }
 impl Backend {
     pub fn new(
-        create_info: BackendCreateInfo,
+        create_info: CreateInfo,
         event_loop: &winit::event_loop::EventLoop<()>,
     ) -> Result<Self> {
         let shaders = [

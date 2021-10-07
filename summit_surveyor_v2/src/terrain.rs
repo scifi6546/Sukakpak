@@ -14,7 +14,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{DMatrix, Isometry3, Point3, Vector2, Vector3},
-    Context, DrawableTexture,
+    Context, ContextTrait, DrawableTexture,
 };
 pub struct Grid<T> {
     data: Vec<T>,

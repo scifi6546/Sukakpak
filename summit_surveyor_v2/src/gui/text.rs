@@ -4,7 +4,7 @@ use epaint::{
     TessellationOptions, Tessellator,
 };
 use std::collections::HashMap;
-use sukakpak::{image::RgbaImage, nalgebra::Vector2, Context, MeshAsset, Texture};
+use sukakpak::{image::RgbaImage, nalgebra::Vector2, Context, ContextTrait, MeshAsset, Texture};
 struct Dimensions {
     width: u32,
     height: u32,

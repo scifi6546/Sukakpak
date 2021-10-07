@@ -74,10 +74,7 @@ pub struct Core {
     debug_utils_loader: DebugUtils,
 }
 impl Core {
-    pub fn new(
-        window: &winit::window::Window,
-        create_info: &super::BackendCreateInfo,
-    ) -> Result<Self> {
+    pub fn new(window: &winit::window::Window, create_info: &super::CreateInfo) -> Result<Self> {
         let entry = unsafe { ash::Entry::new() }?;
         let app_name = CString::new(create_info.name.clone())?;
         cfg_if::cfg_if! {

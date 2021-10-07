@@ -1,8 +1,8 @@
-use sukakpak::{nalgebra::Vector2, CreateInfo, Sukakpak};
+use sukakpak::{nalgebra::Vector2, run, CreateInfo, Sukakpak};
 
 mod clonecraft;
 fn main() {
-    Sukakpak::new::<clonecraft::CloneCraft>(CreateInfo {
+    run::<clonecraft::CloneCraft>(CreateInfo {
         default_size: Vector2::new(800, 800),
         name: "clonecraft".to_string(),
     });

@@ -9,7 +9,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3, Vector4},
-    Context, DrawableTexture, Texture,
+    Context, ContextTrait, DrawableTexture, Texture,
 };
 pub use text::FontSize;
 use text::{TextBuilder, TextBuilderContainer, TextInfo};

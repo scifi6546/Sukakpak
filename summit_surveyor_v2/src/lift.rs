@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use sukakpak::{
     image::{Rgba, RgbaImage},
     nalgebra::{Vector2, Vector3},
-    Context, DrawableTexture,
+    Context, ContextTrait, DrawableTexture,
 };
 pub struct Lift {}
 pub struct LiftLayer {

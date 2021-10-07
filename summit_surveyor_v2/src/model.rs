@@ -6,7 +6,7 @@ use sukakpak::{
     anyhow::Result,
     image::{Rgba, RgbaImage},
     nalgebra::Vector2,
-    Bindable, Context, DrawableTexture, VertexComponent, VertexLayout,
+    Bindable, Context, ContextTrait, DrawableTexture, VertexComponent, VertexLayout,
 };
 pub struct ScreenPlane {
     pub framebuffer: sukakpak::Framebuffer,
