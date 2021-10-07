@@ -38,12 +38,18 @@ optional=true
 # For Webgl and general web utilities
 [dependencies.web-sys]
 version="0.3.55"
-features = ["Window","Performance"]
+features = ["Document","Element","HtmlCanvasElement","Performance",
+	"WebGl2RenderingContext","Window"]
+optional=true
+
+[dependencies.wasm-bindgen]
+version="0.2.78"
 optional=true
 
 [features]
 backend_vulkan = ["ash","ash-window","gpu-allocator","winit"]
 backend_web_stub = ["web-sys"]
+backend_webgl = ["web-sys","wasm-bindgen"]
 default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]

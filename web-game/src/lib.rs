@@ -35,5 +35,6 @@ pub fn main() {
     sukakpak::run::<TestGame>(CreateInfo {
         default_size: Vector2::new(800, 800),
         name: "test game".to_string(),
+        window_id: "canvas".to_string(),
     });
 }

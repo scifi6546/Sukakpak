@@ -1784,6 +1784,7 @@ dependencies = [
  "phf",
  "thiserror",
  "tobj",
+ "wasm-bindgen",
  "web-sys",
  "winit",
 ]
