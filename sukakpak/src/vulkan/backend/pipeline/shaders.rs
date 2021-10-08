@@ -4,6 +4,7 @@ use ass_lib::{
     asm_spv::{AssembledSpirv, ShaderStage},
     ScalarType, Type,
 };
+
 use nalgebra::{Matrix4, Vector2, Vector3};
 use std::collections::HashMap;
 #[derive(Clone, Copy, Debug)]
@@ -24,6 +25,91 @@ pub struct VertexBufferDesc {
     pub binding_description: vk::VertexInputBindingDescription,
     pub attributes: Vec<vk::VertexInputAttributeDescription>,
 }
+impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
+    fn from(shader: ass_lib_v2::vk::Shader) -> Self {
+        let push_constants = vec![PushConstantDesc {
+            range: vk::PushConstantRange {
+                stage_flags: vk::ShaderStageFlags::VERTEX,
+                offset: 0,
+                size: shader.push_constant.size(),
+            },
+        }];
+        let mut attributes = vec![];
+        let mut offset = 0;
+        for input in shader.vertex_fields.iter() {
+            attributes.push(vk::VertexInputAttributeDescription {
+                location: input.location,
+                binding: shader.vertex_input_desc.binding,
+                format: match input.ty {
+                    ass_lib_v2::ShaderType::Mat4x4(_) => {
+                        panic!("matrix 4x4 not avalible as vertex input")
+                    }
+                    ass_lib_v2::ShaderType::Vec4(s) => match s {
+                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32B32A32_SFLOAT,
+                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32B32A32_UINT,
+                    },
+                    ass_lib_v2::ShaderType::Vec3(s) => match s {
+                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32B32_SFLOAT,
+                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32B32_UINT,
+                    },
+                    ass_lib_v2::ShaderType::Vec2(s) => match s {
+                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32_SFLOAT,
+                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32_UINT,
+                    },
+                    ass_lib_v2::ShaderType::Scalar(s) => match s {
+                        ass_lib_v2::Scalar::F32 => vk::Format::R32_SFLOAT,
+                        ass_lib_v2::Scalar::U32 => vk::Format::R32_UINT,
+                    },
+                    ass_lib_v2::ShaderType::Struct(_) => panic!("struct invalid as vertex input"),
+                },
+                offset,
+            });
+            offset += input.size();
+        }
+        ShaderDescription {
+            push_constants,
+            vertex_buffer_desc: VertexBufferDesc {
+                binding_description: vk::VertexInputBindingDescription {
+                    binding: shader.vertex_input_desc.binding,
+                    stride: shader
+                        .vertex_fields
+                        .iter()
+                        .map(|f| f.size())
+                        .fold(0, |acc, x| acc + x),
+                    input_rate: vk::VertexInputRate::VERTEX,
+                },
+                attributes,
+            },
+            vertex_shader_data: shader
+                .vertex_spirv_data
+                .iter()
+                .flat_map(|u| u.to_ne_bytes())
+                .collect(),
+            fragment_shader_data: shader
+                .fragment_spirv_data
+                .iter()
+                .flat_map(|u| u.to_ne_bytes())
+                .collect(),
+            textures: shader
+                .textures
+                .iter()
+                .map(|tex| {
+                    (
+                        tex.name.clone(),
+                        DescriptorDesc {
+                            layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                                .binding(tex.binding)
+                                .descriptor_count(0)
+                                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
 impl From<AssembledSpirv> for ShaderDescription {
     fn from(spv: AssembledSpirv) -> Self {
         let push_constants = spv

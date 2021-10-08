@@ -200,6 +200,7 @@ fn main() {
     sukakpak::run::<Game>(sukakpak::CreateInfo {
         default_size: Vector2::new(1000, 1000),
         name: "Summit Surveyor".to_string(),
+        window_id: "canvas".to_string(),
     });
 }
 #[system]

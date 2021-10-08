@@ -126,6 +126,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ass_lib_v2"
+version = "0.1.0"
+
+[[package]]
 name = "asset_manager"
 version = "0.1.0"
 dependencies = [
@@ -1774,6 +1778,7 @@ dependencies = [
  "ash",
  "ash-window",
  "ass_lib",
+ "ass_lib_v2",
  "backtrace",
  "cfg-if 1.0.0",
  "free_list",
