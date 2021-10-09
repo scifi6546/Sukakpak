@@ -16,14 +16,25 @@ pub struct Project {
 /// Intermediate represention of shader. Used to convert to production
 /// shading langages such as SPIR-V for Vulkan or glsl for webgl2.
 pub struct ShaderIR {
-    vertex_shader: naga::Module,
-    fragment_shader: naga::Module,
+    vertex_shader: IrModule,
+    fragment_shader: IrModule,
+}
+pub struct IrModule {
+    module: naga::Module,
+    info: naga::valid::ModuleInfo,
 }
 impl ShaderIR {
-    fn parse_path(shader_path: &Path) -> Result<naga::Module> {
+    fn parse_path(shader_path: &Path) -> Result<IrModule> {
         let mut shader_string = String::new();
         File::open(shader_path)?.read_to_string(&mut shader_string)?;
-        Ok(wgsl::parse_str(&shader_string)?)
+        let module = wgsl::parse_str(&shader_string)?;
+        let mut validator = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::PUSH_CONSTANT,
+        );
+
+        let info = validator.validate(&module)?;
+        Ok(IrModule { module, info })
     }
     pub fn compile_from_disk<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path: &Path = path.as_ref();
@@ -93,33 +104,13 @@ pub mod vk {
     }
     impl Shader {
         pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
-            for var in shader_ir.vertex_shader.global_variables.iter() {
+            for var in shader_ir.vertex_shader.module.global_variables.iter() {
                 println!("variable: ");
                 println!("{:?}\n\n", var);
             }
-            println!("\n\n************ entry points ***********\n\n");
-            for point in shader_ir.vertex_shader.entry_points.iter() {
-                println!("entry point: ");
-                println!("{:?}\n\n", point);
-                for arg in point.function.arguments.iter() {
-                    println!("{{");
-                    if let Some(name) = &arg.name {
-                        println!("\tname: {}", name);
-                    }
-                    println!(
-                        "\ttype: {:?}",
-                        shader_ir.vertex_shader.types.get_handle(arg.ty).unwrap()
-                    );
-                    if let Some(binding) = &arg.binding {
-                        println!("\tbinding: {:?}", binding);
-                    }
-                    println!("}}");
-                }
-                println!("{:?}", point.function.arguments)
-            }
-            println!("\n\n *********** end entry points *********\n\n");
             let push_constants = shader_ir
                 .vertex_shader
+                .module
                 .global_variables
                 .iter_mut()
                 .map(|(_h, variable)| variable)
@@ -131,7 +122,10 @@ pub mod vk {
                 .collect::<Vec<_>>();
             for push in push_constants.iter() {
                 println!("{:?}", push);
-                println!("{:?}", shader_ir.vertex_shader.types.get_handle(push.ty));
+                println!(
+                    "{:?}",
+                    shader_ir.vertex_shader.module.types.get_handle(push.ty)
+                );
             }
             if push_constants.len() == 0 {
                 bail!("Zero push constants in shader");
@@ -142,16 +136,98 @@ pub mod vk {
             let push_type: ShaderType = ShaderType::from_type(
                 shader_ir
                     .vertex_shader
+                    .module
                     .types
                     .get_handle(push_constants[0].ty)
                     .unwrap(),
-                &shader_ir.vertex_shader.types,
+                &shader_ir.vertex_shader.module.types,
             )?;
+
+            if shader_ir.vertex_shader.module.entry_points.len() == 0 {
+                bail!("there must be an entry point in vertex shader");
+            }
+            if shader_ir.vertex_shader.module.entry_points.len() > 1 {
+                bail!(
+                    "there must be only one entry point in vertex shader, got {} entry points",
+                    shader_ir.vertex_shader.module.entry_points.len()
+                );
+            }
+            println!("\n\n************ entry points ***********\n\n");
+            for point in shader_ir.vertex_shader.module.entry_points.iter() {
+                println!("entry point: ");
+                println!("{:?}\n\n", point);
+                for arg in point.function.arguments.iter() {
+                    println!("{{");
+                    if let Some(name) = &arg.name {
+                        println!("\tname: {}", name);
+                    }
+                    println!(
+                        "\ttype: {:?}",
+                        shader_ir
+                            .vertex_shader
+                            .module
+                            .types
+                            .get_handle(arg.ty)
+                            .unwrap()
+                    );
+                    if let Some(binding) = &arg.binding {
+                        println!("\tbinding: {:?}", binding);
+                    }
+                    println!("}}");
+                }
+                println!("{:?}", point.function.arguments)
+            }
+            println!("\n\n *********** end entry points *********\n\n");
+            let fields = shader_ir.vertex_shader.module.entry_points[0]
+                .function
+                .arguments
+                .iter()
+                .map(|arg| VertexField {
+                    ty: ShaderType::from_type(
+                        shader_ir
+                            .vertex_shader
+                            .module
+                            .types
+                            .get_handle(arg.ty)
+                            .unwrap(),
+                        &shader_ir.vertex_shader.module.types,
+                    )
+                    .expect("failed to convert type"),
+                    location: match arg.binding.as_ref().unwrap() {
+                        naga::Binding::BuiltIn(_) => panic!("invalid vertex input"),
+                        naga::Binding::Location {
+                            location,
+                            interpolation,
+                            sampling,
+                        } => *location,
+                    },
+                    name: arg.name.as_ref().unwrap().clone(),
+                })
+                .collect();
+            let vertex_spirv_data = naga::back::spv::write_vec(
+                &shader_ir.vertex_shader.module,
+                &shader_ir.vertex_shader.info,
+                &naga::back::spv::Options::default(),
+                Some(&naga::back::spv::PipelineOptions {
+                    shader_stage: naga::ShaderStage::Vertex,
+                    entry_point: "vs_main".to_string(),
+                }),
+            )?;
+            let fragment_spirv_data = naga::back::spv::write_vec(
+                &shader_ir.fragment_shader.module,
+                &shader_ir.fragment_shader.info,
+                &naga::back::spv::Options::default(),
+                Some(&naga::back::spv::PipelineOptions {
+                    shader_stage: naga::ShaderStage::Fragment,
+                    entry_point: "fs_main".to_string(),
+                }),
+            )?;
+
             Ok(Self {
                 push_constant: PushConstant { ty: push_type },
-                vertex_input: todo!("vertex input description"),
-                fragment_spirv_data: todo!("spv data"),
-                vertex_spirv_data: todo!("spv data"),
+                vertex_input: VertexInput { binding: 0, fields },
+                fragment_spirv_data,
+                vertex_spirv_data,
                 textures: todo!("textures"),
             })
         }

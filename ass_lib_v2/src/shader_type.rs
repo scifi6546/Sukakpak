@@ -13,7 +13,44 @@ impl ShaderType {
     pub fn from_type(ty: &naga::Type, arena: &naga::UniqueArena<naga::Type>) -> Result<Self> {
         match &ty.inner {
             &naga::TypeInner::Scalar { kind, width } => todo!("scalar"),
-            &naga::TypeInner::Vector { size, kind, width } => todo!("vector"),
+            &naga::TypeInner::Vector { size, kind, width } => match size {
+                naga::VectorSize::Bi => match kind {
+                    naga::ScalarKind::Sint => bail!("signed int not supported"),
+                    naga::ScalarKind::Uint => match width {
+                        4 => Ok(Self::Vec2(Scalar::U32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Float => match width {
+                        4 => Ok(Self::Vec2(Scalar::F32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Bool => bail!("bool not (yet) supported as kind for vec"),
+                },
+                naga::VectorSize::Tri => match kind {
+                    naga::ScalarKind::Sint => bail!("signed int not supported"),
+                    naga::ScalarKind::Uint => match width {
+                        4 => Ok(Self::Vec3(Scalar::U32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Float => match width {
+                        4 => Ok(Self::Vec3(Scalar::F32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Bool => bail!("bool not (yet) supported as kind for vec"),
+                },
+                naga::VectorSize::Quad => match kind {
+                    naga::ScalarKind::Sint => bail!("signed int not supported"),
+                    naga::ScalarKind::Uint => match width {
+                        4 => Ok(Self::Vec4(Scalar::U32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Float => match width {
+                        4 => Ok(Self::Vec4(Scalar::F32)),
+                        _ => bail!("invalid scalar width"),
+                    },
+                    naga::ScalarKind::Bool => bail!("bool not (yet) supported as kind for vec"),
+                },
+            },
             &naga::TypeInner::Matrix {
                 columns,
                 rows,
