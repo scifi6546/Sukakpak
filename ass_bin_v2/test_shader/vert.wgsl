@@ -18,3 +18,11 @@ fn vs_main(
     out.position = locals.transform*position;
     return out;
 }
+[[group(0),binding(1)]]
+var tex: texture_2d<u32>;
+[[stage(fragment)]]
+fn fs_main(in: VertexOutput)->[[location(0)]]vec4<f32>{
+    let texture= textureLoad(tex,vec2<u32>(in.tex_coord),0);
+    let v = f32(texture.x)/255.0;
+    return vec4<f32>(v,1.0);
+}

@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
+use serde::{Deserialize, Serialize};
 ///Types that may be used by a shader
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum ShaderType {
     Mat4x4(Scalar),
     Vec4(Scalar),
@@ -114,7 +115,7 @@ impl ShaderType {
         }
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Scalar {
     F32,
     U32,

@@ -53,6 +53,7 @@ impl ShaderIR {
 pub mod vk {
     use super::ShaderType;
     use anyhow::{bail, Result};
+    use serde::{Deserialize, Serialize};
     use std::path::Path;
     use thiserror::Error;
     #[derive(Debug, Error)]
@@ -61,11 +62,13 @@ pub mod vk {
         ZeroPushConstants,
     }
     /// Describes vertex input
+    #[derive(Deserialize, Serialize, Debug)]
     pub struct VertexInput {
         pub binding: u32,
         pub fields: Vec<VertexField>,
     }
     /// Describes a field in a vertex
+    #[derive(Deserialize, Serialize, Debug)]
     pub struct VertexField {
         /// Type in field
         pub ty: ShaderType,
@@ -78,6 +81,7 @@ pub mod vk {
             self.ty.size()
         }
     }
+    #[derive(Deserialize, Serialize, Debug)]
     pub struct PushConstant {
         /// type of data in push constant
         pub ty: ShaderType,
@@ -87,10 +91,12 @@ pub mod vk {
             self.ty.size()
         }
     }
+    #[derive(Deserialize, Serialize, Debug)]
     pub struct Texture {
         pub binding: u32,
         pub name: String,
     }
+    #[derive(Deserialize, Serialize, Debug)]
     pub struct Shader {
         /// push constant, assumed to be always in vertex shader
         pub push_constant: PushConstant,
@@ -104,9 +110,18 @@ pub mod vk {
     }
     impl Shader {
         pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
-            for var in shader_ir.vertex_shader.module.global_variables.iter() {
+            for (_handle, var) in shader_ir.vertex_shader.module.global_variables.iter() {
                 println!("variable: ");
                 println!("{:?}\n\n", var);
+                println!(
+                    "\n\ntype: {:?}\n\n",
+                    shader_ir
+                        .vertex_shader
+                        .module
+                        .types
+                        .get_handle(var.ty)
+                        .unwrap()
+                );
             }
             let push_constants = shader_ir
                 .vertex_shader
@@ -142,18 +157,25 @@ pub mod vk {
                     .unwrap(),
                 &shader_ir.vertex_shader.module.types,
             )?;
+            let vertex_shader_entry_point = shader_ir
+                .vertex_shader
+                .module
+                .entry_points
+                .iter()
+                .filter(|entry| entry.stage == naga::ShaderStage::Vertex)
+                .collect::<Vec<_>>();
 
-            if shader_ir.vertex_shader.module.entry_points.len() == 0 {
-                bail!("there must be an entry point in vertex shader");
+            if vertex_shader_entry_point.len() == 0 {
+                bail!("there must be a vertex entry point in shader");
             }
-            if shader_ir.vertex_shader.module.entry_points.len() > 1 {
+            if vertex_shader_entry_point.len() > 1 {
                 bail!(
-                    "there must be only one entry point in vertex shader, got {} entry points",
-                    shader_ir.vertex_shader.module.entry_points.len()
+                    "there must be only one vertex entry point in shader, got {} entry points",
+                    vertex_shader_entry_point.len()
                 );
             }
             println!("\n\n************ entry points ***********\n\n");
-            for point in shader_ir.vertex_shader.module.entry_points.iter() {
+            for point in vertex_shader_entry_point.iter() {
                 println!("entry point: ");
                 println!("{:?}\n\n", point);
                 for arg in point.function.arguments.iter() {
@@ -178,7 +200,7 @@ pub mod vk {
                 println!("{:?}", point.function.arguments)
             }
             println!("\n\n *********** end entry points *********\n\n");
-            let fields = shader_ir.vertex_shader.module.entry_points[0]
+            let fields = vertex_shader_entry_point[0]
                 .function
                 .arguments
                 .iter()
@@ -214,22 +236,55 @@ pub mod vk {
                 }),
             )?;
             let fragment_spirv_data = naga::back::spv::write_vec(
-                &shader_ir.fragment_shader.module,
-                &shader_ir.fragment_shader.info,
+                &shader_ir.vertex_shader.module,
+                &shader_ir.vertex_shader.info,
                 &naga::back::spv::Options::default(),
                 Some(&naga::back::spv::PipelineOptions {
                     shader_stage: naga::ShaderStage::Fragment,
                     entry_point: "fs_main".to_string(),
                 }),
             )?;
+            let textures = shader_ir
+                .vertex_shader
+                .module
+                .global_variables
+                .iter()
+                .filter(|(_h, var)| {
+                    match shader_ir
+                        .vertex_shader
+                        .module
+                        .types
+                        .get_handle(var.ty)
+                        .unwrap()
+                        .inner
+                    {
+                        naga::TypeInner::Image { .. } => true,
+
+                        _ => false,
+                    }
+                })
+                .map(|(_h, var)| var)
+                .map(|tex| Texture {
+                    binding: tex.binding.as_ref().unwrap().binding,
+                    name: tex.name.as_ref().unwrap().clone(),
+                })
+                .collect::<Vec<_>>();
+            println!("\n\n*****************  textures *******************\n\n");
+            for t in textures.iter() {
+                println!("tex: {:?}", t);
+            }
+            println!("\n\n*****************  end textures *******************\n\n");
 
             Ok(Self {
                 push_constant: PushConstant { ty: push_type },
                 vertex_input: VertexInput { binding: 0, fields },
                 fragment_spirv_data,
                 vertex_spirv_data,
-                textures: todo!("textures"),
+                textures,
             })
+        }
+        pub fn to_json_string(&self) -> Result<String> {
+            Ok(serde_json::to_string(self)?)
         }
         pub fn write_to_disk<P: AsRef<Path>>(&mut self, path: P) {
             todo!()
