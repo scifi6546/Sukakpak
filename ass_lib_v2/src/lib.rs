@@ -5,6 +5,8 @@ use naga::front::wgsl;
 use serde::Deserialize;
 pub use shader_type::{Scalar, ShaderType};
 use std::{fs::File, io::Read, path::Path};
+const VERTEX_SHADER_MAIN: &'static str = "vs_main";
+const FRAGMENT_SHADER_MAIN: &'static str = "fs_main";
 
 #[derive(Deserialize)]
 pub struct Project {
@@ -51,10 +53,14 @@ impl ShaderIR {
 }
 
 pub mod vk {
-    use super::ShaderType;
+    use super::{ShaderType, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
     use anyhow::{bail, Result};
     use serde::{Deserialize, Serialize};
-    use std::path::Path;
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        path::Path,
+    };
     use thiserror::Error;
     #[derive(Debug, Error)]
     pub enum VulkanConvertError {
@@ -109,6 +115,8 @@ pub mod vk {
         pub textures: Vec<Texture>,
     }
     impl Shader {
+        /// Extension to use when writing out shader
+        const EXTENSION: &'static str = "ass_spv";
         pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
             for (_handle, var) in shader_ir.vertex_shader.module.global_variables.iter() {
                 println!("variable: ");
@@ -232,7 +240,7 @@ pub mod vk {
                 &naga::back::spv::Options::default(),
                 Some(&naga::back::spv::PipelineOptions {
                     shader_stage: naga::ShaderStage::Vertex,
-                    entry_point: "vs_main".to_string(),
+                    entry_point: VERTEX_SHADER_MAIN.to_string(),
                 }),
             )?;
             let fragment_spirv_data = naga::back::spv::write_vec(
@@ -241,7 +249,7 @@ pub mod vk {
                 &naga::back::spv::Options::default(),
                 Some(&naga::back::spv::PipelineOptions {
                     shader_stage: naga::ShaderStage::Fragment,
-                    entry_point: "fs_main".to_string(),
+                    entry_point: FRAGMENT_SHADER_MAIN.to_string(),
                 }),
             )?;
             let textures = shader_ir
@@ -286,8 +294,20 @@ pub mod vk {
         pub fn to_json_string(&self) -> Result<String> {
             Ok(serde_json::to_string(self)?)
         }
-        pub fn write_to_disk<P: AsRef<Path>>(&mut self, path: P) {
-            todo!()
+        /// writes to disk with extension ".ass_spv"
+        pub fn write_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+            let json_string = self.to_json_string()?;
+            let new_path = path.as_ref().with_extension(Self::EXTENSION);
+            let mut file = File::create(new_path)?;
+            file.write_all(json_string.as_bytes())?;
+            Ok(())
+        }
+        /// reads from disk, setting extension to ".ass_spv"
+        pub fn read_from_disk<P: AsRef<Path>>(path: P) -> Result<Self> {
+            let new_path = path.as_ref().with_extension(Self::EXTENSION);
+            let file = File::open(new_path)?;
+            let out: Self = serde_json::from_reader(file)?;
+            Ok(out)
         }
     }
 }
