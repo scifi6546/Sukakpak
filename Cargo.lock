@@ -74,9 +74,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
+checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "approx"
@@ -116,11 +116,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ass_bin_v2"
+version = "0.1.0"
+dependencies = [
+ "ass_lib_v2",
+]
+
+[[package]]
 name = "ass_lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "naga",
+ "naga 0.5.0",
  "serde",
  "serde_json",
 ]
@@ -128,6 +135,13 @@ dependencies = [
 [[package]]
 name = "ass_lib_v2"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "naga 0.7.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "asset_manager"
@@ -291,6 +305,16 @@ dependencies = [
  "foreign-types",
  "libc",
  "objc",
+]
+
+[[package]]
+name = "codespan-reporting"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
+dependencies = [
+ "termcolor",
+ "unicode-width",
 ]
 
 [[package]]
@@ -690,6 +714,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hexf-parse"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1024,6 +1054,23 @@ dependencies = [
  "num-traits",
  "pp-rs",
  "spirv_headers",
+ "thiserror",
+]
+
+[[package]]
+name = "naga"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "032288733590c094012e5f1dec15848be90015bb9b3fd16743d84ea582c4154a"
+dependencies = [
+ "bit-set",
+ "bitflags",
+ "codespan-reporting",
+ "fxhash",
+ "hexf-parse",
+ "indexmap",
+ "log",
+ "num-traits",
  "thiserror",
 ]
 
@@ -1817,6 +1864,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "termcolor"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
+dependencies = [
+ "winapi-util",
 ]
 
 [[package]]

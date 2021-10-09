@@ -1,0 +1,5 @@
+{
+	"vertex_shader_path":"vert.wgsl",
+	"fragment_shader_path":"frag.wgsl"
+
+}

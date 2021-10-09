@@ -36,10 +36,10 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
         }];
         let mut attributes = vec![];
         let mut offset = 0;
-        for input in shader.vertex_fields.iter() {
+        for input in shader.vertex_input.fields.iter() {
             attributes.push(vk::VertexInputAttributeDescription {
                 location: input.location,
-                binding: shader.vertex_input_desc.binding,
+                binding: shader.vertex_input.binding,
                 format: match input.ty {
                     ass_lib_v2::ShaderType::Mat4x4(_) => {
                         panic!("matrix 4x4 not avalible as vertex input")
@@ -70,9 +70,10 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
             push_constants,
             vertex_buffer_desc: VertexBufferDesc {
                 binding_description: vk::VertexInputBindingDescription {
-                    binding: shader.vertex_input_desc.binding,
+                    binding: shader.vertex_input.binding,
                     stride: shader
-                        .vertex_fields
+                        .vertex_input
+                        .fields
                         .iter()
                         .map(|f| f.size())
                         .fold(0, |acc, x| acc + x),
