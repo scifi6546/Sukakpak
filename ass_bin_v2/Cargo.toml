@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 ass_lib_v2 = {path="../ass_lib_v2"}
+structopt="0.3"
