@@ -1,6 +1,6 @@
 mod backend;
 pub mod events;
-use anyhow::Result;
+use anyhow::{Context as EContext, Result};
 use backend::{Backend, BoundFramebuffer, FramebufferID, MeshID, TextureID};
 
 use super::{
@@ -258,6 +258,16 @@ impl super::ContextTrait for Context {
             .lock()
             .expect("failed to get lock")
             .load_shader(path, shader_name)?;
+        self.check_state();
+        Ok(())
+    }
+    fn load_shader_v2(&mut self, shader: &str, shader_name: &str) -> Result<()> {
+        self.check_state();
+        self.backend
+            .lock()
+            .expect("failed to get lock")
+            .load_shader_v2(shader, shader_name)
+            .with_context(|| format!("failed to load shader: {}", shader_name))?;
         self.check_state();
         Ok(())
     }

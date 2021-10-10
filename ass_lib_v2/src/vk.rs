@@ -63,14 +63,6 @@ impl Shader {
     /// Extension to use when writing out shader
     const EXTENSION: &'static str = "ass_spv";
     pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
-        for (_handle, var) in shader_ir.module.global_variables.iter() {
-            println!("variable: ");
-            println!("{:?}\n\n", var);
-            println!(
-                "\n\ntype: {:?}\n\n",
-                shader_ir.module.types.get_handle(var.ty).unwrap()
-            );
-        }
         let push_constants = shader_ir
             .module
             .global_variables
@@ -82,10 +74,6 @@ impl Shader {
                 variable
             })
             .collect::<Vec<_>>();
-        for push in push_constants.iter() {
-            println!("{:?}", push);
-            println!("{:?}", shader_ir.module.types.get_handle(push.ty));
-        }
         if push_constants.len() == 0 {
             bail!("Zero push constants in shader");
         }
@@ -116,27 +104,6 @@ impl Shader {
                 vertex_shader_entry_point.len()
             );
         }
-        println!("\n\n************ entry points ***********\n\n");
-        for point in vertex_shader_entry_point.iter() {
-            println!("entry point: ");
-            println!("{:?}\n\n", point);
-            for arg in point.function.arguments.iter() {
-                println!("{{");
-                if let Some(name) = &arg.name {
-                    println!("\tname: {}", name);
-                }
-                println!(
-                    "\ttype: {:?}",
-                    shader_ir.module.types.get_handle(arg.ty).unwrap()
-                );
-                if let Some(binding) = &arg.binding {
-                    println!("\tbinding: {:?}", binding);
-                }
-                println!("}}");
-            }
-            println!("{:?}", point.function.arguments)
-        }
-        println!("\n\n *********** end entry points *********\n\n");
         let fields = vertex_shader_entry_point[0]
             .function
             .arguments
@@ -193,11 +160,6 @@ impl Shader {
                 name: tex.name.as_ref().unwrap().clone(),
             })
             .collect::<Vec<_>>();
-        println!("\n\n*****************  textures *******************\n\n");
-        for t in textures.iter() {
-            println!("tex: {:?}", t);
-        }
-        println!("\n\n*****************  end textures *******************\n\n");
 
         Ok(Self {
             push_constant: PushConstant { ty: push_type },
@@ -209,6 +171,11 @@ impl Shader {
     }
     pub fn to_json_string(&self) -> Result<String> {
         Ok(serde_json::to_string(self)?)
+    }
+    /// Reads from json str, errors if parse
+    /// is unsucessfull
+    pub fn from_json_str(json: &str) -> Result<Self> {
+        Ok(serde_json::from_str(json)?)
     }
     /// writes to disk with extension ".ass_spv"
     pub fn write_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {

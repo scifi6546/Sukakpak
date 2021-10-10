@@ -204,7 +204,12 @@ pub trait ContextTrait: Send + Sync {
     /// Gets screen resolution in pixels
     fn get_screen_size(&self) -> Vector2<u32>;
 
+    /// # Depricated
+    /// loads ass_v1 shader from file system, only functions correctly on a
+    /// vulkan backend
     fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()>;
+    /// Loads v2 shader from string. Will work on all backends
+    fn load_shader_v2(&mut self, shader: &str, shader_name: &str) -> Result<()>;
     /// quits the program once `render_frame` finishes
     fn quit(&mut self);
     ///checks if quit was called

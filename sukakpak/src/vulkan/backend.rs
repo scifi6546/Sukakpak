@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context as AContext, Result};
 use ash::vk;
 use ass_lib::asm_spv::load_from_fs;
 use image::RgbaImage;
@@ -537,6 +537,12 @@ impl Backend {
     pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
         self.shaders
             .insert(shader_name.to_string(), load_from_fs(path)?.into());
+        Ok(())
+    }
+    pub fn load_shader_v2(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
+        let shader = ass_lib_v2::vk::Shader::from_json_str(shader_data)
+            .with_context(|| format!("failed to load shader {}", shader_name))?;
+        self.shaders.insert(shader_name.to_string(), shader.into());
         Ok(())
     }
     /// Validates state, panics if state is invalid

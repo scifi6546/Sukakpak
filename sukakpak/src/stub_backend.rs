@@ -107,6 +107,9 @@ impl ContextTrait for Context {
     fn load_shader<P: AsRef<Path>>(&mut self, _: P, _: &str) -> Result<()> {
         Ok(())
     }
+    fn load_shader_v2(&mut self, shader: &str, shader_name: &str) -> Result<()> {
+        Ok(())
+    }
     fn quit(&mut self) {
         *self.quit.lock().expect("failed to get lock") = true
     }
