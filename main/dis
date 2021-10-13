@@ -1,0 +1,171 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Khronos; 28
+; Bound: 56
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %vs_main "vs_main" %position %tex_coord %normal %tex_coord_0 %position_0
+               OpSource GLSL 450
+               OpMemberName %VertexOutput 0 "tex_coord"
+               OpMemberName %VertexOutput 1 "position"
+               OpName %VertexOutput "VertexOutput"
+               OpMemberName %Locals 0 "transform"
+               OpName %Locals "Locals"
+               OpName %locals "locals"
+               OpName %out "out"
+               OpName %position "position"
+               OpName %tex_coord "tex_coord"
+               OpName %normal "normal"
+               OpName %tex_coord_0 "tex_coord"
+               OpName %position_0 "position"
+               OpName %vs_main "vs_main"
+               OpMemberDecorate %VertexOutput 0 Offset 0
+               OpMemberDecorate %VertexOutput 1 Offset 16
+               OpDecorate %Locals Block
+               OpMemberDecorate %Locals 0 Offset 0
+               OpMemberDecorate %Locals 0 ColMajor
+               OpMemberDecorate %Locals 0 MatrixStride 16
+               OpDecorate %locals DescriptorSet 0
+               OpDecorate %locals Binding 0
+               OpDecorate %position Location 0
+               OpDecorate %tex_coord Location 1
+               OpDecorate %normal Location 2
+               OpDecorate %tex_coord_0 Location 0
+               OpDecorate %position_0 BuiltIn Position
+       %void = OpTypeVoid
+      %float = OpTypeFloat 32
+    %float_1 = OpConstant %float 1
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+  %float_255 = OpConstant %float 255
+    %float_0 = OpConstant %float 0
+    %v2float = OpTypeVector %float 2
+    %v4float = OpTypeVector %float 4
+%VertexOutput = OpTypeStruct %v2float %v4float
+%mat4v4float = OpTypeMatrix %v4float 4
+     %Locals = OpTypeStruct %mat4v4float
+    %v3float = OpTypeVector %float 3
+       %uint = OpTypeInt 32 0
+         %15 = OpTypeImage %uint 2D 0 0 0 1 Unknown
+%_ptr_PushConstant_Locals = OpTypePointer PushConstant %Locals
+     %locals = OpVariable %_ptr_PushConstant_Locals PushConstant
+%_ptr_Function_VertexOutput = OpTypePointer Function %VertexOutput
+%_ptr_Input_v3float = OpTypePointer Input %v3float
+   %position = OpVariable %_ptr_Input_v3float Input
+%_ptr_Input_v2float = OpTypePointer Input %v2float
+  %tex_coord = OpVariable %_ptr_Input_v2float Input
+     %normal = OpVariable %_ptr_Input_v3float Input
+%_ptr_Output_v2float = OpTypePointer Output %v2float
+%tex_coord_0 = OpVariable %_ptr_Output_v2float Output
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+ %position_0 = OpVariable %_ptr_Output_v4float Output
+         %35 = OpTypeFunction %void
+%_ptr_Uniform_Locals = OpTypePointer Uniform %Locals
+%_ptr_Function_v2float = OpTypePointer Function %v2float
+     %uint_0 = OpConstant %uint 0
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Uniform_mat4v4float = OpTypePointer Uniform %mat4v4float
+     %uint_1 = OpConstant %uint 1
+%_ptr_Output_float = OpTypePointer Output %float
+    %vs_main = OpFunction %void None %35
+         %21 = OpLabel
+        %out = OpVariable %_ptr_Function_VertexOutput Function
+         %24 = OpLoad %v3float %position
+         %27 = OpLoad %v2float %tex_coord
+         %29 = OpLoad %v3float %normal
+               OpBranch %37
+         %37 = OpLabel
+         %40 = OpAccessChain %_ptr_Function_v2float %out %uint_0
+               OpStore %40 %27
+         %43 = OpAccessChain %_ptr_Uniform_mat4v4float %locals %uint_0
+         %44 = OpLoad %mat4v4float %43
+         %45 = OpCompositeConstruct %v4float %24 %float_1
+         %46 = OpMatrixTimesVector %v4float %44 %45
+         %48 = OpAccessChain %_ptr_Function_v4float %out %uint_1
+               OpStore %48 %46
+         %49 = OpLoad %VertexOutput %out
+         %50 = OpCompositeExtract %v2float %49 0
+               OpStore %tex_coord_0 %50
+         %51 = OpCompositeExtract %v4float %49 1
+               OpStore %position_0 %51
+         %53 = OpAccessChain %_ptr_Output_float %position_0 %uint_1
+         %54 = OpLoad %float %53
+         %55 = OpFNegate %float %54
+               OpStore %53 %55
+               OpReturn
+               OpFunctionEnd
+; SPIR-V
+; Version: 1.0
+; Generator: Khronos; 28
+; Bound: 41
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %vs_main "vs_main" %position %position_0
+               OpSource GLSL 450
+               OpMemberName %VertexOutput 0 "position"
+               OpName %VertexOutput "VertexOutput"
+               OpMemberName %Locals 0 "transform"
+               OpName %Locals "Locals"
+               OpName %locals "locals"
+               OpName %out "out"
+               OpName %position "position"
+               OpName %position_0 "position"
+               OpName %vs_main "vs_main"
+               OpMemberDecorate %VertexOutput 0 Offset 0
+               OpDecorate %Locals Block
+               OpMemberDecorate %Locals 0 Offset 0
+               OpMemberDecorate %Locals 0 ColMajor
+               OpMemberDecorate %Locals 0 MatrixStride 16
+               OpDecorate %locals DescriptorSet 0
+               OpDecorate %locals Binding 0
+               OpDecorate %position Location 0
+               OpDecorate %position_0 BuiltIn Position
+       %void = OpTypeVoid
+      %float = OpTypeFloat 32
+    %float_1 = OpConstant %float 1
+    %float_0 = OpConstant %float 0
+    %v4float = OpTypeVector %float 4
+%VertexOutput = OpTypeStruct %v4float
+%mat4v4float = OpTypeMatrix %v4float 4
+     %Locals = OpTypeStruct %mat4v4float
+    %v3float = OpTypeVector %float 3
+%_ptr_PushConstant_Locals = OpTypePointer PushConstant %Locals
+     %locals = OpVariable %_ptr_PushConstant_Locals PushConstant
+%_ptr_Function_VertexOutput = OpTypePointer Function %VertexOutput
+%_ptr_Input_v3float = OpTypePointer Input %v3float
+   %position = OpVariable %_ptr_Input_v3float Input
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+ %position_0 = OpVariable %_ptr_Output_v4float Output
+         %22 = OpTypeFunction %void
+%_ptr_Uniform_Locals = OpTypePointer Uniform %Locals
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Uniform_mat4v4float = OpTypePointer Uniform %mat4v4float
+       %uint = OpTypeInt 32 0
+     %uint_0 = OpConstant %uint 0
+%_ptr_Output_float = OpTypePointer Output %float
+     %uint_1 = OpConstant %uint 1
+    %vs_main = OpFunction %void None %22
+         %15 = OpLabel
+        %out = OpVariable %_ptr_Function_VertexOutput Function
+         %18 = OpLoad %v3float %position
+               OpBranch %24
+         %24 = OpLabel
+         %29 = OpAccessChain %_ptr_Uniform_mat4v4float %locals %uint_0
+         %30 = OpLoad %mat4v4float %29
+         %31 = OpCompositeConstruct %v4float %18 %float_1
+         %32 = OpMatrixTimesVector %v4float %30 %31
+         %33 = OpAccessChain %_ptr_Function_v4float %out %uint_0
+               OpStore %33 %32
+         %34 = OpLoad %VertexOutput %out
+         %35 = OpCompositeExtract %v4float %34 0
+               OpStore %position_0 %35
+         %38 = OpAccessChain %_ptr_Output_float %position_0 %uint_1
+         %39 = OpLoad %float %38
+         %40 = OpFNegate %float %39
+               OpStore %38 %40
+               OpReturn
+               OpFunctionEnd

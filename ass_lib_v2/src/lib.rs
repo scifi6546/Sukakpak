@@ -33,7 +33,12 @@ impl ShaderIR {
                 println!("loading project file at: {}", path_str);
             }
         }
-        let file = File::open(project_index_path.clone())?;
+        let file = File::open(project_index_path.clone()).with_context(|| {
+            format!(
+                "failed to open project file: {}",
+                project_index_path.to_str().unwrap()
+            )
+        })?;
         if options.verbose {
             if let Some(path_str) = project_index_path.to_str() {
                 println!("parsing project file at: {}", path_str);
@@ -51,8 +56,12 @@ impl ShaderIR {
             }
         }
 
-        let mut shader_file =
-            File::open(shader_path).with_context(|| "failed to open shader file")?;
+        let mut shader_file = File::open(shader_path.clone()).with_context(|| {
+            format!(
+                "failed to open shader file {}",
+                shader_path.to_str().unwrap()
+            )
+        })?;
         shader_file
             .read_to_string(&mut shader_string)
             .with_context(|| "failed to read from shader file")?;

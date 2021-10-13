@@ -30,9 +30,9 @@ impl GraphicsPipeline {
         descriptor_layouts: &[vk::DescriptorSetLayout],
         screen_dimensions: Vector2<u32>,
         depth_buffer: &DepthBuffer,
-
         pipeline_type: PipelineType,
     ) -> Self {
+        println!("descriptor sets: {:#?}", descriptor_layouts);
         let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data.clone()))
             .expect("failed to create shader");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_shader_data);
@@ -50,18 +50,20 @@ impl GraphicsPipeline {
                 .create_shader_module(&vert_shader_info, None)
                 .expect("failed to create shader")
         };
-        let shader_entry_name = CString::new("main").unwrap();
+        let vertex_shader_entry_name = CString::new(shader_data.vertex_entrypoint.clone()).unwrap();
+        let fragment_shader_entry_name =
+            CString::new(shader_data.fragment_entrypoint.clone()).unwrap();
         let shader_stage_create_infos = [
             vk::PipelineShaderStageCreateInfo {
                 module: vertex_shader,
-                p_name: shader_entry_name.as_ptr(),
+                p_name: vertex_shader_entry_name.as_ptr(),
                 stage: vk::ShaderStageFlags::VERTEX,
                 ..Default::default()
             },
             vk::PipelineShaderStageCreateInfo {
                 s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 module: fragment_shader,
-                p_name: shader_entry_name.as_ptr(),
+                p_name: fragment_shader_entry_name.as_ptr(),
                 stage: vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
             },

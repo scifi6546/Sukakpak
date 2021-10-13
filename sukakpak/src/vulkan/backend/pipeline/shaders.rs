@@ -18,6 +18,10 @@ pub struct ShaderDescription {
     pub vertex_shader_data: Vec<u8>,
     pub fragment_shader_data: Vec<u8>,
     pub textures: HashMap<String, DescriptorDesc>,
+    /// Name of vertex shader entrypoint, if v1 shader is "main"
+    pub vertex_entrypoint: String,
+    /// Name of fragment shader entrypoint, if v1 shader is "main"
+    pub fragment_entrypoint: String,
 }
 
 #[derive(Clone, Debug)]
@@ -91,6 +95,8 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
                 .iter()
                 .flat_map(|u| u.to_ne_bytes())
                 .collect(),
+            fragment_entrypoint: shader.fragment_entrypoint,
+            vertex_entrypoint: shader.vertex_entrypoint,
             textures: shader
                 .textures
                 .iter()
@@ -209,6 +215,8 @@ impl From<AssembledSpirv> for ShaderDescription {
                 .flatten()
                 .collect(),
             textures,
+            fragment_entrypoint: "main".to_string(),
+            vertex_entrypoint: "main".to_string(),
         }
     }
 }
@@ -270,6 +278,8 @@ pub fn push_shader() -> ShaderDescription {
             .iter()
             .copied()
             .collect(),
+        fragment_entrypoint: "main".to_string(),
+        vertex_entrypoint: "main".to_string(),
     }
 }
 pub fn alt_shader() -> ShaderDescription {
@@ -330,5 +340,7 @@ pub fn alt_shader() -> ShaderDescription {
             .iter()
             .copied()
             .collect(),
+        fragment_entrypoint: "main".to_string(),
+        vertex_entrypoint: "main".to_string(),
     }
 }

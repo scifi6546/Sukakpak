@@ -58,11 +58,18 @@ pub struct Shader {
     pub vertex_spirv_data: Vec<u32>,
     /// textures as global input
     pub textures: Vec<Texture>,
+    /// name of vetex shader entrypoing
+    pub vertex_entrypoint: String,
+    /// name of fragment shader entrypoing
+    pub fragment_entrypoint: String,
 }
 impl Shader {
     /// Extension to use when writing out shader
     const EXTENSION: &'static str = "ass_spv";
+    /// spirv extension
+    const SPV_EXTENSION: &'static str = "spv";
     pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
+        println!("{:#?}", shader_ir.module);
         let push_constants = shader_ir
             .module
             .global_variables
@@ -71,6 +78,8 @@ impl Shader {
             .filter(|variable| variable.class == naga::StorageClass::Uniform)
             .map(|variable| {
                 variable.class = naga::StorageClass::PushConstant;
+                variable.binding = None;
+                println!("{:?}", variable);
                 variable
             })
             .collect::<Vec<_>>();
@@ -143,6 +152,8 @@ impl Shader {
                 entry_point: FRAGMENT_SHADER_MAIN.to_string(),
             }),
         )?;
+        let vertex_entrypoint = VERTEX_SHADER_MAIN.to_string();
+        let fragment_entrypoint = FRAGMENT_SHADER_MAIN.to_string();
         let textures = shader_ir
             .module
             .global_variables
@@ -160,12 +171,40 @@ impl Shader {
                 name: tex.name.as_ref().unwrap().clone(),
             })
             .collect::<Vec<_>>();
+        //doing last validation check
 
+        let mut validator = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::PUSH_CONSTANT,
+        );
+
+        let info = validator.validate(&shader_ir.module)?;
+        let vertex_spirv_data = naga::back::spv::write_vec(
+            &shader_ir.module,
+            &info,
+            &naga::back::spv::Options::default(),
+            Some(&naga::back::spv::PipelineOptions {
+                shader_stage: naga::ShaderStage::Vertex,
+                entry_point: VERTEX_SHADER_MAIN.to_string(),
+            }),
+        )?;
+        let fragment_spirv_data = naga::back::spv::write_vec(
+            &shader_ir.module,
+            &info,
+            &naga::back::spv::Options::default(),
+            Some(&naga::back::spv::PipelineOptions {
+                shader_stage: naga::ShaderStage::Fragment,
+                entry_point: FRAGMENT_SHADER_MAIN.to_string(),
+            }),
+        )?;
         Ok(Self {
             push_constant: PushConstant { ty: push_type },
             vertex_input: VertexInput { binding: 0, fields },
             fragment_spirv_data,
             vertex_spirv_data,
+            vertex_entrypoint,
+            fragment_entrypoint,
+
             textures,
         })
     }
@@ -176,6 +215,25 @@ impl Shader {
     /// is unsucessfull
     pub fn from_json_str(json: &str) -> Result<Self> {
         Ok(serde_json::from_str(json)?)
+    }
+    ///writes to disk with extension ".spv"
+    pub fn write_vertex_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path = path.as_ref().with_extension(Self::SPV_EXTENSION);
+        let mut file = File::create(path)?;
+        let data: Vec<u8> = self
+            .vertex_spirv_data
+            .iter()
+            .flat_map(|i| i.to_ne_bytes())
+            .collect();
+        let num = file.write(&data)?;
+        if num != data.len() {
+            bail!(
+                "failed to write vertex shader to disk, wrote {} bytes needed to write {} bytes",
+                num,
+                data.len()
+            );
+        }
+        Ok(())
     }
     /// writes to disk with extension ".ass_spv"
     pub fn write_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {
