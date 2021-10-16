@@ -48,6 +48,12 @@ pub struct Texture {
     pub name: String,
 }
 #[derive(Deserialize, Serialize, Debug)]
+pub struct Sampler {
+    pub binding: u32,
+    pub group: u32,
+    pub name: String,
+}
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Shader {
     /// push constant, assumed to be always in vertex shader
     pub push_constant: PushConstant,
@@ -58,6 +64,8 @@ pub struct Shader {
     pub vertex_spirv_data: Vec<u32>,
     /// textures as global input
     pub textures: Vec<Texture>,
+    /// samplers used
+    pub samplers: Vec<Sampler>,
     /// name of vetex shader entrypoing
     pub vertex_entrypoint: String,
     /// name of fragment shader entrypoing
@@ -68,6 +76,36 @@ impl Shader {
     const EXTENSION: &'static str = "ass_spv";
     /// spirv extension
     const SPV_EXTENSION: &'static str = "spv";
+    fn get_sampler(shader_ir: &mut super::ShaderIR) -> Result<Vec<Sampler>> {
+        Ok(shader_ir
+            .module
+            .global_variables
+            .iter()
+            .filter(|(_handle, var)| {
+                match shader_ir.module.types.get_handle(var.ty).unwrap().inner {
+                    naga::TypeInner::Sampler { .. } => true,
+                    _ => false,
+                }
+            })
+            .map(|(_handle, var)| Sampler {
+                name: var
+                    .name
+                    .as_ref()
+                    .expect("name does not exist for sampler")
+                    .clone(),
+                binding: var
+                    .binding
+                    .as_ref()
+                    .expect("binding does not exist for sampler")
+                    .binding,
+                group: var
+                    .binding
+                    .as_ref()
+                    .expect("group does not exist for sampler")
+                    .binding,
+            })
+            .collect())
+    }
     pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
         println!("{:#?}", shader_ir.module);
         let push_constants = shader_ir
@@ -188,6 +226,7 @@ impl Shader {
                 entry_point: VERTEX_SHADER_MAIN.to_string(),
             }),
         )?;
+        let samplers = Self::get_sampler(&mut shader_ir)?;
         let fragment_spirv_data = naga::back::spv::write_vec(
             &shader_ir.module,
             &info,
@@ -202,6 +241,7 @@ impl Shader {
             vertex_input: VertexInput { binding: 0, fields },
             fragment_spirv_data,
             vertex_spirv_data,
+            samplers,
             vertex_entrypoint,
             fragment_entrypoint,
 

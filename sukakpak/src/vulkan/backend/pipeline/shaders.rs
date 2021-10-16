@@ -11,13 +11,24 @@ use std::collections::HashMap;
 pub struct PushConstantDesc {
     pub range: vk::PushConstantRange,
 }
+/// Descriptor set for layout. This is an enum as v2 shaders have septate samplers and textures
+#[derive(Clone, Copy, Debug)]
+pub enum TextureDescriptorLayout {
+    CombinedImagedSampler {
+        layout_binding: vk::DescriptorSetLayoutBinding,
+    },
+    SeperateImageSampler {
+        image_layout_binding: vk::DescriptorSetLayoutBinding,
+        sampler_layout_binding: vk::DescriptorSetLayoutBinding,
+    },
+}
 #[derive(Clone, Debug)]
 pub struct ShaderDescription {
     pub push_constants: Vec<PushConstantDesc>,
     pub vertex_buffer_desc: VertexBufferDesc,
     pub vertex_shader_data: Vec<u8>,
     pub fragment_shader_data: Vec<u8>,
-    pub textures: HashMap<String, DescriptorDesc>,
+    pub textures: HashMap<String, TextureDescriptorLayout>,
     /// Name of vertex shader entrypoint, if v1 shader is "main"
     pub vertex_entrypoint: String,
     /// Name of fragment shader entrypoint, if v1 shader is "main"
@@ -100,14 +111,20 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
             textures: shader
                 .textures
                 .iter()
-                .map(|tex| {
+                .zip(shader.samplers.iter())
+                .map(|(tex, sampler)| {
                     (
                         tex.name.clone(),
-                        DescriptorDesc {
-                            layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                        TextureDescriptorLayout::SeperateImageSampler {
+                            image_layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                                 .binding(tex.binding)
                                 .descriptor_count(0)
-                                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                                .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
+                                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                            sampler_layout_binding: *vk::DescriptorSetLayoutBinding::builder()
+                                .binding(sampler.binding)
+                                .descriptor_count(0)
+                                .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
                                 .stage_flags(vk::ShaderStageFlags::FRAGMENT),
                         },
                     )
@@ -187,7 +204,7 @@ impl From<AssembledSpirv> for ShaderDescription {
             .map(|(name, tex)| {
                 (
                     name.clone(),
-                    DescriptorDesc {
+                    TextureDescriptorLayout::CombinedImagedSampler {
                         layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                             .binding(tex.binding)
                             .descriptor_count(0)
@@ -224,7 +241,7 @@ pub fn push_shader() -> ShaderDescription {
     ShaderDescription {
         textures: [(
             "mesh_texture".to_string(),
-            DescriptorDesc {
+            TextureDescriptorLayout::CombinedImagedSampler {
                 layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                     .binding(0)
                     .descriptor_count(1)
@@ -286,7 +303,7 @@ pub fn alt_shader() -> ShaderDescription {
     ShaderDescription {
         textures: [(
             "mesh_texture".to_string(),
-            DescriptorDesc {
+            TextureDescriptorLayout::CombinedImagedSampler {
                 layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                     .binding(0)
                     .descriptor_count(1)
