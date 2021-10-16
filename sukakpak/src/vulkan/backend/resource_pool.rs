@@ -39,7 +39,7 @@ impl ResourcePool {
                 (
                     name.clone(),
                     DescriptorDesc {
-                        layout_binding: texture.image_layout_binding.clone(),
+                        layout_binding: texture.sampler_layout_binding.clone(),
                     },
                 )
             })
@@ -372,6 +372,9 @@ impl ResourcePool {
         self.texture_descriptor_pool
             .get_descriptor_layouts()
             .iter()
+            .zip(self.sampler_descriptor_pool.get_descriptor_layouts().iter())
+            .map(|(l1, l2)| [l1, l2])
+            .flatten()
             .copied()
             .collect()
     }

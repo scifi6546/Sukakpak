@@ -6,7 +6,7 @@ struct VertexOutput{
 struct Locals{
     transform: mat4x4<f32>;
 };
-[[group(0),binding(1)]]
+[[group(0),binding(3)]]
 var<uniform> locals: Locals;
 [[stage(vertex)]]
 fn vs_main(

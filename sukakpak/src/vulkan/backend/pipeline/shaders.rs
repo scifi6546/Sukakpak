@@ -122,14 +122,18 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
                         TextureDescriptorLayout {
                             image_layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                                 .binding(tex.binding)
-                                .descriptor_count(0)
+                                .descriptor_count(1)
                                 .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
-                                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                                .stage_flags(
+                                    vk::ShaderStageFlags::FRAGMENT | vk::ShaderStageFlags::VERTEX,
+                                ),
                             sampler_layout_binding: *vk::DescriptorSetLayoutBinding::builder()
                                 .binding(sampler.binding)
-                                .descriptor_count(0)
-                                .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
-                                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                                .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::SAMPLER)
+                                .stage_flags(
+                                    vk::ShaderStageFlags::FRAGMENT | vk::ShaderStageFlags::VERTEX,
+                                ),
                         },
                     )
                 })

@@ -32,7 +32,7 @@ impl GraphicsPipeline {
         depth_buffer: &DepthBuffer,
         pipeline_type: PipelineType,
     ) -> Self {
-        println!("descriptor sets: {:#?}", descriptor_layouts);
+        println!("descriptor layouts: {:#?}", descriptor_layouts);
         let frag_shader_data = read_spv(&mut Cursor::new(shader_data.fragment_shader_data.clone()))
             .expect("failed to create shader");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_shader_data);
@@ -77,9 +77,10 @@ impl GraphicsPipeline {
             .iter()
             .map(|push| push.range)
             .collect::<Vec<_>>();
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+        let layout_create_info = *vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(descriptor_layouts)
             .push_constant_ranges(&ranges);
+        println!("layout create innfo: {:#?}", layout_create_info);
         let pipeline_layout = unsafe {
             core.device
                 .create_pipeline_layout(&layout_create_info, None)
@@ -140,6 +141,7 @@ impl GraphicsPipeline {
         initial_layout: vk::ImageLayout,
         final_layout: vk::ImageLayout,
     ) -> RenderPipeline {
+        println!("layout: {:#?}", pipeline_layout);
         let renderpass =
             Self::build_renderpass(core, load_op, depth_buffer, initial_layout, final_layout);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
