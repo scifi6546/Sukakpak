@@ -16,9 +16,34 @@ use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
     allocator: ManuallyDrop<VulkanAllocator>,
     texture_descriptor_pool: DescriptorPool,
+    sampler_descriptor_pool: DescriptorPool,
 }
 impl ResourcePool {
     pub fn new(core: &Core, shader: &ShaderDescription) -> Result<Self> {
+        let texture_layouts = shader
+            .textures
+            .iter()
+            .map(|(name, texture)| {
+                (
+                    name.clone(),
+                    DescriptorDesc {
+                        layout_binding: texture.image_layout_binding.clone(),
+                    },
+                )
+            })
+            .collect();
+        let sampler_layouts = shader
+            .textures
+            .iter()
+            .map(|(name, texture)| {
+                (
+                    name.clone(),
+                    DescriptorDesc {
+                        layout_binding: texture.image_layout_binding.clone(),
+                    },
+                )
+            })
+            .collect();
         Ok(Self {
             allocator: ManuallyDrop::new(VulkanAllocator::new(&VulkanAllocatorCreateDesc {
                 instance: core.instance.clone(),
@@ -29,8 +54,13 @@ impl ResourcePool {
             })),
             texture_descriptor_pool: DescriptorPool::new(
                 core,
-                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                &shader.textures,
+                vk::DescriptorType::SAMPLED_IMAGE,
+                &texture_layouts,
+            )?,
+            sampler_descriptor_pool: DescriptorPool::new(
+                core,
+                vk::DescriptorType::SAMPLER,
+                &sampler_layouts,
             )?,
         })
     }
@@ -330,7 +360,7 @@ impl ResourcePool {
                     .binding,
             )
             .dst_array_element(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
             .image_info(&descriptor_image_info)];
         unsafe {
             core.device.update_descriptor_sets(&descriptor_write, &[]);

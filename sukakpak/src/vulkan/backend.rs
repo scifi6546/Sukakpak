@@ -19,7 +19,7 @@ use framebuffer::{
     TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
+use pipeline::{basic_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use ref_counter::RefCounter;
 use render_core::Core;
 mod pipeline;
@@ -102,14 +102,11 @@ impl Backend {
         create_info: CreateInfo,
         event_loop: &winit::event_loop::EventLoop<()>,
     ) -> Result<Self> {
-        let shaders = [
-            ("push".to_string(), push_shader()),
-            ("alt".to_string(), alt_shader()),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        let main_shader = push_shader();
+        let shaders = [("basic".to_string(), basic_shader())]
+            .iter()
+            .cloned()
+            .collect();
+        let main_shader = basic_shader();
         let window = winit::window::WindowBuilder::new()
             .with_title(create_info.name.clone())
             .with_inner_size(winit::dpi::LogicalSize::new(
@@ -534,12 +531,7 @@ impl Backend {
     pub fn get_screen_size(&self) -> Vector2<u32> {
         self.screen_dimensions
     }
-    pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
-        self.shaders
-            .insert(shader_name.to_string(), load_from_fs(path)?.into());
-        Ok(())
-    }
-    pub fn load_shader_v2(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
+    pub fn load_shader(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
         let shader = ass_lib_v2::vk::Shader::from_json_str(shader_data)
             .with_context(|| format!("failed to load shader {}", shader_name))?;
         self.shaders.insert(shader_name.to_string(), shader.into());

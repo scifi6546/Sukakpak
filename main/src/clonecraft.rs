@@ -152,7 +152,7 @@ impl sukakpak::Renderable for CloneCraft {
             )
             .expect("failed to build fb mesh");
         context
-            .load_shader_v2(include_str!("../v2_test.ass_spv"), "v2")
+            .load_shader(include_str!("../v2_test.ass_spv"), "v2")
             .expect("failed to load shader");
         context
             .bind_shader(Bindable::UserFramebuffer(&framebuffer), "v2")
