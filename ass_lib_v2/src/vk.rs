@@ -235,6 +235,25 @@ impl Shader {
         }
         Ok(())
     }
+    ///writes to disk with extension ".spv"
+    pub fn write_fragment_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path = path.as_ref().with_extension(Self::SPV_EXTENSION);
+        let mut file = File::create(path)?;
+        let data: Vec<u8> = self
+            .fragment_spirv_data
+            .iter()
+            .flat_map(|i| i.to_ne_bytes())
+            .collect();
+        let num = file.write(&data)?;
+        if num != data.len() {
+            bail!(
+                "failed to write vertex shader to disk, wrote {} bytes needed to write {} bytes",
+                num,
+                data.len()
+            );
+        }
+        Ok(())
+    }
     /// writes to disk with extension ".ass_spv"
     pub fn write_to_disk<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let json_string = self.to_json_string()?;

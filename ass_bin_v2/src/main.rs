@@ -18,6 +18,11 @@ fn run(options: Opt) -> Result<()> {
             .write_vertex_to_disk(p)
             .with_context(|| "failed to write spv to disk")?;
     }
+    if let Some(p) = options.fragment_spv {
+        vulkan
+            .write_fragment_to_disk(p)
+            .with_context(|| "failed to write spv to disk")?;
+    }
 
     Ok(())
 }
@@ -33,8 +38,10 @@ struct Opt {
     /// Verbose output
     #[structopt(short = "V", long = "verbose")]
     verbose: bool,
-    #[structopt(long = "vertex_spv", parse(from_os_str))]
+    #[structopt(long = "vertex-spv", parse(from_os_str))]
     vertex_spv: Option<PathBuf>,
+    #[structopt(long = "fragment-spv", parse(from_os_str))]
+    fragment_spv: Option<PathBuf>,
 }
 fn main() {
     let opt = Opt::from_args();
