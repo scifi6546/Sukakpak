@@ -76,16 +76,44 @@ impl Shader {
     const EXTENSION: &'static str = "ass_spv";
     /// spirv extension
     const SPV_EXTENSION: &'static str = "spv";
-    fn get_sampler(shader_ir: &mut super::ShaderIR) -> Result<Vec<Sampler>> {
-        Ok(shader_ir
+    fn validate(shader_ir: &super::ShaderIR) -> Result<()> {
+        let num_mesh_texture = shader_ir
             .module
             .global_variables
             .iter()
             .filter(|(_handle, var)| {
                 match shader_ir.module.types.get_handle(var.ty).unwrap().inner {
+                    naga::TypeInner::Image { .. } => true,
+                    _ => false,
+                }
+            })
+            .filter(|(_handle, var)| var.name.is_some())
+            .filter(|(_handle, var)| var.name.as_ref().unwrap() == "mesh_texture")
+            .count();
+        if num_mesh_texture != 1 {
+            bail!(
+                "there must be one texture with name \"mesh_texture\", got {} textures",
+                num_mesh_texture
+            );
+        }
+        Ok(())
+    }
+    fn get_sampler(shader_ir: &mut super::ShaderIR) -> Result<Vec<Sampler>> {
+        Ok(shader_ir
+            .module
+            .global_variables
+            .iter_mut()
+            .filter(|(_handle, var)| {
+                match shader_ir.module.types.get_handle(var.ty).unwrap().inner {
                     naga::TypeInner::Sampler { .. } => true,
                     _ => false,
                 }
+            })
+            .map(|(handle, var)| {
+                let mut binding = var.binding.clone().expect("binding must exist for sampler");
+                binding.group = 1;
+                var.binding = Some(binding);
+                (handle, var)
             })
             .map(|(_handle, var)| Sampler {
                 name: var
@@ -108,6 +136,7 @@ impl Shader {
     }
     pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
         println!("{:#?}", shader_ir.module);
+        Self::validate(&shader_ir)?;
         let push_constants = shader_ir
             .module
             .global_variables
@@ -236,6 +265,7 @@ impl Shader {
                 entry_point: FRAGMENT_SHADER_MAIN.to_string(),
             }),
         )?;
+        println!("{:#?}", shader_ir.module);
         Ok(Self {
             push_constant: PushConstant { ty: push_type },
             vertex_input: VertexInput { binding: 0, fields },
