@@ -1,12 +1,12 @@
 mod shader_type;
 pub use anyhow;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use naga::front::wgsl;
 use serde::Deserialize;
 pub use shader_type::{Scalar, ShaderType};
 use std::{fs::File, io::Read, path::Path};
-pub const VERTEX_SHADER_MAIN: &'static str = "vs_main";
-pub const FRAGMENT_SHADER_MAIN: &'static str = "fs_main";
+pub const VERTEX_SHADER_MAIN: &str = "vs_main";
+pub const FRAGMENT_SHADER_MAIN: &str = "fs_main";
 
 #[derive(Deserialize)]
 pub struct Project {
@@ -49,7 +49,7 @@ impl ShaderIR {
 
         let mut shader_string = String::new();
 
-        let shader_path = path.join(project_data.shader_path.clone());
+        let shader_path = path.join(project_data.shader_path);
         if options.verbose {
             if let Some(path_str) = shader_path.to_str() {
                 println!("loading shader at: {}", path_str);

@@ -13,7 +13,9 @@ pub enum ShaderType {
 impl ShaderType {
     pub fn from_type(ty: &naga::Type, arena: &naga::UniqueArena<naga::Type>) -> Result<Self> {
         match &ty.inner {
-            &naga::TypeInner::Scalar { kind, width } => todo!("scalar"),
+            &naga::TypeInner::Scalar { kind, width } => {
+                Ok(Self::Scalar(Scalar::from_naga(&kind, width)?))
+            }
             &naga::TypeInner::Vector { size, kind, width } => match size {
                 naga::VectorSize::Bi => match kind {
                     naga::ScalarKind::Sint => bail!("signed int not supported"),
@@ -68,14 +70,9 @@ impl ShaderType {
                     },
                 },
             },
-            &naga::TypeInner::Atomic { kind, width } => todo!("atomic"),
-            &naga::TypeInner::Pointer { base, class } => todo!("pointer"),
-            &naga::TypeInner::ValuePointer {
-                size,
-                kind,
-                width,
-                class,
-            } => todo!("value pointer"),
+            &naga::TypeInner::Atomic { .. } => todo!("atomic"),
+            &naga::TypeInner::Pointer { .. } => todo!("pointer"),
+            &naga::TypeInner::ValuePointer { .. } => todo!("value pointer"),
             &naga::TypeInner::Array { base, size, stride } => todo!("array"),
             naga::TypeInner::Struct {
                 top_level,
@@ -108,10 +105,7 @@ impl ShaderType {
             &Self::Vec3(s) => 3 * s.size(),
             &Self::Vec2(s) => 2 * s.size(),
             &Self::Scalar(s) => s.size(),
-            Self::Struct(s) => s
-                .iter()
-                .map(|(_name, ty)| ty.size())
-                .fold(0, |acc, x| acc + x),
+            Self::Struct(s) => s.iter().map(|(_name, ty)| ty.size()).sum(),
         }
     }
 }
@@ -125,6 +119,22 @@ impl Scalar {
         match *self {
             Self::F32 => std::mem::size_of::<f32>() as u32,
             Self::U32 => std::mem::size_of::<u32>() as u32,
+        }
+    }
+    fn from_naga(kind: &naga::ScalarKind, width: u8) -> Result<Self> {
+        match kind {
+            &naga::ScalarKind::Uint => match width {
+                4 => Ok(Self::U32),
+                8 => bail!("64 bit unsigned ints not yet supported"),
+                _ => bail!("unsupported int width"),
+            },
+            &naga::ScalarKind::Float => match width {
+                4 => Ok(Self::F32),
+                8 => bail!("64 bit unsigned floats not yet supported"),
+                _ => bail!("unsupported int width"),
+            },
+            &naga::ScalarKind::Sint => bail!("signed ints not supported yet"),
+            &naga::ScalarKind::Bool => bail!("bools are not supported yet"),
         }
     }
 }

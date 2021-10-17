@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::Entry::Vacant as HashmapVacant, HashMap, HashSet},
     hash::Hash,
 };
 pub type RenderpassID = u32;
@@ -11,10 +11,10 @@ pub struct FreeList<T: Eq + Hash + Clone> {
 impl<T: Eq + Hash + Clone> FreeList<T> {
     /// Marks the item as used
     pub fn push(&mut self, item: T, renderpass: RenderpassID) {
-        if self.by_renderpass.contains_key(&renderpass) {
-            self.by_renderpass.get_mut(&renderpass).unwrap().push(item);
+        if let HashmapVacant(v) = self.by_renderpass.entry(renderpass) {
+            v.insert(vec![item]);
         } else {
-            self.by_renderpass.insert(renderpass, vec![item]);
+            self.by_renderpass.get_mut(&renderpass).unwrap().push(item);
         }
     }
     /// Marks a component as to be freed, if it
@@ -30,7 +30,7 @@ impl<T: Eq + Hash + Clone> FreeList<T> {
                 }
             }
         }
-        return false;
+        false
     }
     /// Returns all items to free in a renderpass
     pub fn finish_renderpass(&mut self, done_renderpass: RenderpassID) -> HashSet<T> {
@@ -46,7 +46,7 @@ impl<T: Eq + Hash + Clone> FreeList<T> {
             self.too_free.remove(freed);
         }
         self.by_renderpass.remove(&done_renderpass);
-        return out_free;
+        out_free
     }
 }
 impl<T: Eq + Hash + Clone> Default for FreeList<T> {
