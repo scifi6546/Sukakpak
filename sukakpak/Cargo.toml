@@ -16,7 +16,7 @@ phf = {version="0.8.0",features=["macros"]}
 image = "0.23.14"
 thiserror = "1.0.25"
 cfg-if="1.0"
-ass_lib = {path = "../ass_lib"}
+ass_lib = {path = "../ass/ass_lib"}
 free_list = {path = "../free_list"}
 
 [dependencies.winit]
