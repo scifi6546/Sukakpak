@@ -6,7 +6,7 @@ struct VertexOutput{
 struct Locals{
     transform: mat4x4<f32>;
 };
-[[group(0),binding(1)]]
+[[group(0),binding(3)]]
 var<uniform> locals: Locals;
 [[stage(vertex)]]
 fn vs_main(
@@ -20,13 +20,11 @@ fn vs_main(
     return out;
 }
 [[group(0),binding(0)]]
-var tex: texture_2d<f32>;
+var mesh_texture: texture_2d<f32>;
 [[group(0),binding(1)]]
 var sampler: sampler;
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput)->[[location(0)]]vec4<f32>{
-    //let texture = textureLoad(tex,vec2<u32>(in.tex_coord),0);
-   let texture= textureSample(tex,sampler,in.tex_coord);
-    let v = f32(texture.x)/255.0;
-    return vec4<f32>(v,0.0,0.0,0.0);
+    let texture= textureSample(mesh_texture,sampler,in.tex_coord);
+    return texture+vec4<f32>(0.0,0.0,0.0,1.0);
 }

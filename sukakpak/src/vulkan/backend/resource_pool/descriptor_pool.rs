@@ -30,6 +30,7 @@ impl DescriptorPool {
         pool_type: vk::DescriptorType,
         descriptors: &HashMap<String, DescriptorDesc>,
     ) -> Result<Self> {
+        println!("descriptors: {:#?}", descriptors);
         let pool_sizes = [*vk::DescriptorPoolSize::builder()
             .descriptor_count(Self::MAX_SETS)
             .ty(pool_type)];
@@ -62,6 +63,7 @@ impl DescriptorPool {
         })
     }
     pub fn get_descriptor_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
+        println!("layouts: {:#?}", self.descriptors);
         self.descriptors
             .iter()
             .map(|(_key, (layout, _desc))| *layout)

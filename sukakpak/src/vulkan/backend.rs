@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context as AContext, Result};
 use ash::vk;
-use ass_lib::asm_spv::load_from_fs;
+
 use image::RgbaImage;
 use nalgebra::Vector2;
 use thiserror::Error;
@@ -19,13 +19,14 @@ use framebuffer::{
     TextureAttachment,
 };
 use generational_arena::{Arena, Index as ArenaIndex};
-use pipeline::{alt_shader, push_shader, GraphicsPipeline, PipelineType, ShaderDescription};
+use pipeline::{basic_shader, GraphicsPipeline, PipelineType, ShaderDescription};
 use ref_counter::RefCounter;
 use render_core::Core;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass, ResourceId};
 use resource_pool::{
-    DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
+    DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, TextureDescriptorSets,
+    VertexBufferAllocation,
 };
 use std::collections::HashSet;
 use std::{collections::HashMap, path::Path};
@@ -102,14 +103,11 @@ impl Backend {
         create_info: CreateInfo,
         event_loop: &winit::event_loop::EventLoop<()>,
     ) -> Result<Self> {
-        let shaders = [
-            ("push".to_string(), push_shader()),
-            ("alt".to_string(), alt_shader()),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        let main_shader = push_shader();
+        let shaders = [("basic".to_string(), basic_shader())]
+            .iter()
+            .cloned()
+            .collect();
+        let main_shader = basic_shader();
         let window = winit::window::WindowBuilder::new()
             .with_title(create_info.name.clone())
             .with_inner_size(winit::dpi::LogicalSize::new(
@@ -375,14 +373,14 @@ impl Backend {
 
     pub fn draw_mesh(&mut self, push: Vec<u8>, mesh_id: &MeshID) -> Result<()> {
         let mesh = self.models.get(mesh_id.buffer_index).unwrap();
-        let texture_descriptor_set = match mesh.texture {
-            MeshTexture::RegularTexture(texture) => {
-                self.textures
-                    .get(texture.buffer_index)
-                    .unwrap()
-                    .get()
-                    .descriptor_set
-            }
+        let descriptor_set = match mesh.texture {
+            MeshTexture::RegularTexture(texture) => self
+                .textures
+                .get(texture.buffer_index)
+                .unwrap()
+                .get()
+                .descriptor_sets
+                .clone(),
             MeshTexture::Framebuffer(fb) => {
                 if BoundFramebuffer::UserFramebuffer(fb) == self.bound_framebuffer {
                     return Err(anyhow!(
@@ -416,7 +414,10 @@ impl Backend {
             vertex_buffer: &mesh.vertices,
             index_buffer: &mesh.indices,
         };
-        let descriptor_set = [texture_descriptor_set];
+        let descriptor_set_arr = [
+            descriptor_set.texture_descriptor_set,
+            descriptor_set.sampler_descriptor_set,
+        ];
         self.renderpass.draw_mesh(
             &mut self.core,
             match self.bound_framebuffer {
@@ -430,7 +431,7 @@ impl Backend {
                         .framebuffer
                 }
             },
-            &descriptor_set,
+            &descriptor_set_arr,
             self.screen_dimensions,
             render_mesh,
         )
@@ -534,13 +535,8 @@ impl Backend {
     pub fn get_screen_size(&self) -> Vector2<u32> {
         self.screen_dimensions
     }
-    pub fn load_shader<P: AsRef<Path>>(&mut self, path: P, shader_name: &str) -> Result<()> {
-        self.shaders
-            .insert(shader_name.to_string(), load_from_fs(path)?.into());
-        Ok(())
-    }
-    pub fn load_shader_v2(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
-        let shader = ass_lib_v2::vk::Shader::from_json_str(shader_data)
+    pub fn load_shader(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
+        let shader = ass_lib::vk::Shader::from_json_str(shader_data)
             .with_context(|| format!("failed to load shader {}", shader_name))?;
         self.shaders.insert(shader_name.to_string(), shader.into());
         Ok(())

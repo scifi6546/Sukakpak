@@ -1,220 +1,91 @@
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::{convert::TryFrom, fs::File, io::Read, path::Path};
+mod shader_type;
+pub use anyhow;
+use anyhow::{bail, Context, Result};
+use naga::front::wgsl;
+use serde::Deserialize;
+pub use shader_type::{Scalar, ShaderType};
+use std::{fs::File, io::Read, path::Path};
+const VERTEX_SHADER_MAIN: &'static str = "vs_main";
+const FRAGMENT_SHADER_MAIN: &'static str = "fs_main";
 
-pub mod asm_spv;
-use asm_spv::AssembledSpirv;
-pub use asm_spv::{ScalarType, Type};
+#[derive(Deserialize)]
+pub struct Project {
+    /// Path relative to project root specififying location of vertex shader
+    pub shader_path: String,
+}
+#[derive(Debug)]
+pub struct Options {
+    /// print debug output
+    pub verbose: bool,
+}
+/// Intermediate represention of shader. Used to convert to production
+/// shading langages such as SPIR-V for Vulkan or glsl for webgl2.
+pub struct ShaderIR {
+    module: naga::Module,
+    info: naga::valid::ModuleInfo,
+}
+impl ShaderIR {
+    pub fn compile_from_disk<P: AsRef<Path>>(path: P, options: Options) -> Result<Self> {
+        let path: &Path = path.as_ref();
+        let project_index_path = path.join("project.json");
+        if options.verbose {
+            if let Some(path_str) = project_index_path.to_str() {
+                println!("loading project file at: {}", path_str);
+            }
+        }
+        let file = File::open(project_index_path.clone()).with_context(|| {
+            format!(
+                "failed to open project file: {}",
+                project_index_path.to_str().unwrap()
+            )
+        })?;
+        if options.verbose {
+            if let Some(path_str) = project_index_path.to_str() {
+                println!("parsing project file at: {}", path_str);
+            }
+        }
+        let project_data: Project =
+            serde_json::from_reader(file).with_context(|| "Failed to parse project file")?;
 
-pub struct Shader {
-    vertex_shader: Module,
-    vertex_info: ShaderDescription,
-    fragment_shader: Module,
-    fragment_info: ShaderDescription,
-}
+        let mut shader_string = String::new();
 
-//info for shader description that accompanies shader module
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ShaderDescription {
-    stage: asm_spv::ShaderStage,
-    vertex_input_binding: u32,
-}
-impl TryFrom<Shader> for AssembledSpirv {
-    type Error = anyhow::Error;
-    #[allow(unreachable_code)]
-    fn try_from(shader: Shader) -> std::result::Result<Self, Self::Error> {
-        Ok(AssembledSpirv {
-            vertex_shader: Shader::get_module(shader.vertex_shader, shader.vertex_info)?,
-            fragment_shader: Shader::get_module(shader.fragment_shader, shader.fragment_info)?,
-            push_constants: todo!(),
-            textures: todo!(),
-        })
-    }
-}
-impl Shader {
-    fn get_module(module: naga::Module, info: ShaderDescription) -> Result<asm_spv::SpirvModule> {
+        let shader_path = path.join(project_data.shader_path.clone());
+        if options.verbose {
+            if let Some(path_str) = shader_path.to_str() {
+                println!("loading shader at: {}", path_str);
+            }
+        }
+
+        let mut shader_file = File::open(shader_path.clone()).with_context(|| {
+            format!(
+                "failed to open shader file {}",
+                shader_path.to_str().unwrap()
+            )
+        })?;
+        shader_file
+            .read_to_string(&mut shader_string)
+            .with_context(|| "failed to read from shader file")?;
+        if options.verbose {
+            println!("parsing shader string:\n\"\"\"\n{}\n\"\"\"", shader_string);
+        }
+
+        let module = wgsl::parse_str(&shader_string).with_context(|| "failed to parse shader")?;
         let mut validator = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::PUSH_CONSTANT,
         );
-        let module_info = validator.validate(&module)?;
-        let data = naga::back::spv::write_vec(
-            &module,
-            &module_info,
-            &naga::back::spv::Options {
-                lang_version: (1, 5),
-                flags: naga::back::spv::WriterFlags::empty(),
-                capabilities: None,
-            },
-        )?;
-        Ok(asm_spv::SpirvModule {
-            stage: info.stage,
-            vertex_input_binding: info.vertex_input_binding,
-            data,
-            data_in: module
-                .entry_points
-                .iter()
-                .next()
-                .expect("no entry points in shader")
-                .function
-                .arguments
-                .iter()
-                .filter(|arg| arg.binding.is_some())
-                .map(|arg| {
-                    (
-                        (&module.types[arg.ty]).into(),
-                        asm_spv::Location {
-                            location: match arg.binding.clone().expect("location found") {
-                                naga::Binding::Location { location, .. } => location,
-                                _ => todo!(),
-                            },
-                        },
-                    )
-                })
-                .collect(),
-            entry_point: module
-                .entry_points
-                .iter()
-                .next()
-                .expect("no entry points in shader")
-                .name
-                .clone(),
-        })
+
+        let info = validator.validate(&module)?;
+        Ok(Self { module, info })
     }
-}
-fn to_scalar(kind: naga::ScalarKind, size: naga::Bytes) -> ScalarType {
-    match kind {
-        naga::ScalarKind::Sint => todo!("not yet supported"),
-        naga::ScalarKind::Uint => todo!("not yet supported"),
-        naga::ScalarKind::Float => match size {
-            4 => ScalarType::F32,
-            8 => ScalarType::F64,
-            _ => panic!("invalid float size"),
-        },
-        naga::ScalarKind::Bool => todo!("not yet supported"),
-    }
-}
-impl From<&naga::Type> for Type {
-    fn from(ty: &naga::Type) -> Self {
-        match ty.inner {
-            naga::TypeInner::Scalar { kind, width } => Type::Scalar(to_scalar(kind, width)),
-            naga::TypeInner::Vector { size, kind, width } => match size {
-                naga::VectorSize::Bi => Type::Vec2(to_scalar(kind, width)),
-                naga::VectorSize::Tri => Type::Vec3(to_scalar(kind, width)),
-                naga::VectorSize::Quad => Type::Vec4(to_scalar(kind, width)),
-            },
-            naga::TypeInner::Matrix {
-                columns,
-                rows,
-                width,
-            } => match columns {
-                naga::VectorSize::Bi => match rows {
-                    naga::VectorSize::Bi => match width {
-                        4 => Type::Mat2(ScalarType::F32),
-                        8 => Type::Mat2(ScalarType::F64),
-                        _ => panic!("unsupported floating point size"),
-                    },
-                    _ => panic!("only square matricies are supported"),
-                },
-                naga::VectorSize::Tri => match rows {
-                    naga::VectorSize::Tri => match width {
-                        4 => Type::Mat3(ScalarType::F32),
-                        8 => Type::Mat3(ScalarType::F64),
-                        _ => panic!("unsupported floating point size"),
-                    },
-                    _ => panic!("only square matricies are supported"),
-                },
-                naga::VectorSize::Quad => match rows {
-                    naga::VectorSize::Quad => match width {
-                        4 => Type::Mat4(ScalarType::F32),
-                        8 => Type::Mat4(ScalarType::F64),
-                        _ => panic!("unsupported floating point size"),
-                    },
-                    _ => panic!("only square matricies are supported"),
-                },
-            },
-            _ => todo!("type is currently unsupported"),
-        }
-    }
-}
-use naga::{front::glsl, Module};
-#[derive(Deserialize, Debug)]
-pub struct ShaderConfig {
-    vertex_shader: ModuleConfig,
-    fragment_shader: ModuleConfig,
-}
-#[derive(Deserialize, Debug)]
-pub struct ModuleConfig {
-    path: String,
-    info: ShaderDescription,
-    entry_point: EntryPoint,
-}
-#[derive(Deserialize, Debug)]
-pub struct EntryPoint {
-    name: String,
-    stage: asm_spv::ShaderStage,
 }
 
-pub fn load_directory(path: &Path) -> Result<Shader> {
-    let config: ShaderConfig = {
-        let config_file = File::open(path.join("config.json"))?;
-        serde_json::from_reader(config_file)?
-    };
-    let mut file = File::open(path.join(config.vertex_shader.path))?;
-    let mut frag_str = String::new();
-    file.read_to_string(&mut frag_str)?;
-    let entry_points = [config.vertex_shader.entry_point]
-        .iter()
-        .map(|e| {
-            (
-                e.name.clone(),
-                match e.stage {
-                    asm_spv::ShaderStage::Fragment => naga::ShaderStage::Fragment,
-                    asm_spv::ShaderStage::Vertex => naga::ShaderStage::Vertex,
-                },
-            )
-        })
-        .collect();
-    let vertex_shader = glsl::parse_str(
-        &frag_str,
-        &glsl::Options {
-            entry_points,
-            defines: naga::FastHashMap::default(),
-        },
-    )?;
-    let fragment_shader = {
-        let mut file = File::open(path.join(config.fragment_shader.path))?;
-        let mut frag_str = String::new();
-        file.read_to_string(&mut frag_str)?;
-        let entry_points = [config.fragment_shader.entry_point]
-            .iter()
-            .map(|e| {
-                (
-                    e.name.clone(),
-                    match e.stage {
-                        asm_spv::ShaderStage::Fragment => naga::ShaderStage::Fragment,
-                        asm_spv::ShaderStage::Vertex => naga::ShaderStage::Vertex,
-                    },
-                )
-            })
-            .collect();
-        println!("{}", frag_str);
-        let s = glsl::parse_str(
-            &frag_str,
-            &glsl::Options {
-                entry_points,
-                defines: naga::FastHashMap::default(),
-            },
-        );
-        println!("{:#?}", s);
-        s?
-    };
-    println!("{:#?}", vertex_shader);
-    Ok(Shader {
-        vertex_shader,
-        vertex_info: config.vertex_shader.info,
-        fragment_shader,
-        fragment_info: config.fragment_shader.info,
-    })
+pub mod vk;
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        let result = 2 + 2;
+        assert_eq!(result, 4);
+    }
 }

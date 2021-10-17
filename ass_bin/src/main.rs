@@ -1,24 +1,49 @@
-use ass_lib::{
-    asm_spv::{load_from_fs, AssembledSpirv},
-    load_directory,
+use ass_lib_v2::{
+    anyhow::{Context, Result},
+    ShaderIR,
 };
-use clap::{App, Arg};
-use std::{convert::TryInto, path::Path};
+use std::path::PathBuf;
+use structopt::StructOpt;
+fn run(options: Opt) -> Result<()> {
+    let ir = ShaderIR::compile_from_disk(
+        options.input_file,
+        ass_lib_v2::Options {
+            verbose: options.verbose,
+        },
+    )?;
+    let vulkan = ass_lib_v2::vk::Shader::from_ir(ir)?;
+    vulkan.write_to_disk(options.out_file)?;
+    if let Some(p) = options.vertex_spv {
+        vulkan
+            .write_vertex_to_disk(p)
+            .with_context(|| "failed to write spv to disk")?;
+    }
+    if let Some(p) = options.fragment_spv {
+        vulkan
+            .write_fragment_to_disk(p)
+            .with_context(|| "failed to write spv to disk")?;
+    }
+
+    Ok(())
+}
+#[derive(Debug, StructOpt)]
+#[structopt(name = "ass", about = "Sukakpak shader compiller")]
+struct Opt {
+    /// Input Shader Directory
+    #[structopt(parse(from_os_str))]
+    input_file: PathBuf,
+    /// Where to write saved file
+    #[structopt(parse(from_os_str))]
+    out_file: PathBuf,
+    /// Verbose output
+    #[structopt(short = "V", long = "verbose")]
+    verbose: bool,
+    #[structopt(long = "vertex-spv", parse(from_os_str))]
+    vertex_spv: Option<PathBuf>,
+    #[structopt(long = "fragment-spv", parse(from_os_str))]
+    fragment_spv: Option<PathBuf>,
+}
 fn main() {
-    let matches = App::new("Sukakpak Shader Assembler")
-        .version("0.1")
-        .author("Skookum")
-        .about("Assembles shader directory into a Skukakpak Shader")
-        .arg(
-            Arg::with_name("path")
-                .short("p")
-                .long("path")
-                .value_name("PATH")
-                .help("directory to load from")
-                .required(true),
-        )
-        .get_matches();
-    let path = matches.value_of("path").unwrap();
-    let shader = load_directory(Path::new(path)).expect("failed to load directory");
-    let assembled: AssembledSpirv = shader.try_into().expect("");
+    let opt = Opt::from_args();
+    run(opt).expect("failed to compile shader");
 }

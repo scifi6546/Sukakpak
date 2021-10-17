@@ -87,9 +87,9 @@ fn to_slice(mat: &na::Matrix4<f32>) -> Vec<u8> {
 const CUBE_DIMENSIONS: usize = 1;
 impl sukakpak::Renderable for CloneCraft {
     fn init(mut context: Context) -> Self {
-        context
-            .load_shader("shaders/test", "test")
-            .expect("failed to load shader");
+        //context
+        //    .load_shader("shaders/test", "test")
+        //    .expect("failed to load shader");
         let image = image::ImageBuffer::from_pixel(100, 100, image::Rgba([255, 0, 0, 0]));
         let red_texture = context
             .build_texture(&image)
@@ -152,7 +152,7 @@ impl sukakpak::Renderable for CloneCraft {
             )
             .expect("failed to build fb mesh");
         context
-            .load_shader_v2(include_str!("../v2_test.ass_spv"), "v2")
+            .load_shader(include_str!("../v2_test.ass_spv"), "v2")
             .expect("failed to load shader");
         context
             .bind_shader(Bindable::UserFramebuffer(&framebuffer), "v2")
