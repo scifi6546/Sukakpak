@@ -9,7 +9,7 @@ use nalgebra::Vector2;
 
 use super::{
     CommandPool, Core, GraphicsPipeline, PipelineType, ResourcePool, ShaderDescription,
-    TextureAllocation,
+    TextureAllocation, TextureDescriptorSets,
 };
 use anyhow::Result;
 
@@ -114,7 +114,7 @@ impl Framebuffer {
 pub struct AttachableFramebuffer {
     pub framebuffer: Framebuffer,
     pub sampler: vk::Sampler,
-    pub descriptor_sets: Vec<vk::DescriptorSet>,
+    pub descriptor_sets: Vec<TextureDescriptorSets>,
 }
 impl AttachableFramebuffer {
     pub const IMAGE_LAYOUT: vk::ImageLayout = vk::ImageLayout::GENERAL;
@@ -164,7 +164,7 @@ impl AttachableFramebuffer {
                 .max_sampler_anisotropy,
             );
         let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }?;
-        let descriptor_sets = framebuffer
+        let descriptor_sets: Vec<TextureDescriptorSets> = framebuffer
             .texture_attachment
             .color_buffer
             .present_image_views
@@ -184,8 +184,8 @@ impl AttachableFramebuffer {
     pub fn get_framebuffer(&self) -> &Framebuffer {
         &self.framebuffer
     }
-    pub fn get_descriptor_set(&self, image_index: usize) -> vk::DescriptorSet {
-        self.descriptor_sets[image_index]
+    pub fn get_descriptor_set(&self, image_index: usize) -> TextureDescriptorSets {
+        self.descriptor_sets[image_index].clone()
     }
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         unsafe {

@@ -25,7 +25,8 @@ use render_core::Core;
 mod pipeline;
 use renderpass::{ClearOp, RenderMesh, RenderMeshIds, RenderPass, ResourceId};
 use resource_pool::{
-    DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, VertexBufferAllocation,
+    DescriptorDesc, IndexBufferAllocation, ResourcePool, TextureAllocation, TextureDescriptorSets,
+    VertexBufferAllocation,
 };
 use std::collections::HashSet;
 use std::{collections::HashMap, path::Path};
@@ -372,14 +373,14 @@ impl Backend {
 
     pub fn draw_mesh(&mut self, push: Vec<u8>, mesh_id: &MeshID) -> Result<()> {
         let mesh = self.models.get(mesh_id.buffer_index).unwrap();
-        let texture_descriptor_set = match mesh.texture {
-            MeshTexture::RegularTexture(texture) => {
-                self.textures
-                    .get(texture.buffer_index)
-                    .unwrap()
-                    .get()
-                    .descriptor_set
-            }
+        let descriptor_set = match mesh.texture {
+            MeshTexture::RegularTexture(texture) => self
+                .textures
+                .get(texture.buffer_index)
+                .unwrap()
+                .get()
+                .descriptor_sets
+                .clone(),
             MeshTexture::Framebuffer(fb) => {
                 if BoundFramebuffer::UserFramebuffer(fb) == self.bound_framebuffer {
                     return Err(anyhow!(
@@ -413,7 +414,10 @@ impl Backend {
             vertex_buffer: &mesh.vertices,
             index_buffer: &mesh.indices,
         };
-        let descriptor_set = [texture_descriptor_set];
+        let descriptor_set_arr = [
+            descriptor_set.texture_descriptor_set,
+            descriptor_set.sampler_descriptor_set,
+        ];
         self.renderpass.draw_mesh(
             &mut self.core,
             match self.bound_framebuffer {
@@ -427,7 +431,7 @@ impl Backend {
                         .framebuffer
                 }
             },
-            &descriptor_set,
+            &descriptor_set_arr,
             self.screen_dimensions,
             render_mesh,
         )

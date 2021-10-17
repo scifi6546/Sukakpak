@@ -319,7 +319,7 @@ impl ResourcePool {
             );
         let sampler = unsafe { core.device.create_sampler(&sampler_info, None) }
             .expect("failed to create sampler");
-        let descriptor_set = self.get_texture_descriptor(
+        let descriptor_sets = self.get_texture_descriptor(
             core,
             image_view,
             sampler,
@@ -327,7 +327,7 @@ impl ResourcePool {
         )?;
         Ok(TextureAllocation {
             buffer,
-            descriptor_set,
+            descriptor_sets,
             image,
             image_allocation,
             image_view,
@@ -341,17 +341,18 @@ impl ResourcePool {
         image_view: vk::ImageView,
         sampler: vk::Sampler,
         layout: vk::ImageLayout,
-    ) -> Result<vk::DescriptorSet> {
-        let descriptor_set = unsafe {
+    ) -> Result<TextureDescriptorSets> {
+        let texture_descriptor_set = unsafe {
             self.texture_descriptor_pool
                 .allocate_descriptor_set(core, "mesh_texture")
         }?[0];
-        let descriptor_image_info = [*vk::DescriptorImageInfo::builder()
-            .image_layout(layout)
-            .image_view(image_view)
-            .sampler(sampler)];
+        let descriptor_image_info = [
+            *vk::DescriptorImageInfo::builder()
+                .image_layout(layout)
+                .image_view(image_view), //.sampler(sampler)
+        ];
         let descriptor_write = [*vk::WriteDescriptorSet::builder()
-            .dst_set(descriptor_set)
+            .dst_set(texture_descriptor_set)
             .dst_binding(
                 self.texture_descriptor_pool
                     .get_descriptor_desc("mesh_texture")
@@ -365,7 +366,31 @@ impl ResourcePool {
         unsafe {
             core.device.update_descriptor_sets(&descriptor_write, &[]);
         }
-        Ok(descriptor_set)
+
+        let sampler_descriptor_set = unsafe {
+            self.sampler_descriptor_pool
+                .allocate_descriptor_set(core, "mesh_texture")
+        }?[0];
+        let descriptor_image_info = [*vk::DescriptorImageInfo::builder().sampler(sampler)];
+        let descriptor_write = [*vk::WriteDescriptorSet::builder()
+            .dst_set(sampler_descriptor_set)
+            .dst_binding(
+                self.sampler_descriptor_pool
+                    .get_descriptor_desc("mesh_texture")
+                    .unwrap()
+                    .layout_binding
+                    .binding,
+            )
+            .image_info(&descriptor_image_info)
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::SAMPLER)];
+        unsafe {
+            core.device.update_descriptor_sets(&descriptor_write, &[]);
+        }
+        Ok(TextureDescriptorSets {
+            texture_descriptor_set,
+            sampler_descriptor_set,
+        })
     }
     /// Allocates descriptor sets. pool provided by descriptor pool
     pub fn get_descriptor_set_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
@@ -385,6 +410,11 @@ impl ResourcePool {
         }
         Ok(())
     }
+}
+#[derive(Clone, Debug)]
+pub struct TextureDescriptorSets {
+    pub texture_descriptor_set: vk::DescriptorSet,
+    pub sampler_descriptor_set: vk::DescriptorSet,
 }
 pub struct IndexBufferAllocation {
     pub buffer: vk::Buffer,
@@ -425,7 +455,7 @@ pub struct TextureAllocation {
     buffer: vk::Buffer,
     image: vk::Image,
     image_allocation: SubAllocation,
-    pub descriptor_set: vk::DescriptorSet,
+    pub descriptor_sets: TextureDescriptorSets,
 }
 impl TextureAllocation {
     fn copy_buffer_image(
@@ -547,7 +577,11 @@ impl TextureAllocation {
 
             core.device.free_descriptor_sets(
                 resource_pool.texture_descriptor_pool.descriptor_pool,
-                &[self.descriptor_set],
+                &[self.descriptor_sets.texture_descriptor_set],
+            )?;
+            core.device.free_descriptor_sets(
+                resource_pool.sampler_descriptor_pool.descriptor_pool,
+                &[self.descriptor_sets.sampler_descriptor_set],
             )?;
             core.device.destroy_image(self.image, None);
             resource_pool.free_allocation(self.transfer_allocation)?;

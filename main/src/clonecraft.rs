@@ -157,9 +157,9 @@ impl sukakpak::Renderable for CloneCraft {
         context
             .bind_shader(Bindable::UserFramebuffer(&framebuffer), "v2")
             .expect("failed to bind");
-        context
-            .bind_shader(Bindable::ScreenFramebuffer, "v2")
-            .expect("failed to bind");
+        //  context
+        //      .bind_shader(Bindable::ScreenFramebuffer, "v2")
+        //      .expect("failed to bind");
         let mut plane = context
             .build_mesh(
                 MeshAsset::new_plane(),
