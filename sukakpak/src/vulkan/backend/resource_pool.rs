@@ -405,6 +405,7 @@ impl ResourcePool {
     }
     pub fn free(&mut self, core: &mut Core) -> Result<()> {
         self.texture_descriptor_pool.free(core)?;
+        self.sampler_descriptor_pool.free(core)?;
         unsafe {
             ManuallyDrop::drop(&mut self.allocator);
         }
