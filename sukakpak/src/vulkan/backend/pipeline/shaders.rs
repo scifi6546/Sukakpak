@@ -34,13 +34,13 @@ pub struct VertexBufferDesc {
 /// a barebones shader that just does test corrections, todo: make it simple with no change to colors
 pub fn basic_shader() -> ShaderDescription {
     let shader =
-        ass_lib::vk::Shader::from_json_str(include_str!("../../../../shaders/v2/v2_test.ass_spv"))
+        ass_vk::Shader::from_json_str(include_str!("../../../../shaders/v2/v2_test.ass_spv"))
             .ok()
             .unwrap();
     shader.into()
 }
-impl From<ass_lib::vk::Shader> for ShaderDescription {
-    fn from(shader: ass_lib::vk::Shader) -> Self {
+impl From<ass_vk::Shader> for ShaderDescription {
+    fn from(shader: ass_vk::Shader) -> Self {
         let push_constants = vec![PushConstantDesc {
             range: vk::PushConstantRange {
                 stage_flags: vk::ShaderStageFlags::VERTEX,

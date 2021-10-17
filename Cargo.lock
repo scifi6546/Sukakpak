@@ -112,6 +112,7 @@ name = "ass_bin"
 version = "0.1.0"
 dependencies = [
  "ass_lib",
+ "ass_vk",
  "structopt",
 ]
 
@@ -120,6 +121,18 @@ name = "ass_lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "naga",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "ass_vk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ass_lib",
  "naga",
  "serde",
  "serde_json",
@@ -1841,6 +1854,7 @@ dependencies = [
  "ash",
  "ash-window",
  "ass_lib",
+ "ass_vk",
  "backtrace",
  "cfg-if 1.0.0",
  "free_list",

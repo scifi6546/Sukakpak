@@ -536,7 +536,7 @@ impl Backend {
         self.screen_dimensions
     }
     pub fn load_shader(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
-        let shader = ass_lib::vk::Shader::from_json_str(shader_data)
+        let shader = ass_vk::Shader::from_json_str(shader_data)
             .with_context(|| format!("failed to load shader {}", shader_name))?;
         self.shaders.insert(shader_name.to_string(), shader.into());
         Ok(())

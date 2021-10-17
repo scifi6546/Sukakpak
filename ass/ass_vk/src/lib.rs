@@ -1,5 +1,6 @@
-use super::{ShaderType, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
 use anyhow::{bail, Result};
+pub use ass_lib;
+use ass_lib::{ShaderType, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -76,7 +77,7 @@ impl Shader {
     const EXTENSION: &'static str = "ass_spv";
     /// spirv extension
     const SPV_EXTENSION: &'static str = "spv";
-    fn validate(shader_ir: &super::ShaderIR) -> Result<()> {
+    fn validate(shader_ir: &ass_lib::ShaderIR) -> Result<()> {
         let num_mesh_texture = shader_ir
             .module
             .global_variables
@@ -98,7 +99,7 @@ impl Shader {
         }
         Ok(())
     }
-    fn get_sampler(shader_ir: &mut super::ShaderIR) -> Result<Vec<Sampler>> {
+    fn get_sampler(shader_ir: &mut ass_lib::ShaderIR) -> Result<Vec<Sampler>> {
         Ok(shader_ir
             .module
             .global_variables
@@ -134,7 +135,7 @@ impl Shader {
             })
             .collect())
     }
-    pub fn from_ir(mut shader_ir: super::ShaderIR) -> Result<Self> {
+    pub fn from_ir(mut shader_ir: ass_lib::ShaderIR) -> Result<Self> {
         println!("{:#?}", shader_ir.module);
         Self::validate(&shader_ir)?;
         let push_constants = shader_ir
@@ -338,5 +339,13 @@ impl Shader {
         let file = File::open(new_path)?;
         let out: Self = serde_json::from_reader(file)?;
         Ok(out)
+    }
+}
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        let result = 2 + 2;
+        assert_eq!(result, 4);
     }
 }

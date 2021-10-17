@@ -5,8 +5,8 @@ use naga::front::wgsl;
 use serde::Deserialize;
 pub use shader_type::{Scalar, ShaderType};
 use std::{fs::File, io::Read, path::Path};
-const VERTEX_SHADER_MAIN: &'static str = "vs_main";
-const FRAGMENT_SHADER_MAIN: &'static str = "fs_main";
+pub const VERTEX_SHADER_MAIN: &'static str = "vs_main";
+pub const FRAGMENT_SHADER_MAIN: &'static str = "fs_main";
 
 #[derive(Deserialize)]
 pub struct Project {
@@ -21,8 +21,8 @@ pub struct Options {
 /// Intermediate represention of shader. Used to convert to production
 /// shading langages such as SPIR-V for Vulkan or glsl for webgl2.
 pub struct ShaderIR {
-    module: naga::Module,
-    info: naga::valid::ModuleInfo,
+    pub module: naga::Module,
+    pub info: naga::valid::ModuleInfo,
 }
 impl ShaderIR {
     pub fn compile_from_disk<P: AsRef<Path>>(path: P, options: Options) -> Result<Self> {
@@ -80,7 +80,6 @@ impl ShaderIR {
     }
 }
 
-pub mod vk;
 #[cfg(test)]
 mod tests {
     #[test]
