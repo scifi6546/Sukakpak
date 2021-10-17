@@ -25,6 +25,6 @@ var mesh_texture: texture_2d<f32>;
 var sampler: sampler;
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput)->[[location(0)]]vec4<f32>{
-    let texture= textureSample(mesh_texture,sampler,in.tex_coord*100.0);
+    let texture= textureSample(mesh_texture,sampler,in.tex_coord);
     return texture+vec4<f32>(0.0,0.0,0.0,1.0);
 }

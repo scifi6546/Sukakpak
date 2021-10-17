@@ -130,7 +130,7 @@ impl Mesh {
                     normal: Vector3::new(0.0, 0.0, 1.0),
                 },
             ],
-            indices: vec![1, 2, 0, 2, 3, 0],
+            indices: vec![0, 2, 1, 0, 3, 2],
         }
         .into()
     }
