@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context as AContext, Result};
 use ash::vk;
-use ass_lib::asm_spv::load_from_fs;
+
 use image::RgbaImage;
 use nalgebra::Vector2;
 use thiserror::Error;
@@ -536,7 +536,7 @@ impl Backend {
         self.screen_dimensions
     }
     pub fn load_shader(&mut self, shader_data: &str, shader_name: &str) -> Result<()> {
-        let shader = ass_lib_v2::vk::Shader::from_json_str(shader_data)
+        let shader = ass_lib::vk::Shader::from_json_str(shader_data)
             .with_context(|| format!("failed to load shader {}", shader_name))?;
         self.shaders.insert(shader_name.to_string(), shader.into());
         Ok(())

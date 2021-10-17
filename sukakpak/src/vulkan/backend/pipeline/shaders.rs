@@ -1,9 +1,5 @@
 use super::DescriptorDesc;
 use ash::vk;
-use ass_lib::{
-    asm_spv::{AssembledSpirv, ShaderStage},
-    ScalarType, Type,
-};
 
 use nalgebra::{Matrix4, Vector2, Vector3};
 use std::collections::HashMap;
@@ -37,15 +33,14 @@ pub struct VertexBufferDesc {
 }
 /// a barebones shader that just does test corrections, todo: make it simple with no change to colors
 pub fn basic_shader() -> ShaderDescription {
-    let shader = ass_lib_v2::vk::Shader::from_json_str(include_str!(
-        "../../../../shaders/v2/v2_test.ass_spv"
-    ))
-    .ok()
-    .unwrap();
+    let shader =
+        ass_lib::vk::Shader::from_json_str(include_str!("../../../../shaders/v2/v2_test.ass_spv"))
+            .ok()
+            .unwrap();
     shader.into()
 }
-impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
-    fn from(shader: ass_lib_v2::vk::Shader) -> Self {
+impl From<ass_lib::vk::Shader> for ShaderDescription {
+    fn from(shader: ass_lib::vk::Shader) -> Self {
         let push_constants = vec![PushConstantDesc {
             range: vk::PushConstantRange {
                 stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -60,26 +55,26 @@ impl From<ass_lib_v2::vk::Shader> for ShaderDescription {
                 location: input.location,
                 binding: shader.vertex_input.binding,
                 format: match input.ty {
-                    ass_lib_v2::ShaderType::Mat4x4(_) => {
+                    ass_lib::ShaderType::Mat4x4(_) => {
                         panic!("matrix 4x4 not avalible as vertex input")
                     }
-                    ass_lib_v2::ShaderType::Vec4(s) => match s {
-                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32B32A32_SFLOAT,
-                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32B32A32_UINT,
+                    ass_lib::ShaderType::Vec4(s) => match s {
+                        ass_lib::Scalar::F32 => vk::Format::R32G32B32A32_SFLOAT,
+                        ass_lib::Scalar::U32 => vk::Format::R32G32B32A32_UINT,
                     },
-                    ass_lib_v2::ShaderType::Vec3(s) => match s {
-                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32B32_SFLOAT,
-                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32B32_UINT,
+                    ass_lib::ShaderType::Vec3(s) => match s {
+                        ass_lib::Scalar::F32 => vk::Format::R32G32B32_SFLOAT,
+                        ass_lib::Scalar::U32 => vk::Format::R32G32B32_UINT,
                     },
-                    ass_lib_v2::ShaderType::Vec2(s) => match s {
-                        ass_lib_v2::Scalar::F32 => vk::Format::R32G32_SFLOAT,
-                        ass_lib_v2::Scalar::U32 => vk::Format::R32G32_UINT,
+                    ass_lib::ShaderType::Vec2(s) => match s {
+                        ass_lib::Scalar::F32 => vk::Format::R32G32_SFLOAT,
+                        ass_lib::Scalar::U32 => vk::Format::R32G32_UINT,
                     },
-                    ass_lib_v2::ShaderType::Scalar(s) => match s {
-                        ass_lib_v2::Scalar::F32 => vk::Format::R32_SFLOAT,
-                        ass_lib_v2::Scalar::U32 => vk::Format::R32_UINT,
+                    ass_lib::ShaderType::Scalar(s) => match s {
+                        ass_lib::Scalar::F32 => vk::Format::R32_SFLOAT,
+                        ass_lib::Scalar::U32 => vk::Format::R32_UINT,
                     },
-                    ass_lib_v2::ShaderType::Struct(_) => panic!("struct invalid as vertex input"),
+                    ass_lib::ShaderType::Struct(_) => panic!("struct invalid as vertex input"),
                 },
                 offset,
             });
