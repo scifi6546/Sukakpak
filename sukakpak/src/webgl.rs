@@ -137,7 +137,7 @@ impl ContextTrait for Context {
     fn get_screen_size(&self) -> Vector2<u32> {
         Vector2::new(100, 100)
     }
-    fn load_shader<P: AsRef<Path>>(&mut self, _: P, _: &str) -> Result<()> {
+    fn load_shader(&mut self, _shader_text: &str, _name: &str) -> Result<()> {
         Ok(())
     }
     fn quit(&mut self) {
