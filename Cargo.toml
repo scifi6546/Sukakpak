@@ -1,2 +1,2 @@
 [workspace]
-members = ["asset_manager","main","simple_app","sukakpak","ass/ass_lib","ass/ass_bin","ass/ass_vk","summit_surveyor_v2","free_list","web-game"]
+members = ["asset_manager","main","simple_app","sukakpak","ass/ass_lib","ass/ass_bin","ass/ass_vk","ass/ass_wgl","summit_surveyor_v2","free_list","web-game"]

@@ -113,6 +113,7 @@ version = "0.1.0"
 dependencies = [
  "ass_lib",
  "ass_vk",
+ "ass_wgl",
  "structopt",
 ]
 
@@ -129,6 +130,18 @@ dependencies = [
 
 [[package]]
 name = "ass_vk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ass_lib",
+ "naga",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "ass_wgl"
 version = "0.1.0"
 dependencies = [
  "anyhow",

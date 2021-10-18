@@ -2,11 +2,7 @@ use anyhow::{bail, Result};
 pub use ass_lib;
 use ass_lib::{ShaderType, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
-};
+use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum VulkanConvertError {
@@ -53,6 +49,16 @@ pub struct Sampler {
     pub binding: u32,
     pub group: u32,
     pub name: String,
+}
+/// Options for building shader
+pub struct Options {
+    /// run in verbose mode printing to stdout
+    pub verbose: bool,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self { verbose: false }
+    }
 }
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Shader {
@@ -135,8 +141,13 @@ impl Shader {
             })
             .collect())
     }
-    pub fn from_ir(mut shader_ir: ass_lib::ShaderIR) -> Result<Self> {
-        println!("{:#?}", shader_ir.module);
+    pub fn from_ir(mut shader_ir: ass_lib::ShaderIR, options: Options) -> Result<Self> {
+        if options.verbose {
+            println!(
+                "initial intermediate representation:\n{:#?}",
+                shader_ir.module
+            );
+        }
         Self::validate(&shader_ir)?;
         let push_constants = shader_ir
             .module
@@ -147,7 +158,9 @@ impl Shader {
             .map(|variable| {
                 variable.class = naga::StorageClass::PushConstant;
                 variable.binding = None;
-                println!("{:?}", variable);
+                if options.verbose {
+                    println!("{:?}", variable);
+                }
                 variable
             })
             .collect::<Vec<_>>();
@@ -266,7 +279,10 @@ impl Shader {
                 entry_point: FRAGMENT_SHADER_MAIN.to_string(),
             }),
         )?;
-        println!("{:#?}", shader_ir.module);
+        if options.verbose {
+            println!("output intermediate representation:");
+            println!("{:#?}", shader_ir.module);
+        }
         Ok(Self {
             push_constant: PushConstant { ty: push_type },
             vertex_input: VertexInput { binding: 0, fields },
