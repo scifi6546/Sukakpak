@@ -1,11 +1,15 @@
+mod shader;
 use super::{
     BackendTrait, ContextTrait, ControlFlow, CreateInfo, EventLoopTrait, GenericBindable,
     GenericDrawableTexture, MeshAsset, Timer, WindowEvent,
 };
 use anyhow::Result;
+use ass_wgl::Shader;
+use generational_arena::{Arena, Index as ArenaIndex};
 use image::RgbaImage;
 use nalgebra::Vector2;
-use std::{path::Path, time::Duration};
+use shader::ShaderModule;
+use std::{collections::HashMap, path::Path, time::Duration};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 pub struct EventLoop {}
@@ -35,6 +39,8 @@ impl BackendTrait for Backend {
 pub struct Context {
     quit: bool,
     context: WebGl2RenderingContext,
+    shaders: HashMap<String, ShaderModule>,
+    bound_shader: String,
 }
 pub struct TimerContainer {
     /// time in ms
@@ -86,16 +92,23 @@ impl ContextTrait for Context {
             ))
             .dyn_into()
             .expect("failed to convert to canvas");
-        let context: WebGl2RenderingContext = canvas
+        let mut context: WebGl2RenderingContext = canvas
             .get_context("webgl2")
             .expect("failed to get context")
             .expect("failed to get context")
             .dyn_into()
             .expect("failed to convert");
+        let mut shaders = HashMap::new();
+        let basic_shader =
+            ShaderModule::basic_shader(&mut context).expect("failed to build basic shader");
+        shaders.insert("basic".to_string(), basic_shader);
+        let bound_shader = "basic".to_string();
 
         Self {
             quit: false,
             context,
+            shaders,
+            bound_shader,
         }
     }
     fn begin_render(&mut self) -> Result<()> {
@@ -152,6 +165,8 @@ impl ContextTrait for Context {
         Self {
             quit,
             context: self.context.clone(),
+            shaders: self.shaders.clone(),
+            bound_shader: self.bound_shader.clone(),
         }
     }
 }

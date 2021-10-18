@@ -86,6 +86,11 @@ impl Shader {
         file.write_all(json_string.as_bytes())?;
         Ok(())
     }
+    /// Reads from json str, errors if parse
+    /// is unsucessfull
+    pub fn from_json_str(json: &str) -> Result<Self> {
+        Ok(serde_json::from_str(json)?)
+    }
 }
 #[cfg(test)]
 mod tests {

@@ -44,17 +44,21 @@ optional=true
 [dependencies.web-sys]
 version="0.3.55"
 features = ["Document","Element","HtmlCanvasElement","Performance",
-	"WebGl2RenderingContext","Window"]
+	"WebGl2RenderingContext","Window","WebGlShader","WebGlProgram"]
 optional=true
 
 [dependencies.wasm-bindgen]
 version="0.2.78"
 optional=true
 
+[dependencies.ass_wgl]
+path="../ass/ass_wgl"
+optional=true
+
 [features]
 backend_vulkan = ["ash","ash-window","gpu-allocator","winit","ass_vk"]
 backend_web_stub = ["web-sys"]
-backend_webgl = ["web-sys","wasm-bindgen"]
+backend_webgl = ["web-sys","wasm-bindgen","ass_wgl"]
 default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]
