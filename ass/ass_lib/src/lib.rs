@@ -3,7 +3,7 @@ pub use anyhow;
 use anyhow::{Context, Result};
 use naga::front::wgsl;
 use serde::Deserialize;
-pub use shader_type::{Scalar, ShaderType};
+pub use shader_type::{scalar_from_naga, type_from_naga};
 use std::{fs::File, io::Read, path::Path};
 pub const VERTEX_SHADER_MAIN: &str = "vs_main";
 pub const FRAGMENT_SHADER_MAIN: &str = "fs_main";

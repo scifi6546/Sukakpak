@@ -55,26 +55,26 @@ impl From<ass_vk::Shader> for ShaderDescription {
                 location: input.location,
                 binding: shader.vertex_input.binding,
                 format: match input.ty {
-                    ass_lib::ShaderType::Mat4x4(_) => {
+                    ass_types::ShaderType::Mat4x4(_) => {
                         panic!("matrix 4x4 not avalible as vertex input")
                     }
-                    ass_lib::ShaderType::Vec4(s) => match s {
-                        ass_lib::Scalar::F32 => vk::Format::R32G32B32A32_SFLOAT,
-                        ass_lib::Scalar::U32 => vk::Format::R32G32B32A32_UINT,
+                    ass_types::ShaderType::Vec4(s) => match s {
+                        ass_types::Scalar::F32 => vk::Format::R32G32B32A32_SFLOAT,
+                        ass_types::Scalar::U32 => vk::Format::R32G32B32A32_UINT,
                     },
-                    ass_lib::ShaderType::Vec3(s) => match s {
-                        ass_lib::Scalar::F32 => vk::Format::R32G32B32_SFLOAT,
-                        ass_lib::Scalar::U32 => vk::Format::R32G32B32_UINT,
+                    ass_types::ShaderType::Vec3(s) => match s {
+                        ass_types::Scalar::F32 => vk::Format::R32G32B32_SFLOAT,
+                        ass_types::Scalar::U32 => vk::Format::R32G32B32_UINT,
                     },
-                    ass_lib::ShaderType::Vec2(s) => match s {
-                        ass_lib::Scalar::F32 => vk::Format::R32G32_SFLOAT,
-                        ass_lib::Scalar::U32 => vk::Format::R32G32_UINT,
+                    ass_types::ShaderType::Vec2(s) => match s {
+                        ass_types::Scalar::F32 => vk::Format::R32G32_SFLOAT,
+                        ass_types::Scalar::U32 => vk::Format::R32G32_UINT,
                     },
-                    ass_lib::ShaderType::Scalar(s) => match s {
-                        ass_lib::Scalar::F32 => vk::Format::R32_SFLOAT,
-                        ass_lib::Scalar::U32 => vk::Format::R32_UINT,
+                    ass_types::ShaderType::Scalar(s) => match s {
+                        ass_types::Scalar::F32 => vk::Format::R32_SFLOAT,
+                        ass_types::Scalar::U32 => vk::Format::R32_UINT,
                     },
-                    ass_lib::ShaderType::Struct(_) => panic!("struct invalid as vertex input"),
+                    ass_types::ShaderType::Struct(_) => panic!("struct invalid as vertex input"),
                 },
                 offset,
             });

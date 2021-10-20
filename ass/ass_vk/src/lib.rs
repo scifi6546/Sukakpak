@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 pub use ass_lib;
-use ass_lib::{ShaderType, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
+use ass_lib::{type_from_naga, FRAGMENT_SHADER_MAIN, VERTEX_SHADER_MAIN};
+use ass_types::{ShaderType, VertexField, VertexInput};
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
@@ -8,26 +9,6 @@ use thiserror::Error;
 pub enum VulkanConvertError {
     #[error("shader has zero push constants")]
     ZeroPushConstants,
-}
-/// Describes vertex input
-#[derive(Deserialize, Serialize, Debug)]
-pub struct VertexInput {
-    pub binding: u32,
-    pub fields: Vec<VertexField>,
-}
-/// Describes a field in a vertex
-#[derive(Deserialize, Serialize, Debug)]
-pub struct VertexField {
-    /// Type in field
-    pub ty: ShaderType,
-    pub location: u32,
-    /// name of field
-    pub name: String,
-}
-impl VertexField {
-    pub fn size(&self) -> u32 {
-        self.ty.size()
-    }
 }
 #[derive(Deserialize, Serialize, Debug)]
 pub struct PushConstant {
@@ -170,7 +151,7 @@ impl Shader {
         if push_constants.len() > 1 {
             bail!("more then one push constant in shader, there must only ge one push constant per shader")
         }
-        let push_type: ShaderType = ShaderType::from_type(
+        let push_type: ShaderType = type_from_naga(
             shader_ir
                 .module
                 .types
@@ -199,7 +180,7 @@ impl Shader {
             .arguments
             .iter()
             .map(|arg| VertexField {
-                ty: ShaderType::from_type(
+                ty: type_from_naga(
                     shader_ir.module.types.get_handle(arg.ty).unwrap(),
                     &shader_ir.module.types,
                 )

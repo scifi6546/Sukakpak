@@ -18,6 +18,8 @@ thiserror = "1.0.25"
 cfg-if="1.0"
 ass_lib = {path = "../ass/ass_lib"}
 free_list = {path = "../free_list"}
+ass_types = {path="../ass/ass_types"}
+
 
 # for vulkan
 [dependencies.winit]
@@ -44,7 +46,7 @@ optional=true
 [dependencies.web-sys]
 version="0.3.55"
 features = ["Document","Element","HtmlCanvasElement","Performance",
-	"WebGl2RenderingContext","Window","WebGlShader","WebGlProgram"]
+	"WebGl2RenderingContext","Window","WebGlShader","WebGlProgram","WebGlBuffer"]
 optional=true
 
 [dependencies.wasm-bindgen]
