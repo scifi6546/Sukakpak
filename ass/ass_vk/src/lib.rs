@@ -175,27 +175,6 @@ impl Shader {
                 vertex_shader_entry_point.len()
             );
         }
-        let fields = vertex_shader_entry_point[0]
-            .function
-            .arguments
-            .iter()
-            .map(|arg| VertexField {
-                ty: type_from_naga(
-                    shader_ir.module.types.get_handle(arg.ty).unwrap(),
-                    &shader_ir.module.types,
-                )
-                .expect("failed to convert type"),
-                location: match arg.binding.as_ref().unwrap() {
-                    naga::Binding::BuiltIn(_) => panic!("invalid vertex input"),
-                    naga::Binding::Location {
-                        location,
-                        interpolation,
-                        sampling,
-                    } => *location,
-                },
-                name: arg.name.as_ref().unwrap().clone(),
-            })
-            .collect();
         let vertex_spirv_data = naga::back::spv::write_vec(
             &shader_ir.module,
             &shader_ir.info,
@@ -251,6 +230,7 @@ impl Shader {
             }),
         )?;
         let samplers = Self::get_sampler(&mut shader_ir)?;
+        let vertex_input = shader_ir.get_vertex_input()?;
         let fragment_spirv_data = naga::back::spv::write_vec(
             &shader_ir.module,
             &info,
@@ -266,7 +246,7 @@ impl Shader {
         }
         Ok(Self {
             push_constant: PushConstant { ty: push_type },
-            vertex_input: VertexInput { binding: 0, fields },
+            vertex_input,
             fragment_spirv_data,
             vertex_spirv_data,
             samplers,

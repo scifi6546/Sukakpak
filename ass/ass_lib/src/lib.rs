@@ -1,6 +1,7 @@
 mod shader_type;
 pub use anyhow;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use ass_types::{VertexField, VertexInput};
 use naga::front::wgsl;
 use serde::Deserialize;
 pub use shader_type::{scalar_from_naga, type_from_naga};
@@ -77,6 +78,47 @@ impl ShaderIR {
 
         let info = validator.validate(&module)?;
         Ok(Self { module, info })
+    }
+
+    /// Gets vertex input from shader
+    pub fn get_vertex_input(&self) -> Result<VertexInput> {
+        let vertex_shader_entry_point = self
+            .module
+            .entry_points
+            .iter()
+            .filter(|entry| entry.stage == naga::ShaderStage::Vertex)
+            .collect::<Vec<_>>();
+        if vertex_shader_entry_point.len() == 0 {
+            bail!("there must be a vertex entry point in shader");
+        }
+        if vertex_shader_entry_point.len() > 1 {
+            bail!(
+                "there must be only one vertex entry point in shader, got {} entry points",
+                vertex_shader_entry_point.len()
+            );
+        }
+        let fields = vertex_shader_entry_point[0]
+            .function
+            .arguments
+            .iter()
+            .map(|arg| VertexField {
+                ty: type_from_naga(
+                    self.module.types.get_handle(arg.ty).unwrap(),
+                    &self.module.types,
+                )
+                .expect("failed to convert type"),
+                location: match arg.binding.as_ref().unwrap() {
+                    naga::Binding::BuiltIn(_) => panic!("invalid vertex input"),
+                    naga::Binding::Location {
+                        location,
+                        interpolation,
+                        sampling,
+                    } => *location,
+                },
+                name: arg.name.as_ref().unwrap().clone(),
+            })
+            .collect();
+        Ok(VertexInput { binding: 0, fields })
     }
 }
 
