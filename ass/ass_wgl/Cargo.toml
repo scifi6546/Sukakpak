@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ass_lib = {path="../ass_lib"}
+ass_types = {path="../ass_types"}
 naga={version="0.7",features=["glsl-out"]}
 anyhow="1.0.44"
 thiserror="1.0"

@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use ass_lib::ShaderIR;
+use ass_types::{VertexField, VertexInput};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs::File, io::Write, path::Path};
 
@@ -23,6 +24,8 @@ enum ShaderStage {
 pub struct Shader {
     pub fragment_shader: String,
     pub vertex_shader: String,
+    pub texture_name: String,
+    pub vertex_input: VertexInput,
 }
 impl Shader {
     const EXTENSION: &'static str = "ass_glsl";
@@ -59,8 +62,31 @@ impl Shader {
         Ok((buffer, info))
     }
     pub fn from_ir(ir: ShaderIR, options: Options) -> Result<Self> {
-        let (fragment_shader, _frag_info) =
+        let (fragment_shader, frag_info) =
             Self::write_string(&ir, &options, ShaderStage::Fragment)?;
+        if options.verbose {
+            println!(
+                "reflection info:{{\n\ttexture_mapping: {:#?}\n\tuniforms: {:#?}\n}}",
+                frag_info.texture_mapping, frag_info.uniforms
+            );
+        }
+        let texture_vec = frag_info
+            .texture_mapping
+            .iter()
+            .map(|(name, _tex)| name)
+            .cloned()
+            .collect::<Vec<_>>();
+        if texture_vec.len() == 0 {
+            bail!("there are zero textures in shader there must be one texture")
+        }
+        if texture_vec.len() > 1 {
+            bail!(
+                "there are {} textures there must only be one",
+                texture_vec.len()
+            )
+        }
+        let texture_name = texture_vec[0].to_string();
+
         if options.verbose {
             println!("fragment shader:\n{}", fragment_shader)
         }
@@ -69,10 +95,13 @@ impl Shader {
         if options.verbose {
             println!("vertex shader:\n{}", vertex_shader)
         }
+        let vertex_input = ir.get_vertex_input()?;
 
         Ok(Self {
             fragment_shader,
             vertex_shader,
+            vertex_input,
+            texture_name,
         })
     }
     pub fn to_json_string(&self) -> Result<String> {

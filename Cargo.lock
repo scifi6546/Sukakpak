@@ -157,6 +157,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ass_lib",
+ "ass_types",
  "naga",
  "serde",
  "serde_json",
