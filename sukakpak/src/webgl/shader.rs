@@ -8,9 +8,10 @@ pub enum ShaderStage {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderModule {
+    pub shader: AssShader,
     fragment_shader: WebGlShader,
     vertex_shader: WebGlShader,
-    program: WebGlProgram,
+    pub program: WebGlProgram,
 }
 impl ShaderModule {
     fn make_shader(
@@ -69,6 +70,7 @@ impl ShaderModule {
             fragment_shader,
             vertex_shader,
             program,
+            shader,
         })
     }
     pub fn basic_shader(context: &mut WebGl2RenderingContext) -> Result<Self> {

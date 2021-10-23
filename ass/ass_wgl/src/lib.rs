@@ -20,15 +20,59 @@ enum ShaderStage {
     Fragment,
 }
 /// GLSL shader module
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Shader {
     pub fragment_shader: String,
     pub vertex_shader: String,
     pub texture_name: String,
+    pub uniform_name: String,
     pub vertex_input: VertexInput,
 }
 impl Shader {
     const EXTENSION: &'static str = "ass_glsl";
+    fn get_uniform_name(
+        ir: &ShaderIR,
+        reflection: &naga::back::glsl::ReflectionInfo,
+        options: &Options,
+    ) -> Result<String> {
+        if options.verbose {
+            println!("processing uniforms:");
+            for (handle, uniform_name) in reflection.uniforms.iter() {
+                println!(
+                    "variable: {:#?}\nname: {}",
+                    ir.module.global_variables[*handle], uniform_name
+                );
+            }
+        }
+        if reflection.uniforms.len() != 1 {
+            bail!(
+                "there must be 1 uniform got {} uniforms",
+                reflection.uniforms.len()
+            );
+        }
+        Ok(reflection.uniforms.iter().next().unwrap().1.to_string())
+    }
+    fn get_texture_name(
+        reflection: &naga::back::glsl::ReflectionInfo,
+        _options: &Options,
+    ) -> Result<String> {
+        let texture_vec = reflection
+            .texture_mapping
+            .iter()
+            .map(|(name, _tex)| name)
+            .cloned()
+            .collect::<Vec<_>>();
+        if texture_vec.len() == 0 {
+            bail!("there are zero textures in shader there must be one texture")
+        }
+        if texture_vec.len() > 1 {
+            bail!(
+                "there are {} textures there must only be one",
+                texture_vec.len()
+            )
+        }
+        Ok(texture_vec[0].to_string())
+    }
     fn write_string(
         ir: &ShaderIR,
         _options: &Options,
@@ -70,38 +114,25 @@ impl Shader {
                 frag_info.texture_mapping, frag_info.uniforms
             );
         }
-        let texture_vec = frag_info
-            .texture_mapping
-            .iter()
-            .map(|(name, _tex)| name)
-            .cloned()
-            .collect::<Vec<_>>();
-        if texture_vec.len() == 0 {
-            bail!("there are zero textures in shader there must be one texture")
-        }
-        if texture_vec.len() > 1 {
-            bail!(
-                "there are {} textures there must only be one",
-                texture_vec.len()
-            )
-        }
-        let texture_name = texture_vec[0].to_string();
+        let texture_name = Self::get_texture_name(&frag_info, &options)?;
 
         if options.verbose {
             println!("fragment shader:\n{}", fragment_shader)
         }
-        let (vertex_shader, _vert_info) = Self::write_string(&ir, &options, ShaderStage::Vertex)?;
+        let (vertex_shader, vert_info) = Self::write_string(&ir, &options, ShaderStage::Vertex)?;
 
         if options.verbose {
             println!("vertex shader:\n{}", vertex_shader)
         }
         let vertex_input = ir.get_vertex_input()?;
+        let uniform_name = Self::get_uniform_name(&ir, &vert_info, &options)?;
 
         Ok(Self {
             fragment_shader,
             vertex_shader,
             vertex_input,
             texture_name,
+            uniform_name,
         })
     }
     pub fn to_json_string(&self) -> Result<String> {

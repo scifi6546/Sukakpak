@@ -19,7 +19,7 @@ impl Renderable for TestGame {
         // todo: figure out shaders
         Self { cube }
     }
-    fn render_frame(&mut self, events: &[Event], mut context: Context, delta_time: Duration) {
+    fn render_frame(&mut self, _events: &[Event], mut context: Context, _delta_time: Duration) {
         let mat: Matrix4<f32> = Matrix4::identity();
         let slice: Vec<u8> = mat
             .as_slice()
@@ -27,7 +27,9 @@ impl Renderable for TestGame {
             .map(|f| f.to_ne_bytes())
             .flatten()
             .collect();
-        context.draw_mesh(slice, &self.cube);
+        context
+            .draw_mesh(slice, &self.cube)
+            .expect("failed to draw mesh");
         alert("rendering frame!");
     }
 }

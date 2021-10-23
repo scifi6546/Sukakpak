@@ -46,7 +46,7 @@ optional=true
 [dependencies.web-sys]
 version="0.3.55"
 features = ["Document","Element","HtmlCanvasElement","Performance",
-	"WebGl2RenderingContext","WebGlVertexArrayObject","WebGlTexture","Window","WebGlShader","WebGlProgram","WebGlBuffer"]
+	"WebGl2RenderingContext","WebGlVertexArrayObject","WebGlTexture","WebGlUniformLocation","Window","WebGlShader","WebGlProgram","WebGlBuffer"]
 optional=true
 
 [dependencies.wasm-bindgen]

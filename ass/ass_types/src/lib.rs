@@ -3,13 +3,13 @@ pub use shader_type::{Scalar, ShaderType};
 
 use serde::{Deserialize, Serialize};
 /// Describes vertex input
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct VertexInput {
     pub binding: u32,
     pub fields: Vec<VertexField>,
 }
 /// Describes a field in a vertex
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct VertexField {
     /// Type in field
     pub ty: ShaderType,

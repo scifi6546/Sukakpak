@@ -80,6 +80,7 @@ pub struct Framebuffer {}
 pub struct TextureIndex {
     index: ArenaIndex,
 }
+/// For now only supporting uniforms with a 4x4 matrix
 pub struct Context {
     quit: bool,
     context: WebGl2RenderingContext,
@@ -245,7 +246,8 @@ impl ContextTrait for Context {
         let src_format = WebGl2RenderingContext::RGBA;
         let texel_type = WebGl2RenderingContext::UNSIGNED_BYTE;
 
-        self.context
+        let result = self
+            .context
             .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_u8_array_and_src_offset(
                 WebGl2RenderingContext::TEXTURE_2D,
                 mip_level,
@@ -258,6 +260,9 @@ impl ContextTrait for Context {
                 image.as_raw(),
                 0,
             );
+        if result.is_err() {
+            bail!("error in creating mesh")
+        }
         self.context
             .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
         let index = self.texture_arena.insert(Texture {
@@ -265,7 +270,20 @@ impl ContextTrait for Context {
         });
         Ok(TextureIndex { index })
     }
-    fn draw_mesh(&mut self, _: Vec<u8>, _: &Self::Mesh) -> Result<()> {
+    fn draw_mesh(&mut self, push_data: Vec<u8>, mesh_index: &Self::Mesh) -> Result<()> {
+        let bound_shader = &self.shaders[&self.bound_shader];
+        let uniform_location = self
+            .context
+            .get_uniform_location(&bound_shader.program, &bound_shader.shader.uniform_name);
+
+        if uniform_location.is_none() {
+            bail!(
+                "failed to find push uniform: {}",
+                bound_shader.shader.uniform_name
+            )
+        }
+        let uniform_location = uniform_location.unwrap();
+
         todo!("draw mesh")
     }
 
