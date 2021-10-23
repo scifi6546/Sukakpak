@@ -1,3 +1,4 @@
+mod mesh;
 mod shader;
 mod texture;
 use super::{
@@ -8,24 +9,20 @@ use anyhow::{bail, Result};
 use ass_wgl::Shader;
 use generational_arena::{Arena, Index as ArenaIndex};
 use image::RgbaImage;
+use log::{info, Level};
+use mesh::Mesh;
 use nalgebra::Vector2;
 use shader::ShaderModule;
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, mem::size_of, path::Path, time::Duration};
 use texture::Texture;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     HtmlCanvasElement, WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject as VAO,
 };
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Describes mesh data for drawing
-pub struct Mesh {
-    vao: VAO,
-    buffer: WebGlBuffer,
-    texture: DrawableTexture,
-}
 pub struct EventLoop {}
 impl EventLoopTrait for EventLoop {
     fn new(_: Vector2<u32>) -> Self {
+        console_log::init_with_level(Level::Debug);
         Self {}
     }
     fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut game_fn: F) -> ! {
@@ -90,7 +87,7 @@ pub struct Context {
     bound_shader: String,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DrawableTexture {
+pub enum DrawableTexture {
     Texture(TextureIndex),
     Framebuffer(Framebuffer),
 }
@@ -270,19 +267,92 @@ impl ContextTrait for Context {
         });
         Ok(TextureIndex { index })
     }
+    /// Very slow, todo: make finding uniform part of shader initilization
     fn draw_mesh(&mut self, push_data: Vec<u8>, mesh_index: &Self::Mesh) -> Result<()> {
         let bound_shader = &self.shaders[&self.bound_shader];
-        let uniform_location = self
+        let num_uniforms = self
             .context
-            .get_uniform_location(&bound_shader.program, &bound_shader.shader.uniform_name);
-
-        if uniform_location.is_none() {
-            bail!(
-                "failed to find push uniform: {}",
-                bound_shader.shader.uniform_name
+            .get_program_parameter(
+                &bound_shader.program,
+                WebGl2RenderingContext::ACTIVE_UNIFORMS,
             )
+            .as_f64()
+            .unwrap();
+        info!("num uniforms: {}", num_uniforms);
+        let mat4_uniform_attr = (0..num_uniforms as u32)
+            .filter(|index| {
+                let active_info = self
+                    .context
+                    .get_active_uniform(&bound_shader.program, *index)
+                    .unwrap();
+                active_info.type_() == WebGl2RenderingContext::FLOAT_MAT4
+            })
+            .next()
+            .unwrap();
+        info!("push attr: {}", mat4_uniform_attr);
+        for index in 0..(num_uniforms as u32) {
+            let active_info = self
+                .context
+                .get_active_uniform(&bound_shader.program, index)
+                .unwrap();
+            let type_num = active_info.type_();
+            let type_str = match type_num {
+                WebGl2RenderingContext::FLOAT_MAT4 => "matrix4".to_string(),
+                WebGl2RenderingContext::SAMPLER_2D => "sampler 2d".to_string(),
+                _ => format!("other({})", type_num),
+            };
+            info!(
+                "{{\n\tname: {}\n\ttype: {}\n\tsize: {}\n}}",
+                active_info.name(),
+                type_str,
+                active_info.size()
+            );
+            info!("{:#?}", active_info);
+            let loc = self
+                .context
+                .get_uniform_location(&bound_shader.program, &active_info.name());
+            info!("location: {:?} name: {}", loc, active_info.name());
         }
-        let uniform_location = uniform_location.unwrap();
+        let loc = (0..num_uniforms as u32)
+            .filter(|index| {
+                let active_info = self
+                    .context
+                    .get_active_uniform(&bound_shader.program, *index)
+                    .unwrap();
+                active_info
+                    .name()
+                    .contains(&bound_shader.shader.uniform_name)
+            })
+            .map(|index| {
+                let active_info = self
+                    .context
+                    .get_active_uniform(&bound_shader.program, index)
+                    .unwrap();
+                let uniform_name = active_info.name();
+                self.context
+                    .get_uniform_location(&bound_shader.program, &uniform_name)
+            })
+            .next()
+            .unwrap();
+        info!("push loc: {:#?}", loc);
+
+        info!("{}", bound_shader.shader.uniform_name);
+        info!("{}", bound_shader.shader.vertex_shader);
+
+        let float_arr = (0..16)
+            .map(|i| {
+                f32::from_ne_bytes([
+                    push_data[0 + i * size_of::<f32>()],
+                    push_data[1 + i * size_of::<f32>()],
+                    push_data[2 + i * size_of::<f32>()],
+                    push_data[3 + i * size_of::<f32>()],
+                ])
+            })
+            .collect::<Vec<_>>();
+        info!("float arr: {:#?}", float_arr);
+        self.context
+            .uniform_matrix4fv_with_f32_array(loc.as_ref(), false, &float_arr);
+        let mesh = &self.mesh_arena[mesh_index.index];
 
         todo!("draw mesh")
     }
@@ -310,6 +380,7 @@ impl ContextTrait for Context {
     }
     fn check_state(&mut self) {}
     fn clone(&self) -> Self {
+        info!("cloning");
         let quit = self.quit.clone();
         Self {
             quit,

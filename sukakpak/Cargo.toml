@@ -45,7 +45,7 @@ optional=true
 # For Webgl and general web utilities
 [dependencies.web-sys]
 version="0.3.55"
-features = ["Document","Element","HtmlCanvasElement","Performance",
+features = ["Document","Element","HtmlCanvasElement","Performance","WebGlActiveInfo",
 	"WebGl2RenderingContext","WebGlVertexArrayObject","WebGlTexture","WebGlUniformLocation","Window","WebGlShader","WebGlProgram","WebGlBuffer"]
 optional=true
 
@@ -57,10 +57,18 @@ optional=true
 path="../ass/ass_wgl"
 optional=true
 
+[dependencies.console_log]
+version="0.2"
+optional=true
+
+[dependencies.log]
+version="0.4"
+optional=true
+
 [features]
 backend_vulkan = ["ash","ash-window","gpu-allocator","winit","ass_vk"]
 backend_web_stub = ["web-sys"]
-backend_webgl = ["web-sys","wasm-bindgen","ass_wgl"]
+backend_webgl = ["web-sys","wasm-bindgen","ass_wgl","console_log","log"]
 default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]
