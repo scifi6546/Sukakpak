@@ -1,100 +1,16 @@
-mod backend;
-use super::{
-    BackendTrait, ContextTrait, ControlFlow, CreateInfo, EventLoopTrait, GenericBindable,
-    GenericDrawableTexture, MeshAsset, Timer, VertexComponent, WindowEvent,
-};
-use anyhow::{bail, Result};
-use ass_wgl::Shader;
-use backend::Backend;
-use generational_arena::{Arena, Index as ArenaIndex};
-use image::RgbaImage;
-use log::{info, Level};
-use mesh::Mesh;
-use nalgebra::Vector2;
-use shader::ShaderModule;
-use std::{cell::RefCell, collections::HashMap, mem::size_of, path::Path, rc::Rc, time::Duration};
-use texture::Texture;
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{
-    HtmlCanvasElement, WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject as VAO,
-};
-pub struct EventLoop {}
-impl EventLoopTrait for EventLoop {
-    fn new(_: Vector2<u32>) -> Self {
-        console_log::init_with_level(Level::Debug);
-        Self {}
-    }
-    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut game_fn: F) -> ! {
-        let mut flow = ControlFlow::Continue;
-        loop {
-            game_fn(WindowEvent::RunGameLogic, &mut flow);
-            if flow == ControlFlow::Quit {
-                panic!()
-            }
-        }
-    }
+mod mesh;
+mod shader;
+mod texture;
+pub struct Backend {
+    quit: bool,
+    context: WebGl2RenderingContext,
+    shaders: HashMap<String, ShaderModule>,
+    mesh_arena: Arena<Mesh>,
+    texture_arena: Arena<Texture>,
+    bound_shader: String,
 }
-pub struct CreateBackend {
-    create_info: CreateInfo,
-}
-impl BackendTrait for Backend {
-    type EventLoop = EventLoop;
-    fn new(create_info: CreateInfo, _: &Self::EventLoop) -> Self {
-        Self { create_info }
-    }
-}
-pub struct TimerContainer {
-    /// time in ms
-    time: f64,
-}
-impl Timer for TimerContainer {
-    fn now() -> Self {
-        let time = web_sys::window()
-            .expect("failed to get window")
-            .performance()
-            .expect("failed to get performance")
-            .now();
-        Self { time }
-    }
-    fn elapsed(&self) -> Duration {
-        let time = web_sys::window()
-            .expect("failed to get window")
-            .performance()
-            .expect("failed to get performance")
-            .now();
-        let ms = time - self.time;
-        Duration::from_micros((ms * 1000.0) as u64)
-    }
-}
-#[derive(Debug)]
-pub struct MeshIndex {
-    index: ArenaIndex,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Framebuffer {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TextureIndex {
-    index: ArenaIndex,
-}
-/// For now only supporting uniforms with a 4x4 matrix
-pub struct Context {
-    backend: Rc<RefCell<Backend>>,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DrawableTexture {
-    Texture(TextureIndex),
-    Framebuffer(Framebuffer),
-}
-///safe becuase web browsers do not have threads
-unsafe impl Send for Context {}
-unsafe impl Sync for Context {}
-impl ContextTrait for Context {
-    type Backend = CreateBackend;
-    type Mesh = MeshIndex;
-    type Framebuffer = Framebuffer;
-    type Texture = TextureIndex;
-    type Timer = TimerContainer;
-    fn new(backend: Self::Backend) -> Self {
+impl Backend {
+    pub fn new(backend: super::CreateBackend) -> Self {
         let canvas: HtmlCanvasElement = web_sys::window()
             .expect("failed to get window")
             .document()
@@ -127,12 +43,6 @@ impl ContextTrait for Context {
             mesh_arena,
             texture_arena,
         }
-    }
-    fn begin_render(&mut self) -> Result<()> {
-        Ok(())
-    }
-    fn finish_render(&mut self) -> Result<()> {
-        Ok(())
     }
     fn build_mesh(
         &mut self,
@@ -373,16 +283,4 @@ impl ContextTrait for Context {
         self.quit
     }
     fn check_state(&mut self) {}
-    fn clone(&self) -> Self {
-        info!("cloning");
-        let quit = self.quit.clone();
-        Self {
-            quit,
-            context: self.context.clone(),
-            shaders: self.shaders.clone(),
-            bound_shader: self.bound_shader.clone(),
-            mesh_arena: self.mesh_arena.clone(),
-            texture_arena: self.texture_arena.clone(),
-        }
-    }
 }
