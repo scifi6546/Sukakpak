@@ -74,6 +74,9 @@ impl ShaderModule {
         })
     }
     pub fn basic_shader(context: &mut WebGl2RenderingContext) -> Result<Self> {
-        Self::from_json_str(include_str!("../../shaders/v2/v2_test.ass_glsl"), context)
+        Self::from_json_str(
+            include_str!("../../../shaders/v2/v2_test.ass_glsl"),
+            context,
+        )
     }
 }

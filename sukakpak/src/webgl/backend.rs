@@ -1,6 +1,37 @@
 mod mesh;
 mod shader;
 mod texture;
+
+use mesh::Mesh;
+use shader::ShaderModule;
+use texture::Texture;
+
+use anyhow::{bail, Result};
+use generational_arena::{Arena, Index as ArenaIndex};
+use image::RgbaImage;
+use log::info;
+use nalgebra::Vector2;
+use wasm_bindgen::JsCast;
+use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
+
+use std::{collections::HashMap, mem::size_of};
+
+use super::super::{GenericBindable, GenericDrawableTexture, MeshAsset, VertexComponent};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawableTexture {
+    Texture(TextureIndex),
+    Framebuffer(Framebuffer),
+}
+#[derive(Debug)]
+pub struct MeshIndex {
+    index: ArenaIndex,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Framebuffer {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TextureIndex {
+    index: ArenaIndex,
+}
 pub struct Backend {
     quit: bool,
     context: WebGl2RenderingContext,
@@ -44,11 +75,11 @@ impl Backend {
             texture_arena,
         }
     }
-    fn build_mesh(
+    pub fn build_mesh(
         &mut self,
         mesh: MeshAsset,
-        texture: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
-    ) -> Result<Self::Mesh> {
+        texture: GenericDrawableTexture<TextureIndex, Framebuffer>,
+    ) -> Result<MeshIndex> {
         let buffer = self.context.create_buffer();
         if buffer.is_none() {
             bail!("failed to create buffer");
@@ -103,14 +134,14 @@ impl Backend {
         let index = self.mesh_arena.insert(mesh);
         Ok(MeshIndex { index })
     }
-    fn bind_texture(
+    pub fn bind_texture(
         &mut self,
-        _: &mut Self::Mesh,
-        _: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
+        _: &mut MeshIndex,
+        _: GenericDrawableTexture<TextureIndex, Framebuffer>,
     ) -> Result<()> {
         todo!("bind texture")
     }
-    fn build_texture(&mut self, image: &RgbaImage) -> Result<Self::Texture> {
+    pub fn build_texture(&mut self, image: &RgbaImage) -> Result<TextureIndex> {
         let gl_texture = self.context.create_texture();
         if gl_texture.is_none() {
             bail!("failed to create texture")
@@ -172,7 +203,7 @@ impl Backend {
         Ok(TextureIndex { index })
     }
     /// Very slow, todo: make finding uniform part of shader initilization
-    fn draw_mesh(&mut self, push_data: Vec<u8>, mesh_index: &Self::Mesh) -> Result<()> {
+    pub fn draw_mesh(&mut self, push_data: Vec<u8>, mesh_index: &MeshIndex) -> Result<()> {
         let bound_shader = &self.shaders[&self.bound_shader];
         let num_uniforms = self
             .context
@@ -261,26 +292,26 @@ impl Backend {
         todo!("draw mesh")
     }
 
-    fn build_framebuffer(&mut self, _: Vector2<u32>) -> Result<Self::Framebuffer> {
-        Ok(Framebuffer {})
+    pub fn build_framebuffer(&mut self, _: Vector2<u32>) -> Result<Framebuffer> {
+        todo!("build framebuffer")
     }
-    fn bind_shader(&mut self, _: GenericBindable<Self::Framebuffer>, _: &str) -> Result<()> {
-        Ok(())
+    pub fn bind_shader(&mut self, _: GenericBindable<Framebuffer>, _: &str) -> Result<()> {
+        todo!("bind shader")
     }
-    fn bind_framebuffer(&mut self, _: GenericBindable<Self::Framebuffer>) -> Result<()> {
-        Ok(())
+    pub fn bind_framebuffer(&mut self, _: GenericBindable<Framebuffer>) -> Result<()> {
+        todo!("bind framebuffer")
     }
-    fn get_screen_size(&self) -> Vector2<u32> {
-        Vector2::new(100, 100)
+    pub fn get_screen_size(&self) -> Vector2<u32> {
+        todo!("get screen size")
     }
-    fn load_shader(&mut self, _shader_text: &str, _name: &str) -> Result<()> {
-        Ok(())
+    pub fn load_shader(&mut self, _shader_text: &str, _name: &str) -> Result<()> {
+        todo!("load shader")
     }
-    fn quit(&mut self) {
+    pub fn quit(&mut self) {
         self.quit = true
     }
-    fn did_quit(&self) -> bool {
+    pub fn did_quit(&self) -> bool {
         self.quit
     }
-    fn check_state(&mut self) {}
+    pub fn check_state(&mut self) {}
 }
