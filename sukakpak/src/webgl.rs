@@ -85,11 +85,12 @@ impl ContextTrait for Context {
         }
     }
     fn begin_render(&mut self) -> Result<()> {
-        Ok(())
+        self.backend.borrow_mut().begin_render()
     }
     fn finish_render(&mut self) -> Result<()> {
         Ok(())
     }
+
     fn build_mesh(
         &mut self,
         mesh: MeshAsset,

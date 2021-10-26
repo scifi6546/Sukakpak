@@ -14,6 +14,11 @@ pub struct ShaderModule {
     pub program: WebGlProgram,
 }
 impl ShaderModule {
+    /// Binds shader to context
+    pub fn bind_shader(&self, context: &mut WebGl2RenderingContext) -> Result<()> {
+        context.use_program(Some(&self.program));
+        Ok(())
+    }
     fn make_shader(
         source: &str,
         stage: ShaderStage,

@@ -19,6 +19,9 @@ fn get_buffer_from_fs(path: &Path) -> Box<dyn BufRead> {
     Box::new(BufReader::new(file))
 }
 impl Mesh {
+    pub fn num_vertices(&self) -> usize {
+        self.indices.len()
+    }
     pub fn from_obj_buf<B: BufRead, M: Fn(&Path) -> Box<dyn BufRead>>(
         mut buffer: B,
         material_loader: M,

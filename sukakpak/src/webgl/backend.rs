@@ -62,7 +62,12 @@ impl Backend {
         let mut shaders = HashMap::new();
         let basic_shader =
             ShaderModule::basic_shader(&mut context).expect("failed to build basic shader");
+
+        basic_shader
+            .bind_shader(&mut context)
+            .expect("failed to bind default shader");
         shaders.insert("basic".to_string(), basic_shader);
+
         let bound_shader = "basic".to_string();
         let mesh_arena = Arena::new();
         let texture_arena = Arena::new();
@@ -74,6 +79,12 @@ impl Backend {
             mesh_arena,
             texture_arena,
         }
+    }
+    /// runs steps necessary for start of render
+    pub fn begin_render(&mut self) -> Result<()> {
+        self.context.clear_color(0.1, 0.1, 0.1, 1.0);
+        self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+        Ok(())
     }
     pub fn build_mesh(
         &mut self,
@@ -126,10 +137,12 @@ impl Backend {
             GenericDrawableTexture::Framebuffer(_) => todo!("framebuffer"),
         };
 
+        let num_vertices = mesh.num_vertices();
         let mesh = Mesh {
             buffer,
             vao,
             texture,
+            num_vertices,
         };
         let index = self.mesh_arena.insert(mesh);
         Ok(MeshIndex { index })
@@ -288,8 +301,36 @@ impl Backend {
         self.context
             .uniform_matrix4fv_with_f32_array(loc.as_ref(), false, &float_arr);
         let mesh = &self.mesh_arena[mesh_index.index];
+        let texture = match mesh.texture {
+            DrawableTexture::Texture(index) => self.texture_arena[index.index].texture.clone(),
+            DrawableTexture::Framebuffer(_) => todo!("draw framebuffer surfaces"),
+        };
 
-        todo!("draw mesh")
+        self.context
+            .active_texture(WebGl2RenderingContext::TEXTURE0);
+        self.context
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, Some(&texture));
+        let texture_loc = self
+            .context
+            .get_uniform_location(&bound_shader.program, &bound_shader.shader.texture_name);
+        info!("texture loc: {:#?}", texture_loc);
+        self.context.uniform1i(texture_loc.as_ref(), 0);
+        self.context.bind_vertex_array(Some(&mesh.vao));
+        self.context
+            .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&mesh.buffer));
+        let offset = 0;
+        self.context.draw_arrays(
+            WebGl2RenderingContext::TRIANGLES,
+            offset,
+            mesh.get_num_vertices() as i32,
+        );
+        self.context.bind_vertex_array(None);
+        self.context
+            .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, None);
+
+        self.context
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
+        Ok(())
     }
 
     pub fn build_framebuffer(&mut self, _: Vector2<u32>) -> Result<Framebuffer> {

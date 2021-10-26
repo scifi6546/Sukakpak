@@ -30,7 +30,6 @@ impl Renderable for TestGame {
         context
             .draw_mesh(slice, &self.cube)
             .expect("failed to draw mesh");
-        alert("rendering frame!");
     }
 }
 mod utils;
