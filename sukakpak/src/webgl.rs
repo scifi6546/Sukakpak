@@ -1,4 +1,5 @@
 mod backend;
+mod event_loop;
 
 use super::{
     BackendTrait, ContextTrait, ControlFlow, CreateInfo, EventLoopTrait, GenericBindable,
@@ -8,6 +9,7 @@ use anyhow::{bail, Result};
 use ass_wgl::Shader;
 use backend::Backend;
 pub use backend::{Framebuffer, MeshIndex, TextureIndex};
+pub use event_loop::EventLoop;
 use generational_arena::{Arena, Index as ArenaIndex};
 use image::RgbaImage;
 use log::{info, Level};
@@ -17,22 +19,6 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     HtmlCanvasElement, WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject as VAO,
 };
-pub struct EventLoop {}
-impl EventLoopTrait for EventLoop {
-    fn new(_: Vector2<u32>) -> Self {
-        console_log::init_with_level(Level::Debug);
-        Self {}
-    }
-    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut game_fn: F) -> ! {
-        let mut flow = ControlFlow::Continue;
-        loop {
-            game_fn(WindowEvent::RunGameLogic, &mut flow);
-            if flow == ControlFlow::Quit {
-                panic!()
-            }
-        }
-    }
-}
 pub struct CreateBackend {
     create_info: CreateInfo,
 }

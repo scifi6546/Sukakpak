@@ -48,6 +48,9 @@ version="0.3.55"
 features = ["Document","Element","HtmlCanvasElement","Performance","WebGlActiveInfo",
 	"WebGl2RenderingContext","WebGlVertexArrayObject","WebGlTexture","WebGlUniformLocation","Window","WebGlShader","WebGlProgram","WebGlBuffer"]
 optional=true
+[dependencies.js-sys]
+version="0.3.55"
+optional=true
 
 [dependencies.wasm-bindgen]
 version="0.2.78"
@@ -68,7 +71,7 @@ optional=true
 [features]
 backend_vulkan = ["ash","ash-window","gpu-allocator","winit","ass_vk"]
 backend_web_stub = ["web-sys"]
-backend_webgl = ["web-sys","wasm-bindgen","ass_wgl","console_log","log"]
+backend_webgl = ["web-sys","js-sys","wasm-bindgen","ass_wgl","console_log","log"]
 default = ["full_debug"]
 full_debug = ["state_validation"]
 no_validation=[]
