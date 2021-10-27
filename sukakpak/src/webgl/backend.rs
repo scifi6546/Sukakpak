@@ -226,7 +226,6 @@ impl Backend {
             )
             .as_f64()
             .unwrap();
-        info!("num uniforms: {}", num_uniforms);
         let mat4_uniform_attr = (0..num_uniforms as u32)
             .filter(|index| {
                 let active_info = self
@@ -237,7 +236,6 @@ impl Backend {
             })
             .next()
             .unwrap();
-        info!("push attr: {}", mat4_uniform_attr);
         for index in 0..(num_uniforms as u32) {
             let active_info = self
                 .context
@@ -249,17 +247,9 @@ impl Backend {
                 WebGl2RenderingContext::SAMPLER_2D => "sampler 2d".to_string(),
                 _ => format!("other({})", type_num),
             };
-            info!(
-                "{{\n\tname: {}\n\ttype: {}\n\tsize: {}\n}}",
-                active_info.name(),
-                type_str,
-                active_info.size()
-            );
-            info!("{:#?}", active_info);
             let loc = self
                 .context
                 .get_uniform_location(&bound_shader.program, &active_info.name());
-            info!("location: {:?} name: {}", loc, active_info.name());
         }
         let loc = (0..num_uniforms as u32)
             .filter(|index| {
@@ -282,10 +272,6 @@ impl Backend {
             })
             .next()
             .unwrap();
-        info!("push loc: {:#?}", loc);
-
-        info!("{}", bound_shader.shader.uniform_name);
-        info!("{}", bound_shader.shader.vertex_shader);
 
         let float_arr = (0..16)
             .map(|i| {
@@ -297,7 +283,6 @@ impl Backend {
                 ])
             })
             .collect::<Vec<_>>();
-        info!("float arr: {:#?}", float_arr);
         self.context
             .uniform_matrix4fv_with_f32_array(loc.as_ref(), false, &float_arr);
         let mesh = &self.mesh_arena[mesh_index.index];
@@ -313,7 +298,6 @@ impl Backend {
         let texture_loc = self
             .context
             .get_uniform_location(&bound_shader.program, &bound_shader.shader.texture_name);
-        info!("texture loc: {:#?}", texture_loc);
         self.context.uniform1i(texture_loc.as_ref(), 0);
         self.context.bind_vertex_array(Some(&mesh.vao));
         self.context
