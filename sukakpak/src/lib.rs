@@ -109,9 +109,9 @@ pub enum WindowEvent {
 }
 pub trait EventLoopTrait {
     fn new(screen_size: Vector2<u32>) -> Self;
-    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, event: F) -> !;
+    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, event: F);
 }
-fn generic_run<CTX, R>(create_info: CreateInfo) -> !
+fn generic_run<CTX, R>(create_info: CreateInfo)
 where
     CTX: 'static + ContextTrait,
     R: 'static + GenericRenderable<CTX>,
@@ -142,7 +142,7 @@ where
     });
 }
 /// Entry point to run game. Use this to start rendering.
-pub fn run<R: 'static + GenericRenderable<Context>>(create_info: CreateInfo) -> ! {
+pub fn run<R: 'static + GenericRenderable<Context>>(create_info: CreateInfo) {
     generic_run::<Context, R>(create_info)
 }
 

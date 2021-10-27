@@ -10,7 +10,7 @@ impl EventLoopTrait for EventLoop {
         console_log::init_with_level(Level::Debug);
         Self {}
     }
-    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut game_fn: F) -> ! {
+    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut game_fn: F) {
         let mut flow = ControlFlow::Continue;
         // safe befause wasm does not run in parallel
         unsafe {
@@ -18,7 +18,6 @@ impl EventLoopTrait for EventLoop {
             game_fn_data = Some(Box::new(game_fn));
         }
         loop_fn();
-        panic!("should never reach this point")
     }
 }
 /// points to function to run game.
