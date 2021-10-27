@@ -86,10 +86,10 @@ impl ContextTrait for Context {
     }
     fn bind_texture(
         &mut self,
-        _: &mut Self::Mesh,
-        _: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
+        mesh: &mut Self::Mesh,
+        texture: GenericDrawableTexture<Self::Texture, Self::Framebuffer>,
     ) -> Result<()> {
-        todo!("bind texture")
+        self.backend.borrow_mut().bind_texture(mesh, texture)
     }
     fn build_texture(&mut self, image: &RgbaImage) -> Result<Self::Texture> {
         self.backend.borrow_mut().build_texture(image)
