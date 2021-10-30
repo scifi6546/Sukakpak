@@ -62,7 +62,8 @@ impl Backend {
         let mut shaders = HashMap::new();
         let basic_shader =
             ShaderModule::basic_shader(&mut context).expect("failed to build basic shader");
-
+        info!("basic shader str: {}", basic_shader.shader.fragment_shader);
+        info!("basic shader str: {}", basic_shader.shader.vertex_shader);
         basic_shader
             .bind_shader(&mut context)
             .expect("failed to bind default shader");
@@ -236,6 +237,25 @@ impl Backend {
             })
             .next()
             .unwrap();
+        let uniform_str = (0..(num_uniforms as u32))
+            .map(|index| {
+                let active_info = self
+                    .context
+                    .get_active_uniform(&bound_shader.program, index)
+                    .unwrap();
+                let type_num = active_info.type_();
+                let type_str = match type_num {
+                    WebGl2RenderingContext::FLOAT_MAT4 => "matrix4".to_string(),
+                    WebGl2RenderingContext::SAMPLER_2D => "sampler 2d".to_string(),
+                    _ => format!("other({})", type_num),
+                };
+                let loc = self
+                    .context
+                    .get_uniform_location(&bound_shader.program, &active_info.name());
+                format!("uniform loc {:#?}, type: {}", loc, type_str)
+            })
+            .fold("".to_string(), |acc, s| acc + "\n" + &s);
+        info!("{}", uniform_str);
         for index in 0..(num_uniforms as u32) {
             let active_info = self
                 .context
@@ -338,5 +358,10 @@ impl Backend {
     pub fn did_quit(&self) -> bool {
         self.quit
     }
-    pub fn check_state(&mut self) {}
+    pub fn check_state(&mut self) {
+        let error = self.context.get_error();
+        if error != 0 {
+            panic!("open gl error: {}", error)
+        }
+    }
 }
