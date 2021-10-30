@@ -1,6 +1,6 @@
 use super::{
     super::{ControlFlow, WindowEvent},
-    Event, MouseButton, SemanticKeyCode,ScrollDelta
+    Event, MouseButton, ScrollDelta, SemanticKeyCode,
 };
 use nalgebra::Vector2;
 use winit::event;
@@ -233,7 +233,7 @@ impl super::super::EventLoopTrait for WinitEventLoopAdaptor {
             screen_size,
         }
     }
-    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut run_fn: F) -> ! {
+    fn run<F: 'static + FnMut(WindowEvent, &mut ControlFlow)>(self, mut run_fn: F) {
         let mut state = WinitEventLoopAdaptorState::new(self.screen_size);
         self.event_loop.run(move |event, _, control_flow| {
             let flow: ControlFlow = match event {
