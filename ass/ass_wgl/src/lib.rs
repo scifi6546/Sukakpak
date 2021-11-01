@@ -30,6 +30,146 @@ pub struct Shader {
 }
 impl Shader {
     const EXTENSION: &'static str = "ass_glsl";
+    /// flattens uniform struct to make struct work better with webgl
+    fn flatten_uniform_struct(mut ir: ShaderIR, options: &Options) -> Result<ShaderIR> {
+        let handle_option = {
+            ir.module
+                .global_variables
+                .iter()
+                .filter(|(_handle, var)| match var.class {
+                    naga::StorageClass::Uniform => true,
+                    _ => false,
+                })
+                .next()
+                .clone()
+        };
+        if handle_option.is_none() {
+            bail!("no uniforms in shader");
+        }
+        let (uniform_handle, uniform) = handle_option.unwrap().clone();
+        println!("uniform type: \n{:#?}", ir.module.types[uniform.ty]);
+        let members = match &ir.module.types[uniform.ty].inner {
+            naga::TypeInner::Struct { members, .. } => members.clone(),
+            _ => bail!("invalid uniform type"),
+        };
+        for mem in members.iter() {
+            println!("struct member:\n {:#?}", mem);
+            println!("struct member type:\n {:#?}", ir.module.types[mem.ty]);
+            ir.module.global_variables.append(
+                naga::GlobalVariable {
+                    name: Some(uniform.name.unwrap().clone() + "_" + &mem.name.unwrap()),
+                    class: naga::StorageClass::Uniform,
+                    binding: None,
+                    ty: mem.ty,
+                    init: None,
+                },
+                Default::default(),
+            );
+        }
+        for function in ir
+            .module
+            .functions
+            .iter()
+            .map(|(_handle, function)| function)
+            .chain(
+                ir.module
+                    .entry_points
+                    .iter()
+                    .map(|entry_point| &entry_point.function),
+            )
+        {
+            let uniform_refs = function
+                .expressions
+                .iter()
+                .filter_map(|(handle, exp)| match exp {
+                    naga::Expression::GlobalVariable(var) => Some((handle, var)),
+                    _ => None,
+                })
+                .filter_map(|(handle, var)| {
+                    if *var == uniform_handle {
+                        Some(handle)
+                    } else {
+                        None
+                    }
+                });
+            for uni in uniform_refs {
+                println!("{:#?}", uni);
+            }
+        }
+        let uniform_members = ir
+            .module
+            .global_variables
+            .iter()
+            .filter(|(_handle, var)| match var.class {
+                naga::StorageClass::Uniform => true,
+                _ => false,
+            })
+            .filter(
+                |(_handle, var)| match ir.module.types.get_handle(var.ty).unwrap().inner {
+                    naga::TypeInner::Struct { .. } => true,
+                    _ => false,
+                },
+            )
+            .map(
+                |(handle, var)| match &ir.module.types.get_handle(var.ty).unwrap().inner {
+                    naga::TypeInner::Struct { members, .. } => (handle, members.clone()),
+                    _ => panic!("invalid state"),
+                },
+            )
+            .collect::<Vec<_>>();
+        let num_functions = ir.module.functions.len();
+        for f in ir
+            .module
+            .functions
+            .iter()
+            .map(|(_handle, function)| function)
+            .chain(
+                ir.module
+                    .entry_points
+                    .iter()
+                    .map(|entry_point| &entry_point.function),
+            )
+        {
+            println!("expressions ");
+            for exp in f.expressions.iter() {
+                println!("{:#?}", exp);
+            }
+        }
+        let expressions = ir
+            .module
+            .functions
+            .iter()
+            .map(|(_handle, function)| function)
+            .chain(
+                ir.module
+                    .entry_points
+                    .iter()
+                    .map(|entry_point| &entry_point.function),
+            )
+            .map(|function| function.expressions.iter())
+            .flatten()
+            .filter_map(|(_handle, expression)| match expression {
+                naga::Expression::GlobalVariable(var) => Some(var),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if options.verbose {
+            println!("number of uniforms: {}", uniform_members.len());
+            for member in uniform_members.iter() {
+                println!("{:#?}", member);
+            }
+            println!("num functions: {}", num_functions);
+            println!("num entrypoints: {}", ir.module.entry_points.len());
+            println!("num expressions to change: {}", expressions.len());
+            for exp in expressions.iter() {
+                println!(
+                    "variable: {:#?}",
+                    ir.module.global_variables.try_get(**exp).unwrap()
+                );
+            }
+        }
+        todo!()
+    }
     fn get_uniform_name(
         ir: &ShaderIR,
         reflection: &naga::back::glsl::ReflectionInfo,
@@ -106,6 +246,7 @@ impl Shader {
         Ok((buffer, info))
     }
     pub fn from_ir(ir: ShaderIR, options: Options) -> Result<Self> {
+        let ir = Self::flatten_uniform_struct(ir, &options)?;
         let (fragment_shader, frag_info) =
             Self::write_string(&ir, &options, ShaderStage::Fragment)?;
         if options.verbose {
