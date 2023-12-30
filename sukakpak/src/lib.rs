@@ -41,6 +41,7 @@ pub struct CreateInfo {
     /// On webgl corresponds to canvas id
     pub window_id: String,
     pub name: String,
+    pub vulkan_sdk_path: Option<std::path::PathBuf>,
 }
 pub struct Sukakpak {}
 unsafe impl Send for Sukakpak {}

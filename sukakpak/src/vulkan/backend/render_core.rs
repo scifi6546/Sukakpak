@@ -50,6 +50,40 @@ unsafe extern "system" fn vulkan_debug_callback(
 
     vk::FALSE
 }
+fn map_instance_create_error(error: vk::Result, entry: &Entry, layer_names: &[CString]) -> String {
+    if error == vk::Result::ERROR_LAYER_NOT_PRESENT {
+        let raw_version = entry
+            .try_enumerate_instance_version()
+            .expect("failed to get layer version")
+            .unwrap();
+        let available_layers = entry
+            .enumerate_instance_layer_properties()
+            .expect("failed to get available layers")
+            .iter()
+            .map(|l| {
+                let t = CString::from_vec_with_nul(l.layer_name.iter().map(|c| *c as u8).collect())
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                l.layer_name
+                    .iter()
+                    .map(|c| char::from_u32(*c as u32).unwrap())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        format!(
+            "vulkan error: {:#?}, layers: {:?}, available_layers: {:?}, vulkan_version: {}.{}.{}",
+            error,
+            layer_names,
+            available_layers,
+            vk::api_version_major(raw_version),
+            vk::api_version_minor(raw_version),
+            vk::api_version_patch(raw_version)
+        )
+    } else {
+        format!("{:#?}", error).to_string()
+    }
+}
 pub struct Core {
     pub physical_device: vk::PhysicalDevice,
     pub device: ash::Device,
@@ -77,7 +111,20 @@ pub struct Core {
 }
 impl Core {
     pub fn new(window: &winit::window::Window, create_info: &super::CreateInfo) -> Result<Self> {
-        let entry = unsafe { ash::Entry::load() }?;
+        let entry = if let Some(load_path) = create_info.vulkan_sdk_path.as_ref() {
+            if load_path.exists() {
+                unsafe { Entry::load_from(load_path) }?
+            } else {
+                println!(
+                    "vulkan sdk path: {:#?} not found. loading default sdk",
+                    load_path
+                );
+                unsafe { Entry::load() }?
+            }
+        } else {
+            unsafe { Entry::load() }?
+        };
+
         let app_name = CString::new(create_info.name.clone())?;
         cfg_if::cfg_if! {
             if #[cfg(feature="no_validation")]{
@@ -101,12 +148,14 @@ impl Core {
             .application_version(0)
             .engine_name(&app_name)
             .engine_version(0)
-            .api_version(vk::make_version(1, 0, 0));
+            .api_version(vk::make_api_version(1, 3, 268, 0));
+
         let instance_create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_layer_names(&layer_names_raw)
             .enabled_extension_names(&extension_names_raw);
         let instance = unsafe { entry.create_instance(&instance_create_info, None) }
+            .map_err(|e| map_instance_create_error(e, &entry, &layer_names))
             .expect("failed to create instance");
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
