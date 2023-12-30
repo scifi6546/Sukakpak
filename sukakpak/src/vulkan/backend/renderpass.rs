@@ -3,7 +3,7 @@ use super::{
     VertexBufferAllocation,
 };
 use anyhow::Result;
-use ash::{version::DeviceV1_0, vk};
+use ash::{vk, Device};
 use generational_arena::Index as ArenaIndex;
 use nalgebra::Vector2;
 use std::collections::HashSet;

@@ -1,11 +1,11 @@
 use super::{CommandPool, Core, ResourcePool, TextureAllocation};
 use anyhow::Result;
-use ash::{version::DeviceV1_0, vk};
-use gpu_allocator::SubAllocation;
+use ash::{vk, Device};
+use gpu_allocator::vulkan::Allocation;
 use nalgebra::Vector2;
 pub struct DepthBuffer {
     image: vk::Image,
-    allocation: SubAllocation,
+    allocation: Option<Allocation>,
     pub view: vk::ImageView,
     depth_format: vk::Format,
 }
@@ -56,7 +56,7 @@ impl DepthBuffer {
 
         Ok(Self {
             image,
-            allocation,
+            allocation: Some(allocation),
             view,
             depth_format,
         })
@@ -83,7 +83,7 @@ impl DepthBuffer {
     pub fn free(&mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
         unsafe {
             core.device.destroy_image_view(self.view, None);
-            resource_pool.free_allocation(self.allocation.clone())?;
+            resource_pool.free_allocation(self.allocation.take().unwrap())?;
             core.device.destroy_image(self.image, None);
             Ok(())
         }

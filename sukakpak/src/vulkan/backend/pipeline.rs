@@ -1,6 +1,6 @@
 use super::{Core, DepthBuffer, DescriptorDesc};
-use ash::version::DeviceV1_0;
-use ash::{util::*, vk};
+
+use ash::{util::*, vk, Device};
 use nalgebra::Vector2;
 use std::{ffi::CString, io::Cursor};
 mod shaders;
@@ -177,7 +177,7 @@ impl GraphicsPipeline {
             ..Default::default()
         };
         let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState::builder()
-            .color_write_mask(vk::ColorComponentFlags::all())
+            .color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(true)
             .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)

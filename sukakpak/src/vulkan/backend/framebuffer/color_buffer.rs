@@ -1,11 +1,12 @@
 use super::{CommandPool, Core, ResourcePool, TextureAllocation};
 use anyhow::Result;
-use ash::version::DeviceV1_0;
-use ash::vk;
-use gpu_allocator::SubAllocation;
+
+use ash::{vk, Device};
+
+use gpu_allocator::vulkan::Allocation;
 use nalgebra::Vector2;
 pub struct ColorBuffer {
-    pub present_images: Vec<(vk::Image, Option<SubAllocation>)>,
+    pub present_images: Vec<(vk::Image, Option<Allocation>)>,
     pub present_image_views: Vec<vk::ImageView>,
     attachment_type: AttachmentType,
 }
@@ -28,7 +29,7 @@ impl ColorBuffer {
         attachment_type: AttachmentType,
         dimensions: Option<Vector2<u32>>,
     ) -> Result<Self> {
-        let present_images: Vec<(vk::Image, Option<SubAllocation>)> = match attachment_type {
+        let present_images: Vec<(vk::Image, Option<Allocation>)> = match attachment_type {
             AttachmentType::Swapchain => {
                 unsafe { core.swapchain_loader.get_swapchain_images(core.swapchain)? }
                     .iter()

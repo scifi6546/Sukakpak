@@ -1,5 +1,5 @@
 use super::{Core, GraphicsPipeline, TextureAttachment};
-use ash::{version::DeviceV1_0, vk};
+use ash::{Device, vk};
 use nalgebra::Vector2;
 pub struct FrameBufferTarget {
     pub framebuffers: Vec<vk::Framebuffer>,

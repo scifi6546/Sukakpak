@@ -1,5 +1,5 @@
 use super::Core;
-use ash::{version::DeviceV1_0, vk};
+use ash::{Device, vk};
 pub struct OneTimeCommandBuffer<'a> {
     pub core: &'a Core,
     pub command_buffer: [vk::CommandBuffer; 1],

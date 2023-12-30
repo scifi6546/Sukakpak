@@ -2,7 +2,8 @@ mod color_buffer;
 mod depth_buffer;
 mod framebuffer_target;
 use ash::{
-    version::{DeviceV1_0, InstanceV1_0},
+
+    Device,Instance,
     vk,
 };
 use nalgebra::Vector2;

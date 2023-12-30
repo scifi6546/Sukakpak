@@ -1,11 +1,9 @@
 use super::{CommandPool, Core, ShaderDescription, VertexLayout};
 use anyhow::Result;
-use ash::{
-    version::{DeviceV1_0, InstanceV1_0},
-    vk,
-};
+use ash::{vk, Device, Instance};
 use gpu_allocator::{
-    AllocationCreateDesc, MemoryLocation, SubAllocation, VulkanAllocator, VulkanAllocatorCreateDesc,
+    vulkan::{Allocation, AllocationCreateDesc, Allocator, AllocatorCreateDesc},
+    MemoryLocation,
 };
 use image::RgbaImage;
 use nalgebra::Vector2;
@@ -14,7 +12,7 @@ use descriptor_pool::DescriptorPool;
 pub use descriptor_pool::{DescriptorDesc, DescriptorName};
 use std::mem::{size_of, ManuallyDrop};
 pub struct ResourcePool {
-    allocator: ManuallyDrop<VulkanAllocator>,
+    allocator: ManuallyDrop<Allocator>,
     texture_descriptor_pool: DescriptorPool,
     sampler_descriptor_pool: DescriptorPool,
 }
@@ -45,13 +43,17 @@ impl ResourcePool {
             })
             .collect();
         Ok(Self {
-            allocator: ManuallyDrop::new(VulkanAllocator::new(&VulkanAllocatorCreateDesc {
-                instance: core.instance.clone(),
-                device: core.device.clone(),
-                physical_device: core.physical_device,
-                buffer_device_address: false,
-                debug_settings: Default::default(),
-            })),
+            allocator: ManuallyDrop::new(
+                Allocator::new(&AllocatorCreateDesc {
+                    instance: core.instance.clone(),
+                    device: core.device.clone(),
+                    physical_device: core.physical_device,
+                    buffer_device_address: false,
+                    debug_settings: Default::default(),
+                    allocation_sizes: todo!("allocation sizes"),
+                })
+                .expect("failed to create allocator"),
+            ),
             texture_descriptor_pool: DescriptorPool::new(
                 core,
                 vk::DescriptorType::SAMPLED_IMAGE,
@@ -98,6 +100,7 @@ impl ResourcePool {
             requirements,
             location: MemoryLocation::CpuToGpu,
             linear: true,
+            allocation_scheme: todo!("allocation scheme"),
         })?;
         unsafe {
             core.device
@@ -113,13 +116,13 @@ impl ResourcePool {
             );
         }
         Ok(VertexBufferAllocation {
-            allocation,
+            allocation: Some(allocation),
             buffer,
             binding_description,
             input_description,
         })
     }
-    pub fn free_allocation(&mut self, allocation: SubAllocation) -> Result<()> {
+    pub fn free_allocation(&mut self, allocation: Allocation) -> Result<()> {
         self.allocator.free(allocation)?;
         Ok(())
     }
@@ -160,7 +163,7 @@ impl ResourcePool {
 
         Ok(IndexBufferAllocation {
             buffer,
-            allocation,
+            allocation: Some(allocation),
             buffer_size,
         })
     }
@@ -171,7 +174,7 @@ impl ResourcePool {
         usage: vk::BufferUsageFlags,
         sharing_mode: vk::SharingMode,
         memory_location: MemoryLocation,
-    ) -> Result<(vk::Buffer, SubAllocation)> {
+    ) -> Result<(vk::Buffer, Allocation)> {
         let buffer_create_info = vk::BufferCreateInfo::builder()
             .size(size)
             .usage(usage)
@@ -183,6 +186,7 @@ impl ResourcePool {
             requirements,
             location: memory_location,
             linear: true,
+            allocation_scheme: todo!("scheme"),
         })?;
 
         unsafe {
@@ -197,7 +201,7 @@ impl ResourcePool {
         format: vk::Format,
         usage: vk::ImageUsageFlags,
         dimensions: Vector2<u32>,
-    ) -> Result<(vk::Image, SubAllocation)> {
+    ) -> Result<(vk::Image, Allocation)> {
         let image_create_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
             .extent(vk::Extent3D {
@@ -220,6 +224,7 @@ impl ResourcePool {
             requirements,
             location: MemoryLocation::GpuOnly,
             linear: true,
+            allocation_scheme: todo!("image allocation scheme"),
         })?;
         unsafe {
             core.device
@@ -419,15 +424,17 @@ pub struct TextureDescriptorSets {
 }
 pub struct IndexBufferAllocation {
     pub buffer: vk::Buffer,
-    pub allocation: SubAllocation,
+    pub allocation: Option<Allocation>,
     pub buffer_size: usize,
 }
 impl IndexBufferAllocation {
     pub fn num_indices(&self) -> usize {
         self.buffer_size / size_of::<u32>()
     }
-    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
-        resource_pool.allocator.free(self.allocation.clone())?;
+    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        resource_pool
+            .allocator
+            .free(self.allocation.take().expect("index buffer already freed"))?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
         }
@@ -435,14 +442,16 @@ impl IndexBufferAllocation {
     }
 }
 pub struct VertexBufferAllocation {
-    allocation: SubAllocation,
+    allocation: Option<Allocation>,
     pub buffer: vk::Buffer,
     pub binding_description: vk::VertexInputBindingDescription,
     pub input_description: Vec<vk::VertexInputAttributeDescription>,
 }
 impl VertexBufferAllocation {
-    pub fn free(self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
-        resource_pool.allocator.free(self.allocation.clone())?;
+    pub fn free(mut self, core: &mut Core, resource_pool: &mut ResourcePool) -> Result<()> {
+        resource_pool
+            .allocator
+            .free(self.allocation.take().expect("vertex buffer already freed"))?;
         unsafe {
             core.device.destroy_buffer(self.buffer, None);
         }
@@ -452,10 +461,10 @@ impl VertexBufferAllocation {
 pub struct TextureAllocation {
     sampler: vk::Sampler,
     image_view: vk::ImageView,
-    transfer_allocation: SubAllocation,
+    transfer_allocation: Allocation,
     buffer: vk::Buffer,
     image: vk::Image,
-    image_allocation: SubAllocation,
+    image_allocation: Allocation,
     pub descriptor_sets: TextureDescriptorSets,
 }
 impl TextureAllocation {

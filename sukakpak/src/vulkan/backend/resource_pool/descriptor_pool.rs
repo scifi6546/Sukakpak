@@ -1,6 +1,6 @@
 use super::Core;
 use anyhow::{anyhow, Result};
-use ash::{version::DeviceV1_0, vk};
+use ash::{vk, Device};
 use std::collections::HashMap;
 use thiserror::Error;
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]

@@ -3,12 +3,14 @@ use anyhow::Result;
 use ash::{
     extensions::ext::DebugUtils,
     extensions::khr::{Surface as AshSurface, Swapchain},
-    version::{DeviceV1_0, EntryV1_0, InstanceV1_0},
-    vk,
+    vk, Device, Entry, Instance,
 };
 use nalgebra as na;
 
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+
 use std::ffi::{CStr, CString};
+
 const DO_BACKTRACE: bool = true;
 const PANIC: bool = true;
 unsafe extern "system" fn vulkan_debug_callback(
@@ -75,7 +77,7 @@ pub struct Core {
 }
 impl Core {
     pub fn new(window: &winit::window::Window, create_info: &super::CreateInfo) -> Result<Self> {
-        let entry = unsafe { ash::Entry::new() }?;
+        let entry = unsafe { ash::Entry::load() }?;
         let app_name = CString::new(create_info.name.clone())?;
         cfg_if::cfg_if! {
             if #[cfg(feature="no_validation")]{
@@ -86,10 +88,11 @@ impl Core {
         }
         let layer_names_raw: Vec<*const i8> =
             layer_names.iter().map(|name| name.as_ptr()).collect();
-        let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
-        let mut extension_names_raw = surface_extensions
+        let surface_extensions =
+            ash_window::enumerate_required_extensions(window.raw_display_handle()).unwrap();
+        let mut extension_names_raw: Vec<*const i8> = surface_extensions
             .iter()
-            .map(|ext| ext.as_ptr())
+            .map(|ext| *ext)
             .collect::<Vec<_>>();
         let debug_utils_name = DebugUtils::name();
         extension_names_raw.push(debug_utils_name.as_ptr());
@@ -110,13 +113,25 @@ impl Core {
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
                     | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
             )
-            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+            .message_type(
+                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+            )
             .pfn_user_callback(Some(vulkan_debug_callback));
         let debug_utils_loader = DebugUtils::new(&entry, &instance);
         let debug_callback =
             unsafe { debug_utils_loader.create_debug_utils_messenger(&debug_info, None) }.unwrap();
-        let surface =
-            unsafe { ash_window::create_surface(&entry, &instance, window, None) }.unwrap();
+        let surface = unsafe {
+            ash_window::create_surface(
+                &entry,
+                &instance,
+                window.raw_display_handle(),
+                window.raw_window_handle(),
+                None,
+            )
+        }
+        .unwrap();
         let pdevices =
             unsafe { instance.enumerate_physical_devices() }.expect("failed to get pdevices");
         let surface_loader = AshSurface::new(&entry, &instance);

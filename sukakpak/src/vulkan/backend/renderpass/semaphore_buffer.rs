@@ -1,6 +1,6 @@
 use super::Core;
 use anyhow::Result;
-use ash::{version::DeviceV1_0, vk};
+use ash::{vk, Device};
 /// Buffer  contaning semaphores used to start draw calls
 pub struct SemaphoreBuffer {
     semaphores: Vec<vk::Semaphore>,
