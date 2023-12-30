@@ -66,6 +66,7 @@ pub enum Event {
         scan_code: u32,
         semantic_code: Option<SemanticKeyCode>,
     },
+    RedrawRequested,
 }
 #[derive(Clone, Debug)]
 pub enum SemanticKeyCode {

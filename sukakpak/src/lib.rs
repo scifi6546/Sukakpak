@@ -127,6 +127,7 @@ where
         match event {
             WindowEvent::Event(event) => event_collector.push(event),
             WindowEvent::RunGameLogic => {
+                println!("drawing frame?");
                 let delta_time = system_time.elapsed();
                 context.begin_render().expect("failed  begin to render");
                 renderer.render_frame(&event_collector.pull_events(), context.clone(), delta_time);

@@ -184,7 +184,8 @@ impl WinitEventLoopAdaptor {
             WinitWindowEvent::Touch(_) => todo!("touch"),
             WinitWindowEvent::ScaleFactorChanged { .. } => todo!("scale factor changed"),
             WinitWindowEvent::ThemeChanged(_) => todo!("theme changed"),
-            _ => todo!("other event"),
+            WinitWindowEvent::RedrawRequested => Some(Event::RedrawRequested),
+            _ => todo!("other event: {:#?}", event),
         }
     }
 }

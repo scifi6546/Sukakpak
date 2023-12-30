@@ -2,8 +2,8 @@ use super::{CommandPool, Core, ShaderDescription, VertexLayout};
 use anyhow::Result;
 use ash::{vk, Device, Instance};
 use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc, Allocator, AllocatorCreateDesc},
-    MemoryLocation,
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator, AllocatorCreateDesc},
+    AllocationSizes, MemoryLocation,
 };
 use image::RgbaImage;
 use nalgebra::Vector2;
@@ -50,7 +50,7 @@ impl ResourcePool {
                     physical_device: core.physical_device,
                     buffer_device_address: false,
                     debug_settings: Default::default(),
-                    allocation_sizes: todo!("allocation sizes"),
+                    allocation_sizes: AllocationSizes::default(),
                 })
                 .expect("failed to create allocator"),
             ),
@@ -100,7 +100,7 @@ impl ResourcePool {
             requirements,
             location: MemoryLocation::CpuToGpu,
             linear: true,
-            allocation_scheme: todo!("allocation scheme"),
+            allocation_scheme: AllocationScheme::DedicatedBuffer(buffer),
         })?;
         unsafe {
             core.device
@@ -182,11 +182,11 @@ impl ResourcePool {
         let buffer = unsafe { core.device.create_buffer(&buffer_create_info, None)? };
         let requirements = unsafe { core.device.get_buffer_memory_requirements(buffer) };
         let allocation = self.allocator.allocate(&AllocationCreateDesc {
-            name: "vertex buffer",
+            name: "general buffer",
             requirements,
             location: memory_location,
             linear: true,
-            allocation_scheme: todo!("scheme"),
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
         })?;
 
         unsafe {
@@ -224,7 +224,7 @@ impl ResourcePool {
             requirements,
             location: MemoryLocation::GpuOnly,
             linear: true,
-            allocation_scheme: todo!("image allocation scheme"),
+            allocation_scheme: AllocationScheme::DedicatedImage(image),
         })?;
         unsafe {
             core.device
